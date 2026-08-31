@@ -1,0 +1,390 @@
+[gd_scene load_steps=8 format=3 uid="uid://c9hud"]
+
+[ext_resource type="Script" path="res://HUD.gd" id="1_hud"]
+[ext_resource type="Texture2D" path="res://assets/pickup_coin.png" id="2_coin"]
+[ext_resource type="Texture2D" path="res://assets/pickup_bomb.png" id="3_bomb"]
+[ext_resource type="Texture2D" path="res://assets/pickup_key.png" id="4_key"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_panel"]
+bg_color = Color(0.06, 0.1, 0.16, 0.92)
+border_width_bottom = 3
+border_color = Color(0, 0.7, 0.9, 0.6)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_dna"]
+bg_color = Color(0, 0.85, 0.65, 1)
+corner_radius_top_left = 4
+corner_radius_top_right = 4
+corner_radius_bottom_right = 4
+corner_radius_bottom_left = 4
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_settings"]
+bg_color = Color(0.05, 0.09, 0.15, 0.96)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0, 0.8, 1, 0.8)
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+corner_radius_bottom_right = 8
+corner_radius_bottom_left = 8
+shadow_color = Color(0, 0.5, 0.8, 0.3)
+shadow_size = 16
+
+[node name="HUD" type="CanvasLayer"]
+process_mode = 3
+script = ExtResource("1_hud")
+
+[node name="HUDPanel" type="Panel" parent="."]
+custom_minimum_size = Vector2(1920, 72)
+offset_right = 1920.0
+offset_bottom = 72.0
+theme_override_styles/panel = SubResource("StyleBoxFlat_panel")
+
+[node name="MarginContainer" type="MarginContainer" parent="HUDPanel"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/margin_left = 32
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 32
+theme_override_constants/margin_bottom = 10
+
+[node name="HBoxContainer" type="HBoxContainer" parent="HUDPanel/MarginContainer"]
+layout_mode = 2
+theme_override_constants/separation = 28
+
+[node name="Hearts" type="HBoxContainer" parent="HUDPanel/MarginContainer/HBoxContainer"]
+custom_minimum_size = Vector2(240, 0)
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="Counters" type="HBoxContainer" parent="HUDPanel/MarginContainer/HBoxContainer"]
+layout_mode = 2
+theme_override_constants/separation = 22
+
+[node name="Coins" type="HBoxContainer" parent="HUDPanel/MarginContainer/HBoxContainer/Counters"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="Icon" type="TextureRect" parent="HUDPanel/MarginContainer/HBoxContainer/Counters/Coins"]
+custom_minimum_size = Vector2(36, 36)
+layout_mode = 2
+texture = ExtResource("2_coin")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Label" type="Label" parent="HUDPanel/MarginContainer/HBoxContainer/Counters/Coins"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0, 0.95, 0.8, 1)
+theme_override_font_sizes/font_size = 20
+text = "00"
+
+[node name="Bombs" type="HBoxContainer" parent="HUDPanel/MarginContainer/HBoxContainer/Counters"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="Icon" type="TextureRect" parent="HUDPanel/MarginContainer/HBoxContainer/Counters/Bombs"]
+custom_minimum_size = Vector2(36, 36)
+layout_mode = 2
+texture = ExtResource("3_bomb")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Label" type="Label" parent="HUDPanel/MarginContainer/HBoxContainer/Counters/Bombs"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 20
+text = "01"
+
+[node name="Keys" type="HBoxContainer" parent="HUDPanel/MarginContainer/HBoxContainer/Counters"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="Icon" type="TextureRect" parent="HUDPanel/MarginContainer/HBoxContainer/Counters/Keys"]
+custom_minimum_size = Vector2(36, 36)
+layout_mode = 2
+texture = ExtResource("4_key")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Label" type="Label" parent="HUDPanel/MarginContainer/HBoxContainer/Counters/Keys"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 20
+text = "00"
+
+[node name="DnaContainer" type="VBoxContainer" parent="HUDPanel/MarginContainer/HBoxContainer"]
+custom_minimum_size = Vector2(260, 0)
+layout_mode = 2
+alignment = 1
+
+[node name="DnaLabel" type="Label" parent="HUDPanel/MarginContainer/HBoxContainer/DnaContainer"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0, 0.95, 0.75, 1)
+theme_override_font_sizes/font_size = 14
+text = "BIOMASS: 0 / 20 (LVL 1)"
+
+[node name="DnaBar" type="ProgressBar" parent="HUDPanel/MarginContainer/HBoxContainer/DnaContainer"]
+custom_minimum_size = Vector2(0, 10)
+layout_mode = 2
+theme_override_styles/fill = SubResource("StyleBoxFlat_dna")
+max_value = 20.0
+show_percentage = false
+
+[node name="Spacer" type="Control" parent="HUDPanel/MarginContainer/HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="FloorLabel" type="Label" parent="HUDPanel/MarginContainer/HBoxContainer"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.7, 0.9, 1, 1)
+theme_override_font_sizes/font_size = 18
+text = "PRIMORDIAL TIDEPOOL I"
+horizontal_alignment = 2
+
+[node name="SettingsBtn" type="Button" parent="HUDPanel/MarginContainer/HBoxContainer"]
+custom_minimum_size = Vector2(140, 36)
+layout_mode = 2
+focus_mode = 0
+theme_override_font_sizes/font_size = 14
+text = " ⚙ SETTINGS "
+
+[node name="MinimapContainer" type="PanelContainer" parent="."]
+offset_left = 1710.0
+offset_top = 85.0
+offset_right = 1890.0
+offset_bottom = 225.0
+
+[node name="Minimap" type="Control" parent="MinimapContainer"]
+layout_mode = 2
+
+[node name="BossHealthContainer" type="VBoxContainer" parent="."]
+anchors_preset = 7
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -300.0
+offset_top = -80.0
+offset_right = 300.0
+offset_bottom = -25.0
+grow_horizontal = 2
+grow_vertical = 0
+theme_override_constants/separation = 4
+
+[node name="Label" type="Label" parent="BossHealthContainer"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.3, 0.4, 1)
+theme_override_font_sizes/font_size = 18
+text = "APEX PRIMORDIAL NAUTILOID"
+horizontal_alignment = 1
+
+[node name="ProgressBar" type="ProgressBar" parent="BossHealthContainer"]
+modulate = Color(1, 0.2, 0.35, 1)
+custom_minimum_size = Vector2(600, 20)
+layout_mode = 2
+show_percentage = false
+
+[node name="ItemBanner" type="VBoxContainer" parent="."]
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -350.0
+offset_top = -80.0
+offset_right = 350.0
+offset_bottom = 80.0
+grow_horizontal = 2
+grow_vertical = 2
+alignment = 1
+
+[node name="Title" type="Label" parent="ItemBanner"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0, 1, 0.8, 1)
+theme_override_font_sizes/font_size = 36
+text = "MUTATION ADAPTATION"
+horizontal_alignment = 1
+
+[node name="Desc" type="Label" parent="ItemBanner"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.9, 0.95, 1, 1)
+theme_override_font_sizes/font_size = 22
+text = "Tears up"
+horizontal_alignment = 1
+
+[node name="SettingsModal" type="ColorRect" parent="."]
+visible = false
+offset_right = 1920.0
+offset_bottom = 1080.0
+color = Color(0, 0, 0, 0.75)
+
+[node name="Panel" type="Panel" parent="SettingsModal"]
+custom_minimum_size = Vector2(560, 440)
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -280.0
+offset_top = -220.0
+offset_right = 280.0
+offset_bottom = 220.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_settings")
+
+[node name="Margin" type="MarginContainer" parent="SettingsModal/Panel"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/margin_left = 36
+theme_override_constants/margin_top = 28
+theme_override_constants/margin_right = 36
+theme_override_constants/margin_bottom = 28
+
+[node name="VBox" type="VBoxContainer" parent="SettingsModal/Panel/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 18
+
+[node name="Title" type="Label" parent="SettingsModal/Panel/Margin/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0, 1, 0.9, 1)
+theme_override_font_sizes/font_size = 28
+text = "⚙ GAME SETTINGS"
+horizontal_alignment = 1
+
+[node name="BrightnessSection" type="VBoxContainer" parent="SettingsModal/Panel/Margin/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="BrightnessLabel" type="Label" parent="SettingsModal/Panel/Margin/VBox/BrightnessSection"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 16
+text = "🔆 Brightness: 120%"
+
+[node name="BrightnessSlider" type="HSlider" parent="SettingsModal/Panel/Margin/VBox/BrightnessSection"]
+layout_mode = 2
+min_value = 0.5
+max_value = 2.0
+step = 0.05
+value = 1.2
+
+[node name="DisplaySection" type="VBoxContainer" parent="SettingsModal/Panel/Margin/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="DisplayLabel" type="Label" parent="SettingsModal/Panel/Margin/VBox/DisplaySection"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 16
+text = "🖥 Display Mode / Resolution:"
+
+[node name="DisplayOption" type="OptionButton" parent="SettingsModal/Panel/Margin/VBox/DisplaySection"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 15
+
+[node name="VolumeSection" type="VBoxContainer" parent="SettingsModal/Panel/Margin/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="VolumeLabel" type="Label" parent="SettingsModal/Panel/Margin/VBox/VolumeSection"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 16
+text = "🔊 SFX Volume: 100%"
+
+[node name="VolumeSlider" type="HSlider" parent="SettingsModal/Panel/Margin/VBox/VolumeSection"]
+layout_mode = 2
+min_value = 0.0
+max_value = 1.5
+step = 0.05
+value = 1.0
+
+[node name="Spacer" type="Control" parent="SettingsModal/Panel/Margin/VBox"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="ResumeBtn" type="Button" parent="SettingsModal/Panel/Margin/VBox"]
+custom_minimum_size = Vector2(0, 44)
+layout_mode = 2
+theme_override_font_sizes/font_size = 16
+text = "RESUME GAME (ESC)"
+
+[node name="GameOverScreen" type="ColorRect" parent="."]
+visible = false
+offset_right = 1920.0
+offset_bottom = 1080.0
+color = Color(0.08, 0.02, 0.05, 0.88)
+
+[node name="Center" type="VBoxContainer" parent="GameOverScreen"]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -300.0
+offset_top = -80.0
+offset_right = 300.0
+offset_bottom = 80.0
+grow_horizontal = 2
+grow_vertical = 2
+alignment = 1
+
+[node name="Label" type="Label" parent="GameOverScreen/Center"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.2, 0.3, 1)
+theme_override_font_sizes/font_size = 64
+text = "EXTINCTION"
+horizontal_alignment = 1
+
+[node name="SubLabel" type="Label" parent="GameOverScreen/Center"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+text = "Your genetic lineage was severed.\nPress R to Mutate Anew"
+horizontal_alignment = 1
+
+[node name="VictoryScreen" type="ColorRect" parent="."]
+visible = false
+offset_right = 1920.0
+offset_bottom = 1080.0
+color = Color(0.02, 0.1, 0.08, 0.88)
+
+[node name="Center" type="VBoxContainer" parent="VictoryScreen"]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -300.0
+offset_top = -100.0
+offset_right = 300.0
+offset_bottom = 100.0
+grow_horizontal = 2
+grow_vertical = 2
+alignment = 1
+
+[node name="Label" type="Label" parent="VictoryScreen/Center"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0, 1, 0.7, 1)
+theme_override_font_sizes/font_size = 64
+text = "APEX EVOLUTION!"
+horizontal_alignment = 1
+
+[node name="SubLabel" type="Label" parent="VictoryScreen/Center"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 26
+text = "You conquered the Primordial Stratum!"
+horizontal_alignment = 1
+
+[node name="RestartLabel" type="Label" parent="VictoryScreen/Center"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+text = "Press R to Restart"
+horizontal_alignment = 1
