@@ -23,6 +23,13 @@ func setup_room(data, floor_number: int):
     active_enemies.clear()
     door_nodes.clear()
     
+    # 2. Add Ambient Bioluminescent Particles (Marine snow / floating bio-motes)
+    spawn_ambient_particles()
+    
+    # 3. Add Impenetrable Room Boundary Colliders (prevents walking off-screen under all circumstances)
+    spawn_boundary_colliders()
+    
+    # 4. Build 1080p Grid (15 cols x 8 rows of 128x128px tiles)
     var dir_angles = {
         Vector2i.UP: 0.0,
         Vector2i.RIGHT: PI/2.0,
@@ -30,49 +37,39 @@ func setup_room(data, floor_number: int):
         Vector2i.LEFT: 3.0*PI/2.0
     }
     
-    # 2. Build 1080p Grid (15 cols x 8 rows of 128x128px tiles)
     for gy in range(8):
         for gx in range(15):
             var pos = Vector2(gx * 128 + 64, gy * 128 + 64 + 28)
             var is_border = (gx == 0 or gx == 14 or gy == 0 or gy == 7)
             
-            # Check door spots
-            var is_door_spot = false
-            var door_dir = Vector2i.ZERO
-            if gy == 0 and gx == 7:
-                is_door_spot = true
-                door_dir = Vector2i.UP
-            elif (gy == 3 or gy == 4) and gx == 14 and gy == 3:
-                is_door_spot = true
-                door_dir = Vector2i.RIGHT
-            elif gy == 7 and gx == 7:
-                is_door_spot = true
-                door_dir = Vector2i.DOWN
-            elif (gy == 3 or gy == 4) and gx == 0 and gy == 3:
-                is_door_spot = true
-                door_dir = Vector2i.LEFT
-                
-            if is_door_spot:
-                if room_data.connections.has(door_dir):
-                    var door = door_scene.instantiate()
-                    # Center left and right doors vertically at 540
-                    if door_dir == Vector2i.LEFT or door_dir == Vector2i.RIGHT:
-                        door.position = Vector2(pos.x, 540)
-                    else:
-                        door.position = pos
-                        
-                    door.rotation = dir_angles[door_dir]
-                    door.direction = door_dir
-                    
-                    var neighbor_pos = room_data.connections[door_dir]
-                    var neighbor_type = get_parent().get_room_type(neighbor_pos)
-                    
-                    if (neighbor_type == 2 or neighbor_type == 4) and not get_parent().is_room_visited(neighbor_pos):
-                        door.is_locked = true
-                        
-                    add_child(door)
-                    door_nodes[door_dir] = door
-                    door.door_entered.connect(_on_door_entered)
+            # Identify door slots
+            var is_top_door = (gy == 0 and gx == 7)
+            var is_bottom_door = (gy == 7 and gx == 7)
+            var is_left_door = (gx == 0 and (gy == 3 or gy == 4))
+            var is_right_door = (gx == 14 and (gy == 3 or gy == 4))
+            
+            if is_top_door:
+                if room_data.connections.has(Vector2i.UP):
+                    spawn_door_at(Vector2(960, 92), Vector2i.UP, 0.0)
+                else:
+                    spawn_wall(pos)
+            elif is_bottom_door:
+                if room_data.connections.has(Vector2i.DOWN):
+                    spawn_door_at(Vector2(960, 988), Vector2i.DOWN, PI)
+                else:
+                    spawn_wall(pos)
+            elif is_left_door:
+                if room_data.connections.has(Vector2i.LEFT):
+                    # Spawn single door once on gy == 3
+                    if gy == 3:
+                        spawn_door_at(Vector2(64, 540), Vector2i.LEFT, 3.0*PI/2.0)
+                    # For both gy == 3 and gy == 4, do not spawn wall
+                else:
+                    spawn_wall(pos)
+            elif is_right_door:
+                if room_data.connections.has(Vector2i.RIGHT):
+                    if gy == 3:
+                        spawn_door_at(Vector2(1856, 540), Vector2i.RIGHT, PI/2.0)
                 else:
                     spawn_wall(pos)
             elif is_border:
@@ -80,7 +77,7 @@ func setup_room(data, floor_number: int):
             else:
                 spawn_floor(pos)
 
-    # 3. Spawn contents based on Room Type
+    # 5. Spawn contents based on Room Type
     if room_data.cleared:
         for d_dir in door_nodes:
             door_nodes[d_dir].open_door()
@@ -113,6 +110,59 @@ func setup_room(data, floor_number: int):
             spawn_obstacles()
             spawn_normal_enemies(floor_number)
 
+func spawn_door_at(pos: Vector2, d_dir: Vector2i, rot: float):
+    var door = door_scene.instantiate()
+    door.position = pos
+    door.rotation = rot
+    door.direction = d_dir
+    
+    var neighbor_pos = room_data.connections[d_dir]
+    var neighbor_type = get_parent().get_room_type(neighbor_pos)
+    
+    if (neighbor_type == 2 or neighbor_type == 4) and not get_parent().is_room_visited(neighbor_pos):
+        door.is_locked = true
+        
+    add_child(door)
+    door_nodes[d_dir] = door
+    door.door_entered.connect(_on_door_entered)
+
+func spawn_boundary_colliders():
+    # 4 infinite outer boundary walls to prevent clipping off-screen
+    var boundaries = [
+        {"pos": Vector2(960, -80), "size": Vector2(2400, 200)},   # Top
+        {"pos": Vector2(960, 1160), "size": Vector2(2400, 200)},  # Bottom
+        {"pos": Vector2(-80, 540), "size": Vector2(200, 1600)},   # Left
+        {"pos": Vector2(2000, 540), "size": Vector2(200, 1600)}   # Right
+    ]
+    for b in boundaries:
+        var body = StaticBody2D.new()
+        body.position = b.pos
+        body.collision_layer = 4
+        body.collision_mask = 1
+        var col = CollisionShape2D.new()
+        var shape = RectangleShape2D.new()
+        shape.size = b.size
+        col.shape = shape
+        body.add_child(col)
+        add_child(body)
+
+func spawn_ambient_particles():
+    var particles = CPUParticles2D.new()
+    particles.position = Vector2(960, 540)
+    particles.amount = 35
+    particles.lifetime = 6.0
+    particles.preprocess = 4.0
+    particles.emission_shape = CPUParticles2D.EMISSION_SHAPE_RECTANGLE
+    particles.emission_rect_extents = Vector2(960, 540)
+    particles.gravity = Vector2(0, -6)
+    particles.initial_velocity_min = 5.0
+    particles.initial_velocity_max = 15.0
+    particles.scale_amount_min = 2.0
+    particles.scale_amount_max = 4.5
+    particles.color = Color(0.0, 0.9, 1.0, 0.35)
+    particles.z_index = -5
+    add_child(particles)
+
 func spawn_wall(pos: Vector2):
     var wall = StaticBody2D.new()
     wall.position = pos
@@ -141,7 +191,7 @@ func spawn_floor(pos: Vector2):
 
 func spawn_obstacles():
     var spawned = 0
-    var max_rocks = randi_range(3, 6)
+    var max_rocks = randi_range(4, 7)
     var attempts = 0
     
     while spawned < max_rocks and attempts < 40:
@@ -157,7 +207,7 @@ func spawn_obstacles():
         
         var occupied = false
         for c in get_children():
-            if c.position.distance_to(pos) < 30:
+            if c.position.distance_to(pos) < 40:
                 occupied = true
                 break
         if occupied:
@@ -193,13 +243,13 @@ func spawn_normal_enemies(floor_number: int):
         var gy = randi_range(1, 6)
         
         if (gx >= 6 and gx <= 8) and (gy >= 3 and gy <= 4):
-            continue # Clear center
+            continue
             
         var pos = Vector2(gx * 128 + 64, gy * 128 + 64 + 28)
         
         var occupied = false
         for c in get_children():
-            if c is StaticBody2D and c.position.distance_to(pos) < 40:
+            if c is StaticBody2D and c.position.distance_to(pos) < 50:
                 occupied = true
                 break
         if occupied:

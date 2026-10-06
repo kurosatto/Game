@@ -7,7 +7,9 @@ signal door_entered(direction)
 @export var is_locked: bool = false
 
 var is_open: bool = false
-var trigger_cooldown: float = 0.6 # Prevents immediate re-triggering upon spawning into a new room
+var trigger_cooldown: float = 0.6
+
+@onready var light = $PointLight2D
 
 func _ready():
     add_to_group("doors")
@@ -17,6 +19,10 @@ func _ready():
 func _process(delta: float):
     if trigger_cooldown > 0:
         trigger_cooldown -= delta
+        
+    # Gentle pulsating light on doors
+    if light and is_open:
+        light.energy = 1.2 + sin(Time.get_ticks_msec() * 0.005) * 0.3
 
 func open_door():
     if is_locked:
@@ -40,17 +46,30 @@ func unlock_door():
     update_visuals()
 
 func update_visuals():
+    if not is_inside_tree():
+        return
+        
     if is_locked:
         $Sprite2D.texture = load("res://assets/door_locked.png")
+        $Sprite2D.modulate = Color.WHITE
         $StaticBody2D/CollisionShape2D.set_deferred("disabled", false)
+        if light:
+            light.color = Color(1.0, 0.75, 0.1)
+            light.energy = 1.0
     elif is_open:
         $Sprite2D.texture = load("res://assets/door.png")
         $Sprite2D.modulate = Color(1.0, 1.0, 1.0, 1.0)
         $StaticBody2D/CollisionShape2D.set_deferred("disabled", true)
+        if light:
+            light.color = Color(0.0, 0.95, 1.0)
+            light.energy = 1.5
     else: # Closed
         $Sprite2D.texture = load("res://assets/door.png")
-        $Sprite2D.modulate = Color(0.25, 0.35, 0.45, 1.0)
+        $Sprite2D.modulate = Color(0.3, 0.45, 0.6, 1.0)
         $StaticBody2D/CollisionShape2D.set_deferred("disabled", false)
+        if light:
+            light.color = Color(0.2, 0.5, 0.8)
+            light.energy = 0.5
 
 func blow_open():
     if is_locked or not is_open:

@@ -18,7 +18,7 @@ var wander_dir: Vector2 = Vector2.ZERO
 var wander_timer: float = 0.0
 var anim_timer: float = 0.0
 
-# Boss specific states: "idle", "prep", "jump", "land", "cooldown"
+# Boss specific states
 var boss_state: String = "idle"
 var boss_timer: float = 0.0
 var boss_target_pos: Vector2 = Vector2.ZERO
@@ -28,6 +28,8 @@ var hit_flash_timer: float = 0.0
 
 # Preloads
 var tear_scene = preload("res://Tear.tscn")
+
+@onready var light = $PointLight2D
 
 func _ready():
     add_to_group("enemies")
@@ -42,6 +44,9 @@ func setup_enemy(floor_number: int):
         damage = 1
         $Sprite2D.texture = load("res://assets/enemy_fly.png")
         $CollisionShape2D.shape.radius = 26.0
+        if light:
+            light.color = Color(0.85, 0.2, 0.9)
+            light.scale = Vector2(1.2, 1.2)
     elif enemy_type == "pacer":
         # Proto-Trilobite Crawler
         max_health = 7.0 + floor_number * 2.0
@@ -50,6 +55,9 @@ func setup_enemy(floor_number: int):
         $Sprite2D.texture = load("res://assets/enemy_gusha.png")
         $CollisionShape2D.shape.radius = 34.0
         shoot_timer = randf_range(1.2, 2.2)
+        if light:
+            light.color = Color(0.0, 0.8, 0.9)
+            light.scale = Vector2(1.4, 1.4)
     elif enemy_type == "boss":
         # Ancient Apex Nautiloid
         max_health = 80.0 + floor_number * 30.0
@@ -59,6 +67,10 @@ func setup_enemy(floor_number: int):
         $CollisionShape2D.shape.radius = 72.0
         boss_state = "idle"
         boss_timer = 1.0
+        if light:
+            light.color = Color(1.0, 0.15, 0.3)
+            light.scale = Vector2(3.0, 3.0)
+            light.energy = 1.6
         
     health = max_health
     
@@ -231,5 +243,36 @@ func take_damage(amount: float):
 
 func die():
     SoundManager.play_sfx("enemy_die", 1.0 if enemy_type != "boss" else 0.6)
+    
+    # Spawn colorful death burst particles
+    spawn_death_particles()
+    
     enemy_died.emit()
     queue_free()
+
+func spawn_death_particles():
+    var p = CPUParticles2D.new()
+    p.position = global_position
+    p.emitting = true
+    p.one_shot = true
+    p.explosiveness = 0.95
+    p.amount = 20
+    p.lifetime = 0.6
+    p.spread = 180.0
+    p.initial_velocity_min = 60.0
+    p.initial_velocity_max = 140.0
+    p.scale_amount_min = 3.0
+    p.scale_amount_max = 6.0
+    
+    if enemy_type == "fly":
+        p.color = Color(0.9, 0.3, 1.0, 0.9)
+    elif enemy_type == "pacer":
+        p.color = Color(0.0, 0.9, 0.8, 0.9)
+    else:
+        p.color = Color(1.0, 0.2, 0.3, 0.9)
+        p.amount = 40
+        
+    get_parent().add_child(p)
+    # Auto-cleanup particles
+    var timer = get_tree().create_timer(0.7)
+    timer.timeout.connect(func(): p.queue_free())
