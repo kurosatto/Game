@@ -40,7 +40,9 @@ func set_brightness(val: float):
     brightness_changed.emit(brightness)
     
     var main = get_tree().get_first_node_in_group("main")
-    if main and main.has_node("CanvasModulate"):
+    if main and main.has_method("update_ambient_lighting"):
+        main.update_ambient_lighting()
+    elif main and main.has_node("CanvasModulate"):
         var cm = main.get_node("CanvasModulate")
         cm.color = Color(brightness, brightness, brightness, 1.0)
 
