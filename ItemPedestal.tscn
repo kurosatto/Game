@@ -4,6 +4,8 @@
 [ext_resource type="Texture2D" path="res://assets/pedestal.png" id="2_pedestal"]
 [ext_resource type="Texture2D" path="res://assets/item_onion.png" id="3_item"]
 
+[ext_resource type="Texture2D" path="res://assets/light.png" id="4_light"]
+
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_1"]
 size = Vector2(48, 48)
 
@@ -32,3 +34,21 @@ text = "15c"
 horizontal_alignment = 1
 vertical_alignment = 1
 metadata/_edit_use_anchors_ = true
+
+[node name="PointLight2D" type="PointLight2D" parent="."]
+position = Vector2(0, -10)
+scale = Vector2(1.2, 1.2)
+color = Color(0, 0.95, 1, 1)
+energy = 1.2
+texture = ExtResource("4_light")
+
+[node name="AuraParticles" type="CPUParticles2D" parent="."]
+position = Vector2(0, -16)
+amount = 8
+lifetime = 1.2
+emission_shape = 1
+emission_sphere_radius = 16.0
+gravity = Vector2(0, -18)
+scale_amount_min = 1.5
+scale_amount_max = 3.2
+color = Color(0.1, 1, 0.9, 0.7)

@@ -1,7 +1,7 @@
 # ItemPedestal.gd
 extends Area2D
 
-@export var item_id: String = "onion" # "onion", "eye", "hormones", "cells", "heart", "key", "bomb"
+@export var item_id: String = "onion" # "onion", "eye", "hormones", "cells", "heart", "key"
 @export var is_shop_item: bool = false
 @export var price: int = 0
 
@@ -15,10 +15,32 @@ func _ready():
     setup_visuals()
 
 func setup_visuals():
+    var light = get_node_or_null("PointLight2D")
+    var aura = get_node_or_null("AuraParticles")
+    
     if item_id == "":
         $ItemSprite.visible = false
         $PriceLabel.visible = false
+        if aura:
+            aura.emitting = false
+        if light:
+            light.energy = 0.3
+            light.color = Color(0.2, 0.4, 0.6)
         return
+        
+    if aura:
+        aura.emitting = true
+    if light:
+        if is_shop_item:
+            light.color = Color(1.0, 0.85, 0.25)
+            light.energy = 1.3
+            if aura:
+                aura.color = Color(1.0, 0.9, 0.3, 0.7)
+        else:
+            light.color = Color(0.0, 0.95, 1.0)
+            light.energy = 1.4
+            if aura:
+                aura.color = Color(0.1, 1.0, 0.9, 0.7)
         
     var tex_path = "res://assets/item_onion.png"
     if item_id == "eye":
@@ -31,8 +53,6 @@ func setup_visuals():
         tex_path = "res://assets/pickup_heart.png"
     elif item_id == "key":
         tex_path = "res://assets/pickup_key.png"
-    elif item_id == "bomb":
-        tex_path = "res://assets/pickup_bomb.png"
         
     $ItemSprite.texture = load(tex_path)
     $ItemSprite.visible = true
@@ -82,8 +102,6 @@ func apply_item_to_player(player):
         player.heal(2)
     elif item_id == "key":
         player.add_key(1)
-    elif item_id == "bomb":
-        player.add_bomb(1)
     else:
         player.apply_item_upgrade(item_id)
 
@@ -95,7 +113,6 @@ func get_item_name(id: String) -> String:
         "cells": return "Cellular Duplication"
         "heart": return "Vitality Biomass"
         "key": return "Enzymatic Key"
-        "bomb": return "Volatile Spore"
     return "Unknown Mutation"
 
 func get_item_description(id: String) -> String:
@@ -106,5 +123,4 @@ func get_item_description(id: String) -> String:
         "cells": return "+1 Vitality Container & Full Heal"
         "heart": return "Restores 1 Vitality container"
         "key": return "+1 Enzymatic Key"
-        "bomb": return "+1 Volatile Spore"
     return ""

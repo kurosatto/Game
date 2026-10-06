@@ -26,6 +26,10 @@ func _ready():
     player.stats_changed.connect(hud.update_inventory)
     player.dna_changed.connect(hud.update_dna)
     player.player_died.connect(_on_player_died)
+    if hud.has_method("update_discharge_cooldown"):
+        player.discharge_updated.connect(hud.update_discharge_cooldown)
+    hud.evolution_selected.connect(_on_evolution_selected)
+    player.creature_changed.connect(_on_player_creature_changed)
     
     SettingsManager.set_brightness(SettingsManager.brightness)
     
@@ -41,7 +45,8 @@ func setup_inputs():
         "shoot_right": [KEY_L],
         "shoot_up": [KEY_I],
         "shoot_down": [KEY_K],
-        "place_bomb": [KEY_E, KEY_SPACE]
+        "dash": [KEY_SHIFT, KEY_SPACE],
+        "discharge": [KEY_E, KEY_Q]
     }
     for action in inputs:
         if not InputMap.has_action(action):
@@ -50,6 +55,11 @@ func setup_inputs():
             var ev = InputEventKey.new()
             ev.physical_keycode = key
             InputMap.action_add_event(action, ev)
+            
+    # Also bind Middle Mouse Button to discharge
+    var mouse_ev = InputEventMouseButton.new()
+    mouse_ev.button_index = MOUSE_BUTTON_MIDDLE
+    InputMap.action_add_event("discharge", mouse_ev)
 
 func _process(delta: float):
     # Process camera shake
@@ -65,6 +75,7 @@ func _process(delta: float):
     # Check restart key
     if hud.game_over_screen.visible or hud.victory_screen.visible:
         if Input.is_key_pressed(KEY_R):
+            get_tree().paused = false
             get_tree().reload_current_scene()
 
 func shake_camera(amount: float):
@@ -91,6 +102,8 @@ func load_room(grid_pos: Vector2i):
     hud.hide_boss_health()
     
     if current_room_node:
+        if current_room_node.has_method("save_room_state"):
+            current_room_node.save_room_state()
         current_room_node.queue_free()
         
     var room_data = dungeon_rooms[grid_pos]
@@ -103,6 +116,8 @@ func load_room(grid_pos: Vector2i):
     
     current_room_node.setup_room(room_data, floor_number)
     current_room_node.room_transition_requested.connect(_on_room_transition_requested)
+    
+    update_ambient_lighting(room_data.type)
     
     camera.position = Vector2(960, 540)
     hud.update_minimap(dungeon_rooms, current_room_pos)
@@ -120,6 +135,22 @@ func is_room_visited(grid_pos: Vector2i) -> bool:
 func register_boss(boss_node: Node):
     boss_node.boss_health_changed.connect(hud.show_boss_health)
     boss_node.enemy_died.connect(hud.hide_boss_health)
+    var boss_floor_color = get_boss_floor_color(floor_number)
+    if has_node("CanvasModulate"):
+        var tween = create_tween()
+        tween.tween_property($CanvasModulate, "color", boss_floor_color, 0.6)
+
+func get_boss_floor_color(floor_num: int) -> Color:
+    var b = SettingsManager.brightness / 1.2
+    match floor_num:
+        1: return Color(0.70, 0.78, 0.98) * b  # Stentor: calming abyssal periwinkle
+        2: return Color(0.60, 0.88, 0.94) * b  # Anomalocaris: Cambrian turquoise
+        3: return Color(0.65, 0.92, 0.80) * b  # Cameroceras: Devonian emerald seafoam
+        4: return Color(0.70, 0.90, 0.65) * b  # Arthropleura: Carboniferous lush moss
+        5: return Color(0.95, 0.75, 0.55) * b  # Postosuchus: Triassic desert amber
+        6: return Color(0.98, 0.60, 0.55) * b  # Tyrannosaurus: Cretaceous volcanic glow
+        7: return Color(0.85, 0.70, 1.00) * b  # Apex Sovereign: Celestial extinction twilight
+        _: return Color(0.70, 0.80, 0.98) * b
 
 # -------------------------------------------------------------
 # Smooth 1080p Sliding Camera Room Transition with Anti-Loop Lock
@@ -135,6 +166,10 @@ func _on_room_transition_requested(direction: Vector2i):
     is_transitioning = true
     player.set_physics_process(false)
     player.door_cooldown = 0.5
+    
+    # Save current room state (surviving pickups, pedestals, shop items)
+    if current_room_node and current_room_node.has_method("save_room_state"):
+        current_room_node.save_room_state()
     
     # Delete active projectiles on room transition
     for tear in get_tree().get_nodes_in_group("tears"):
@@ -167,10 +202,12 @@ func _on_room_transition_requested(direction: Vector2i):
     
     SoundManager.play_sfx("door_open", 1.1, -4.0)
     
+    var target_ambient = get_room_theme_color(next_room_data.type)
     var tween = create_tween()
     tween.set_parallel(true)
     tween.tween_property(camera, "position", target_cam_pos, 0.35).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN_OUT)
     tween.tween_property(player, "global_position", target_player_world_pos, 0.35).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN_OUT)
+    tween.tween_property($CanvasModulate, "color", target_ambient, 0.35).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN_OUT)
     
     tween.chain().tween_callback(func():
         if current_room_node:
@@ -184,6 +221,7 @@ func _on_room_transition_requested(direction: Vector2i):
         player.global_position = local_enter_pos
         player.velocity = Vector2.ZERO
         player.door_cooldown = 0.4
+        player.invincibility_time = 0.8 # Buffer to prevent immediate contact damage
         
         current_room_pos = target_pos
         hud.update_minimap(dungeon_rooms, current_room_pos)
@@ -193,8 +231,8 @@ func _on_room_transition_requested(direction: Vector2i):
     )
 
 func advance_floor():
-    if floor_number >= 3:
-        hud.show_victory()
+    if floor_number >= 5:
+        hud.show_victory(player.get_evolution_summary())
         player.set_physics_process(false)
         return
         
@@ -209,8 +247,7 @@ func advance_floor():
     tween.tween_callback(func():
         for tear in get_tree().get_nodes_in_group("tears"):
             tear.queue_free()
-        for bomb in get_tree().get_nodes_in_group("bombs"):
-            bomb.queue_free()
+
         for pickup in get_tree().get_nodes_in_group("pickups"):
             pickup.queue_free()
             
@@ -224,6 +261,51 @@ func advance_floor():
 
 func display_item_banner(title: String, desc: String):
     hud.show_item_banner(title, desc)
+
+func on_boss_defeated(f_num: int):
+    if f_num >= 5:
+        # Ultimate Final Boss Defeated!
+        hud.show_victory(player.get_evolution_summary())
+        player.set_physics_process(false)
+        return
+        
+    # Trigger biological evolution selection for Floors 1 to 4 with current phylogenetic path
+    hud.show_evolution_modal(f_num, player.evolution_choices)
+
+func _on_evolution_selected(floor_num: int, choice_index: int):
+    player.apply_evolution(floor_num, choice_index)
+    if current_room_node and current_room_node.has_method("spawn_trapdoor"):
+        current_room_node.spawn_trapdoor()
+
+func _on_player_creature_changed(c_name: String, _c_clade: String, _c_color: Color):
+    hud.set_current_creature(c_name)
+    hud.update_floor(floor_number)
+
+func get_room_theme_color(room_type: int) -> Color:
+    var b = SettingsManager.brightness / 1.2
+    # Base floor tint
+    var floor_tint = Color.WHITE
+    match floor_number:
+        1: floor_tint = Color(0.95, 0.98, 1.05) # Ediacaran
+        2: floor_tint = Color(0.90, 1.05, 1.05) # Cambrian
+        3: floor_tint = Color(0.90, 1.08, 0.95) # Devonian
+        4: floor_tint = Color(0.92, 1.05, 0.88) # Carboniferous
+        5: floor_tint = Color(1.08, 0.90, 1.08) # Apex Boundary
+        
+    match room_type:
+        0: return Color(0.82, 0.90, 1.0) * b * floor_tint # Start
+        2: return Color(0.72, 0.95, 0.88) * b * floor_tint # Treasure
+        4: return Color(0.95, 0.88, 0.70) * b * floor_tint # Shop
+        3: return get_boss_floor_color(floor_number) # Boss
+        _: return Color(0.76, 0.86, 0.96) * b * floor_tint # Normal
+
+func update_ambient_lighting(target_type: int = -1):
+    if not has_node("CanvasModulate"):
+        return
+    var r_type = target_type
+    if r_type < 0:
+        r_type = get_room_type(current_room_pos)
+    $CanvasModulate.color = get_room_theme_color(r_type)
 
 func _on_player_died():
     hud.show_game_over()

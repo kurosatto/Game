@@ -1,7 +1,7 @@
 # Pickup.gd
 extends Area2D
 
-@export var pickup_type: String = "coin" # "coin", "heart", "heart_half", "bomb", "key"
+@export var pickup_type: String = "coin" # "coin", "heart", "heart_half", "key"
 
 var player: Node2D = null
 var magnet_range: float = 90.0
@@ -17,8 +17,7 @@ func setup_visuals():
         tex_path = "res://assets/pickup_heart.png"
     elif pickup_type == "heart_half":
         tex_path = "res://assets/pickup_heart_half.png"
-    elif pickup_type == "bomb":
-        tex_path = "res://assets/pickup_bomb.png"
+
     elif pickup_type == "key":
         tex_path = "res://assets/pickup_key.png"
         
@@ -55,9 +54,6 @@ func _on_body_entered(body: Node):
             if body.health < body.max_health:
                 body.heal(1) # Half Heart = 1 half heart
                 collected = true
-        elif pickup_type == "bomb":
-            body.add_bomb(1)
-            collected = true
         elif pickup_type == "key":
             body.add_key(1)
             collected = true
