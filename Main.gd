@@ -215,7 +215,9 @@ func _on_room_transition_requested(direction: Vector2i):
         tear.queue_free()
         
     # 1080p full screen offset
-    var room_offset = Vector2(direction.x * 1920, direction.y * 1080)
+    # Rooms are 1920px plus a side margin on wide screens (Room.side_margin)
+    var margin = current_room_node.side_margin if current_room_node else 0.0
+    var room_offset = Vector2(direction.x * (1920 + margin * 2), direction.y * 1080)
     var next_room_data = dungeon_rooms[target_pos]
     next_room_data.visited = true
     
@@ -232,9 +234,9 @@ func _on_room_transition_requested(direction: Vector2i):
     elif direction == Vector2i.DOWN:
         local_enter_pos = Vector2(960, 240) # Spawn well below top door (y=92)
     elif direction == Vector2i.LEFT:
-        local_enter_pos = Vector2(1660, 540) # Spawn well left of right door (x=1856)
+        local_enter_pos = Vector2(1660 + margin, 540) # Spawn well left of right door
     elif direction == Vector2i.RIGHT:
-        local_enter_pos = Vector2(260, 540) # Spawn well right of left door (x=64)
+        local_enter_pos = Vector2(260 - margin, 540) # Spawn well right of left door
         
     var target_player_world_pos = local_enter_pos + room_offset
     var target_cam_pos = Vector2(960, 540) + room_offset

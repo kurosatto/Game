@@ -5,6 +5,23 @@ signal room_transition_requested(direction)
 
 var room_data = null
 var current_floor: int = 1
+# Extra floor on each side when the screen is wider than 16:9, so rooms fill
+# the whole width (phones are ~19.5:9). Layouts stay in the central 1920px.
+var side_margin: float = 0.0
+
+const ERA_ART = ["ediacaran", "cambrian", "ordovician", "carboniferous", "permian"]
+
+# Tests can force a margin (headless runs always report a 1920px viewport)
+static var margin_override: float = -1.0
+
+static func margin_for(viewport: Viewport) -> float:
+    if margin_override >= 0.0:
+        return margin_override
+    var w = viewport.get_visible_rect().size.x
+    return clampf((w - 1920.0) / 2.0, 0.0, 400.0)
+
+func era_dir() -> String:
+    return "res://assets/eras/%s/" % ERA_ART[clampi(current_floor - 1, 0, ERA_ART.size() - 1)]
 var active_enemies: Array = []
 var door_nodes: Dictionary = {}
 
@@ -19,6 +36,7 @@ var room_layouts = preload("res://RoomLayouts.gd")
 func setup_room(data, floor_number: int):
     room_data = data
     current_floor = floor_number
+    side_margin = margin_for(get_viewport())
     
     # 1. Clear existing children
     for child in get_children():
@@ -174,65 +192,63 @@ func save_room_state():
                 })
 
 func spawn_fullscreen_background():
-    var bg = Sprite2D.new()
+    # Era room art (generate_room_art.py): 128px walls around a floor that
+    # tiles horizontally, so the room can be as wide as the screen
+    var bg = NinePatchRect.new()
     bg.name = "FullscreenBackground"
-    bg.position = Vector2(960, 540)
+    bg.texture = load(era_dir() + "room.png")
+    bg.patch_margin_left = 128
+    bg.patch_margin_right = 128
+    bg.patch_margin_top = 128
+    bg.patch_margin_bottom = 128
+    bg.axis_stretch_horizontal = NinePatchRect.AXIS_STRETCH_MODE_TILE_FIT
+    bg.axis_stretch_vertical = NinePatchRect.AXIS_STRETCH_MODE_STRETCH
+    bg.position = Vector2(-side_margin, 0)
+    bg.size = Vector2(1920 + side_margin * 2, 1080)
     bg.z_index = -20
-    
-    var bg_path = "res://assets/room_bg_normal.png"
+    bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    # Room types keep their mood through a tint over the era art
     if room_data:
         match room_data.type:
-            0: bg_path = "res://assets/room_bg_start.png"
-            2: bg_path = "res://assets/room_bg_treasure.png"
-            4: bg_path = "res://assets/room_bg_shop.png"
-            3: bg_path = "res://assets/room_bg_boss.png"
-            _: bg_path = "res://assets/room_bg_normal.png"
-            
-    bg.texture = load(bg_path)
+            0: bg.modulate = Color(0.95, 1.05, 1.1)
+            2: bg.modulate = Color(1.15, 1.08, 0.8)
+            4: bg.modulate = Color(1.12, 1.0, 0.85)
+            3: bg.modulate = Color(0.85, 0.75, 0.95)
     add_child(bg)
 
-    # Wide phone screens show past the 1920px room; mirror the background
-    # outward so the outer walls continue seamlessly into the extra space
-    for side in [-1, 1]:
-        var ext = Sprite2D.new()
-        ext.texture = bg.texture
-        ext.flip_h = true
-        ext.position = Vector2(960 + side * 1920, 540)
-        ext.z_index = -21
-        add_child(ext)
-
 func spawn_boundary_colliders_and_doors():
+    var m = side_margin
     # Top Wall (thickness 128, leaving 896..1024 open for door at x=960)
-    _add_static_box(Vector2(448, 64), Vector2(896, 128))
-    _add_static_box(Vector2(1472, 64), Vector2(896, 128))
+    _add_static_box(Vector2(448 - m / 2, 64), Vector2(896 + m, 128))
+    _add_static_box(Vector2(1472 + m / 2, 64), Vector2(896 + m, 128))
     if room_data.connections.has(Vector2i.UP):
         spawn_door_at(Vector2(960, 68), Vector2i.UP, 0.0)
     else:
         _add_static_box(Vector2(960, 64), Vector2(128, 128))
         
     # Bottom Wall (thickness 128, leaving 896..1024 open for door at x=960)
-    _add_static_box(Vector2(448, 1016), Vector2(896, 128))
-    _add_static_box(Vector2(1472, 1016), Vector2(896, 128))
+    _add_static_box(Vector2(448 - m / 2, 1016), Vector2(896 + m, 128))
+    _add_static_box(Vector2(1472 + m / 2, 1016), Vector2(896 + m, 128))
     if room_data.connections.has(Vector2i.DOWN):
         spawn_door_at(Vector2(960, 1012), Vector2i.DOWN, PI)
     else:
         _add_static_box(Vector2(960, 1016), Vector2(128, 128))
         
     # Left Wall (thickness 128, leaving 476..604 open for door at y=540)
-    _add_static_box(Vector2(64, 238), Vector2(128, 476))
-    _add_static_box(Vector2(64, 842), Vector2(128, 476))
+    _add_static_box(Vector2(64 - m, 238), Vector2(128, 476))
+    _add_static_box(Vector2(64 - m, 842), Vector2(128, 476))
     if room_data.connections.has(Vector2i.LEFT):
-        spawn_door_at(Vector2(68, 540), Vector2i.LEFT, 3.0*PI/2.0)
+        spawn_door_at(Vector2(68 - m, 540), Vector2i.LEFT, 3.0*PI/2.0)
     else:
-        _add_static_box(Vector2(64, 540), Vector2(128, 128))
+        _add_static_box(Vector2(64 - m, 540), Vector2(128, 128))
         
     # Right Wall (thickness 128, leaving 476..604 open for door at y=540)
-    _add_static_box(Vector2(1856, 238), Vector2(128, 476))
-    _add_static_box(Vector2(1856, 842), Vector2(128, 476))
+    _add_static_box(Vector2(1856 + m, 238), Vector2(128, 476))
+    _add_static_box(Vector2(1856 + m, 842), Vector2(128, 476))
     if room_data.connections.has(Vector2i.RIGHT):
-        spawn_door_at(Vector2(1852, 540), Vector2i.RIGHT, PI/2.0)
+        spawn_door_at(Vector2(1852 + m, 540), Vector2i.RIGHT, PI/2.0)
     else:
-        _add_static_box(Vector2(1856, 540), Vector2(128, 128))
+        _add_static_box(Vector2(1856 + m, 540), Vector2(128, 128))
 
 func _add_static_box(pos: Vector2, size: Vector2):
     var body = StaticBody2D.new()
@@ -290,7 +306,7 @@ func spawn_ambient_particles():
     particles.lifetime = 6.0
     particles.preprocess = 4.0
     particles.emission_shape = CPUParticles2D.EMISSION_SHAPE_RECTANGLE
-    particles.emission_rect_extents = Vector2(960, 540)
+    particles.emission_rect_extents = Vector2(960 + side_margin, 540)
     particles.gravity = Vector2(0, -6)
     particles.initial_velocity_min = 6.0
     particles.initial_velocity_max = 16.0
@@ -307,7 +323,7 @@ func spawn_ambient_particles():
     particles2.lifetime = 12.0
     particles2.preprocess = 6.0
     particles2.emission_shape = CPUParticles2D.EMISSION_SHAPE_RECTANGLE
-    particles2.emission_rect_extents = Vector2(900, 480)
+    particles2.emission_rect_extents = Vector2(900 + side_margin, 480)
     particles2.gravity = Vector2(0, -2)
     particles2.initial_velocity_min = 2.0
     particles2.initial_velocity_max = 5.0
@@ -329,7 +345,7 @@ func spawn_light_shafts(tint: Color):
     rng.seed = hash(room_data.grid_pos) if room_data else 0
     for i in 4:
         var shaft = Polygon2D.new()
-        var x = rng.randf_range(300, 1620)
+        var x = rng.randf_range(300 - side_margin, 1620 + side_margin)
         var top_w = rng.randf_range(50, 110)
         var bottom_w = top_w * rng.randf_range(2.2, 3.2)
         var slant = rng.randf_range(120, 260)
@@ -358,7 +374,7 @@ func spawn_bubble_streams():
     rng.seed = (hash(room_data.grid_pos) if room_data else 0) + 7
     for i in 3:
         var b = CPUParticles2D.new()
-        b.position = Vector2(rng.randf_range(260, 1660), rng.randf_range(820, 940))
+        b.position = Vector2(rng.randf_range(260 - side_margin, 1660 + side_margin), rng.randf_range(820, 940))
         b.amount = 8
         b.lifetime = 5.0
         b.preprocess = 5.0
@@ -375,6 +391,8 @@ func spawn_bubble_streams():
 
 func spawn_layout_decals(layout: Dictionary):
     for decal in layout.get("decals", []):
+        if decal["type"] == "decal_vent":
+            continue # removed by request; old saved layouts may still list it
         var gx = decal["gx"]
         var gy = decal["gy"]
         var pos = Vector2(gx * 128 + 64, gy * 128 + 64 + 28)
@@ -389,18 +407,6 @@ func spawn_layout_decals(layout: Dictionary):
         sprite.modulate = Color(1.0, 1.0, 1.0, 0.75)
         add_child(sprite)
         
-        if decal["type"] == "decal_vent":
-            var vent_p = CPUParticles2D.new()
-            vent_p.position = pos
-            vent_p.amount = 6
-            vent_p.lifetime = 2.0
-            vent_p.gravity = Vector2(0, -18)
-            vent_p.scale_amount_min = 1.5
-            vent_p.scale_amount_max = 3.0
-            vent_p.color = Color(0.0, 0.85, 0.95, 0.45)
-            vent_p.z_index = -7
-            add_child(vent_p)
-
 func spawn_layout_obstacles(layout: Dictionary):
     var bio_obstacle_map = {
         "rock": "rock",
@@ -422,7 +428,7 @@ func spawn_layout_obstacles(layout: Dictionary):
         add_child(obs_node)
         var raw_type = obs.get("type", "rock")
         var resolved_type = bio_obstacle_map.get(raw_type, raw_type)
-        obs_node.setup_obstacle(resolved_type)
+        obs_node.setup_obstacle(resolved_type, era_dir())
 
 func spawn_tactical_enemies(layout: Dictionary, floor_number: int):
     var spawns = layout.get("enemy_spawns", []).duplicate()

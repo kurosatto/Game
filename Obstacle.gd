@@ -5,7 +5,17 @@ extends StaticBody2D
 
 var light_node: PointLight2D = null
 
-func setup_obstacle(type_name: String = "rock"):
+# Layout obstacle types map onto the five art slots each era has
+const ERA_SLOT = {
+    "rock": "rock", "coral_spire": "tall", "ediacaran_frond": "tall",
+    "stromatolite": "mound", "calcified_sponge": "mound",
+    "biocrystal": "glow", "hydrothermal_vent": "glow", "fossil_bone": "fossil",
+}
+const ERA_LIGHT = {
+    "glow": [Color(0.4, 1.0, 0.9), 1.1], "tall": [Color(0.5, 0.8, 1.0), 0.45],
+}
+
+func setup_obstacle(type_name: String = "rock", era_dir: String = ""):
     obstacle_type = type_name
     
     var sprite = get_node_or_null("Sprite2D")
@@ -52,6 +62,15 @@ func setup_obstacle(type_name: String = "rock"):
             light_color = Color(0.0, 0.6, 0.8)
             light_energy = 0.35
             
+    # Era art (generate_room_art.py) replaces the generic look when present
+    var slot = ERA_SLOT.get(obstacle_type, "rock")
+    if era_dir != "" and ResourceLoader.exists(era_dir + slot + ".png"):
+        tex_path = era_dir + slot + ".png"
+        var l = ERA_LIGHT.get(slot, [Color(0, 0, 0), 0.0])
+        light_color = l[0]
+        light_energy = l[1]
+        if slot == "glow" and era_dir.ends_with("permian/"):
+            light_color = Color(1.0, 0.5, 0.2)
     sprite.texture = load(tex_path)
     
     if light_energy > 0:

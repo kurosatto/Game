@@ -6,6 +6,11 @@ const ACT = {Vector2i.UP: "move_up", Vector2i.DOWN: "move_down", Vector2i.LEFT: 
 const INSET = {Vector2i.UP: Vector2(0, 170), Vector2i.DOWN: Vector2(0, -170), Vector2i.LEFT: Vector2(170, 0), Vector2i.RIGHT: Vector2(-170, 0)}
 var main
 func _initialize():
+	# DOORTEST_WIDTH=2340 runs the test with a phone-wide room (side margins)
+	var w = OS.get_environment("DOORTEST_WIDTH")
+	if w != "":
+		load("res://Room.gd").margin_override = (int(w) - 1920) / 2.0
+		print("WALK side margin ", (int(w) - 1920) / 2.0)
 	main = load("res://Main.tscn").instantiate()
 	root.add_child(main)
 	current_scene = main
@@ -52,6 +57,7 @@ func try_door(pos: Vector2i, dir: Vector2i) -> String:
 		return "no door node"
 	var p = main.player
 	p.set_physics_process(true)
+	main.camera.position = Vector2(960, 540)
 	p.keys = 1
 	p.health = p.max_health
 	p.invincibility_time = 99.0

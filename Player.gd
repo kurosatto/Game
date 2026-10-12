@@ -38,6 +38,10 @@ var default_texture: Texture2D = null
 var has_lineage_art: bool = false
 var heading_offset: float = -PI/2
 var current_attack_type: String = "single"
+# Weapon style from data/Lineages.gd WEAPONS (ranged projectile or melee swing)
+var current_weapon: String = "vesicle"
+var current_weapon_name: String = "Lysosome vesicles"
+var melee_arc_bonus: float = 0.0
 var current_tear_perks: Dictionary = {}
 var current_dash_perks: Dictionary = {}
 var current_passive: String = "none"
@@ -72,6 +76,7 @@ var door_cooldown: float = 0.0
 
 # Preloads
 var tear_scene = preload("res://Tear.tscn")
+var melee_swing_script = preload("res://MeleeSwing.gd")
 
 # Playable forms live in data/Lineages.gd, keyed by the path of evolution choices
 var lineages = preload("res://data/Lineages.gd")
@@ -604,6 +609,9 @@ func handle_shooting():
             shoot_tear(to_mouse)
 
 func shoot_tear(dir: Vector2):
+    if lineages.weapon_stats(current_weapon).melee:
+        melee_attack(dir)
+        return
     shoot_cooldown = fire_delay
     SoundManager.play_sfx("shoot", 1.05 + randf_range(-0.08, 0.08))
     $Sprite2D.scale = Vector2(1.25, 0.8)
@@ -646,13 +654,142 @@ func spawn_tear(dir: Vector2, alpha: bool = false, boomerang: bool = false):
     tear.is_stun = current_tear_perks.get("stun", false)
     tear.is_boomerang = boomerang or current_tear_perks.get("boomerang", false)
     tear.knockback_force = current_tear_perks.get("knockback", 0.0)
-    
+
+    # Projectile look and handling from the form's weapon (lysosome, venom spit...)
+    var w = lineages.weapon_stats(current_weapon)
+    tear.projectile_kind = current_weapon
+    tear.speed *= w.get("speed", 1.0)
+    tear.lifetime *= w.get("life", 1.0)
+    tear.velocity = dir * tear.speed + velocity * 0.25
+    tear.is_stun = tear.is_stun or w.get("stun", false)
+    tear.is_caustic = tear.is_caustic or w.get("caustic", false)
+
     if tear.has_node("Sprite2D"):
-        tear.get_node("Sprite2D").modulate = current_modulate * Color(1.2, 1.2, 1.2)
+        tear.get_node("Sprite2D").modulate = Color(1.15, 1.15, 1.15)
         if alpha:
             tear.get_node("Sprite2D").scale = Vector2(1.8, 1.8)
     
     get_parent().add_child(tear)
+
+# Close-range attack for forms whose real weapon is a mouth, claw or arm.
+# Hits every enemy (and breakable obstacle) in an arc toward dir, and swats
+# enemy shots inside it, so melee forms can fight back against spitters.
+func melee_attack(dir: Vector2):
+    var w = lineages.weapon_stats(current_weapon)
+    shoot_cooldown = fire_delay * w.cooldown
+    SoundManager.play_sfx("dash", 1.6 + randf_range(-0.1, 0.1))
+    $Sprite2D.scale = Vector2(0.85, 1.25)
+
+    var reach: float = w.reach
+    var half_arc: float = min(PI, w.arc * 0.5 + melee_arc_bonus)
+    var dmg: float = damage * w.damage
+    var perk_knock: float = current_tear_perks.get("knockback", 0.0) * 0.6
+    var knock: float = w.get("knockback", 0.0)
+    if knock >= 0.0:
+        knock = max(knock, perk_knock)
+    var stun: float = w.get("stun", 0.0) + (0.5 if current_tear_perks.get("stun", false) else 0.0)
+    var venom: bool = w.get("venom", false) or current_tear_perks.get("caustic", false)
+    var drain: bool = w.get("drain", false) or current_tear_perks.get("vampiric", false)
+
+    var victims: Array = []
+    for e in get_tree().get_nodes_in_group("enemies"):
+        if is_instance_valid(e) and e.has_method("take_damage") and in_melee_arc(e.global_position, body_radius(e, 30.0), dir, reach, half_arc):
+            victims.append(e)
+    for e in victims:
+        if not is_instance_valid(e):
+            continue
+        var away = (e.global_position - global_position).normalized()
+        if e.has_method("apply_knockback") and (knock != 0.0 or stun > 0.0):
+            e.apply_knockback(away * knock, max(stun, 0.15))
+        e.take_damage(dmg)
+        if venom:
+            apply_venom(e, dmg * 0.25)
+    for o in get_tree().get_nodes_in_group("obstacles"):
+        if is_instance_valid(o) and o.has_method("take_damage") and in_melee_arc(o.global_position, 40.0, dir, reach, half_arc):
+            o.take_damage(dmg)
+    for t in get_tree().get_nodes_in_group("enemy_tears"):
+        if is_instance_valid(t) and in_melee_arc(t.global_position, 14.0, dir, reach + 10.0, half_arc) and t.has_method("destroy_tear"):
+            t.destroy_tear()
+
+    if not victims.is_empty():
+        SoundManager.play_sfx("hit", 0.85)
+        var first = victims[0]
+        var hit_pos: Vector2 = first.global_position if is_instance_valid(first) else global_position + dir * reach
+        if drain and randf() < 0.3:
+            heal(1)
+        if current_tear_perks.get("electric", false):
+            melee_electric_arc(hit_pos, victims)
+        if current_tear_perks.get("explosive", false):
+            melee_blast(hit_pos, dmg * 0.5)
+        if w.get("cavitation", false):
+            # Mantis shrimp strikes boil the water: a collapsing bubble hits again
+            get_tree().create_timer(0.09).timeout.connect(func():
+                for v in victims:
+                    if is_instance_valid(v) and v.get("health") != null and v.health > 0:
+                        v.take_damage(dmg * 0.4)
+            )
+        var main = get_tree().get_first_node_in_group("main")
+        if main and main.has_method("shake_camera"):
+            main.shake_camera(5.0 if w.damage >= 2.5 else 2.5)
+
+    var swing = melee_swing_script.new()
+    swing.style = current_weapon
+    swing.reach = reach
+    swing.half_arc = half_arc
+    swing.color = current_modulate
+    swing.rotation = dir.angle()
+    add_child(swing)
+
+func in_melee_arc(target: Vector2, radius: float, dir: Vector2, reach: float, half_arc: float) -> bool:
+    var to = target - global_position
+    var dist = to.length()
+    if dist > reach + radius:
+        return false
+    if half_arc >= PI or dist < radius + 20.0:
+        return true
+    return abs(dir.angle_to(to)) <= half_arc + atan2(radius, dist)
+
+func body_radius(node: Node2D, fallback: float) -> float:
+    var cs = node.get_node_or_null("CollisionShape2D")
+    if cs and cs.shape is CircleShape2D:
+        return cs.shape.radius * max(abs(node.scale.x), abs(node.scale.y)) * max(abs(cs.scale.x), abs(cs.scale.y))
+    return fallback
+
+# Venom keeps hurting for a moment after the sting or bite
+func apply_venom(enemy: Node, per_tick: float):
+    for i in 3:
+        get_tree().create_timer(0.45 * (i + 1)).timeout.connect(func():
+            if is_instance_valid(enemy) and enemy.get("health") != null and enemy.health > 0:
+                enemy.take_damage(per_tick)
+        )
+
+func melee_electric_arc(from_pos: Vector2, already_hit: Array):
+    for e in get_tree().get_nodes_in_group("enemies"):
+        if is_instance_valid(e) and not already_hit.has(e) and e.global_position.distance_to(from_pos) < 260.0:
+            e.take_damage(2.5)
+            spawn_electric_spark_line(from_pos, e.global_position)
+            break
+
+func melee_blast(pos: Vector2, amount: float):
+    for e in get_tree().get_nodes_in_group("enemies"):
+        if is_instance_valid(e) and e.global_position.distance_to(pos) < 120.0:
+            e.take_damage(amount)
+    var p = CPUParticles2D.new()
+    p.position = pos
+    p.one_shot = true
+    p.emitting = true
+    p.amount = 18
+    p.lifetime = 0.35
+    p.explosiveness = 0.95
+    p.spread = 180.0
+    p.color = Color(1.0, 0.55, 0.15, 1.0)
+    p.initial_velocity_min = 60.0
+    p.initial_velocity_max = 160.0
+    p.scale_amount_min = 3.0
+    p.scale_amount_max = 6.0
+    get_parent().add_child(p)
+    get_tree().create_timer(0.4).timeout.connect(p.queue_free)
+    SoundManager.play_sfx("explosion", 1.3, -4.0)
 
 func add_dna(amount: int):
     dna_biomass += amount
@@ -714,6 +851,8 @@ func apply_form(data: Dictionary):
     current_modulate = data.color
     current_accessory = data.accessory
     current_attack_type = data.attack_type
+    current_weapon = data.get("weapon", "vesicle")
+    current_weapon_name = data.get("weapon_name", "Lysosome vesicles")
     current_tear_perks = data.tear_perks
     current_dash_perks = data.dash_perks
     current_passive = data.passive
@@ -819,6 +958,7 @@ func apply_item_upgrade(item_id: String):
     elif item_id == "eye":
         current_attack_type = "triple"
         fire_delay = fire_delay * 1.15
+        melee_arc_bonus += 0.25
     elif item_id == "hormones":
         damage += 2.0
         speed += 50.0
