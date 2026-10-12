@@ -545,6 +545,7 @@ func show_run_intro(form: Dictionary):
             ["ZAP", "E / Q / middle-click for an electric burst around you (recharges)"],
             ["PAUSE", "Esc"],
         ]
+    rows.append(["SIGHT", lineages.describe_vision(form).trim_prefix("Vision: ") + ". Evolve better eyes to see further."])
     var attack_line = "Your attack: %s, %s." % [form.get("weapon_name", "Lysosome vesicles").to_lower(), _weapon_hint(weapon)]
     _show_card(
         "YOU ARE THE " + form.get("name", "ANCESTRAL COLLAR CELL"),
@@ -561,7 +562,8 @@ func show_evolved_card(form: Dictionary):
     _show_card(
         "YOU ARE NOW " + form.get("name", "YOUR LINEAGE"),
         "Living today: " + form.get("living_example", ""),
-        [["NEW ATTACK", "%s (%s)" % [form.get("weapon_name", ""), weapon.get("label", "")]], ["HOW", how]],
+        [["NEW ATTACK", "%s (%s)" % [form.get("weapon_name", ""), weapon.get("label", "")]], ["HOW", how],
+            ["SIGHT", lineages.describe_vision(form).trim_prefix("Vision: ")]],
         "",
         form.get("color", Color(0.0, 0.95, 1.0)), "continue")
 
