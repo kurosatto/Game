@@ -5,12 +5,9 @@ including this project (Evo Roguelike).
 
 ## 1. Run the setup script
 
-Double-click `tools\android\setup_android_windows.bat`, or run this from PowerShell
-in the project folder:
-
-```powershell
-powershell -ExecutionPolicy Bypass -File tools\android\setup_android_windows.ps1
-```
+Double-click `tools\android\setup_android_windows.bat`. It's one self-contained
+file, so you can also download just that file and run it from anywhere,
+such as your Downloads folder.
 
 The script installs:
 
