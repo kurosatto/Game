@@ -34,6 +34,7 @@ var stun_timer: float = 0.0
 var base_tint: Color = Color.WHITE
 var base_scale: float = 1.0
 var fauna_name: String = ""
+var has_species_art: bool = false
 var behavior: String = ""
 var weave_phase: float = 0.0
 var shoot_delay_mult: float = 1.0
@@ -226,6 +227,11 @@ func apply_fauna(floor_number: int):
 		return
 	fauna_name = f.name
 	base_tint = f.tint
+	# Species art from generate_fauna_art.py, when there is a sheet for it
+	var sheet_path = "res://assets/fauna/%s_sheet.png" % fauna_name.to_lower()
+	if ResourceLoader.exists(sheet_path):
+		$Sprite2D.texture = load(sheet_path)
+		has_species_art = true
 	base_scale = f.scale
 	speed *= f.speed
 	$Sprite2D.modulate = base_tint
@@ -248,7 +254,7 @@ func process_lunge(delta: float) -> bool:
 	if lunge_state == "dash":
 		lunge_timer -= delta
 		velocity = lunge_dir * speed * 4.0
-		$Sprite2D.rotation = lunge_dir.angle() - PI/2
+		$Sprite2D.rotation = lunge_dir.angle() + PI/2
 		if move_and_slide() or lunge_timer <= 0:
 			lunge_state = ""
 			lunge_cooldown = randf_range(2.0, 3.2)
@@ -309,6 +315,9 @@ func _physics_process(delta: float):
 		var sy = 1.0 - sin(anim_timer * 8.0) * 0.12
 		$Sprite2D.scale = Vector2(sx, sy) * base_scale
 		$Sprite2D.frame = int(fmod(anim_timer * 6.0, 4.0))
+		# Animal sprites face up; turn them toward where they swim
+		if has_species_art and velocity.length_squared() > 1.0:
+			$Sprite2D.rotation = lerp_angle($Sprite2D.rotation, velocity.angle() + PI/2, delta * 8.0)
 
 	elif enemy_type == "pacer":
 		wander_timer -= delta
@@ -323,7 +332,7 @@ func _physics_process(delta: float):
 		if move_and_slide():
 			pick_random_wander()
 
-		$Sprite2D.rotation = wander_dir.angle() - PI/2
+		$Sprite2D.rotation = wander_dir.angle() + PI/2
 		$Sprite2D.frame = int(fmod(anim_timer * 7.0, 4.0))
 
 		shoot_timer -= delta
