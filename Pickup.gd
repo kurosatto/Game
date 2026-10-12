@@ -8,7 +8,8 @@ var magnet_range: float = 90.0
 
 func _ready():
     add_to_group("pickups")
-    body_entered.connect(_on_body_entered)
+    # Deferred: reacting can add/remove physics nodes, which Godot forbids mid physics step
+    body_entered.connect(_on_body_entered, CONNECT_DEFERRED)
     call_deferred("setup_visuals")
 
 func setup_visuals():
@@ -40,6 +41,8 @@ func _physics_process(delta: float):
             global_position += dir * speed * delta
 
 func _on_body_entered(body: Node):
+    if not is_instance_valid(body):
+        return
     if body.is_in_group("player"):
         var collected = false
         

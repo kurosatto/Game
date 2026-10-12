@@ -35,7 +35,8 @@ func _ready():
     if velocity == Vector2.ZERO:
         velocity = direction.normalized() * speed
     
-    body_entered.connect(_on_body_entered)
+    # Deferred: reacting can add/remove physics nodes, which Godot forbids mid physics step
+    body_entered.connect(_on_body_entered, CONNECT_DEFERRED)
 
 func _physics_process(delta: float):
     if is_homing and not is_enemy_tear:
@@ -88,6 +89,8 @@ var has_split: bool = false
 var initial_lifetime: float = 0.85
 
 func _on_body_entered(body: Node):
+    if not is_instance_valid(body) or is_queued_for_deletion():
+        return
     if is_enemy_tear:
         if body.is_in_group("player") and body.has_method("take_damage"):
             body.take_damage(damage)
