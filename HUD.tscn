@@ -230,6 +230,8 @@ alignment = 1
 [node name="Title" type="Label" parent="ItemBanner"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0, 1, 0.8, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 0.85)
+theme_override_constants/outline_size = 10
 theme_override_font_sizes/font_size = 36
 text = "MUTATION ADAPTATION"
 horizontal_alignment = 1
@@ -237,6 +239,8 @@ horizontal_alignment = 1
 [node name="Desc" type="Label" parent="ItemBanner"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.9, 0.95, 1, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 0.85)
+theme_override_constants/outline_size = 8
 theme_override_font_sizes/font_size = 22
 text = "Tears up"
 horizontal_alignment = 1
