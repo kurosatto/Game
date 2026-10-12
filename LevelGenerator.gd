@@ -155,8 +155,9 @@ static func generate_level(floor_number: int = 1) -> Dictionary:
     if leaves.size() > 2:
         leaves[2].type = RoomType.SHOP
 
-    # Ensure Floor 1 has a guaranteed key placed in an early normal room
-    if floor_number == 1:
+    # Every floor has a guaranteed key in a normal room, so the locked
+    # treasure room and shop can always be opened
+    if true:
         for pos in rooms:
             var r = rooms[pos]
             if r.type == RoomType.NORMAL:

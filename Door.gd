@@ -20,6 +20,14 @@ func _ready():
 func _process(delta: float):
 	if trigger_cooldown > 0:
 		trigger_cooldown -= delta
+	elif is_open or is_locked:
+		# body_entered only fires on first contact: if the player was already
+		# standing in the doorway when it opened (or during the cooldown),
+		# let them through now instead of making them step out and back in
+		for body in get_overlapping_bodies():
+			if body.is_in_group("player") and (is_open or body.keys > 0):
+				_on_body_entered(body)
+				break
 		
 	# Gentle pulsating light on doors
 	if light and is_open:
@@ -95,6 +103,12 @@ func _on_body_entered(body: Node):
 		return
 		
 	if body.is_in_group("player"):
+		if is_locked and body.keys <= 0:
+			var main = get_tree().get_first_node_in_group("main")
+			if main and main.has_method("display_item_banner"):
+				main.display_item_banner("LOCKED", "Find a key to open this door")
+			trigger_cooldown = 2.0
+			return
 		if is_locked:
 			if body.keys > 0:
 				body.add_key(-1)

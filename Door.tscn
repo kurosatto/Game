@@ -5,7 +5,7 @@
 [ext_resource type="Texture2D" path="res://assets/light.png" id="3_light"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_1"]
-size = Vector2(96, 56)
+size = Vector2(96, 80)
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_2"]
 size = Vector2(128, 112)
@@ -19,7 +19,7 @@ script = ExtResource("1_door")
 texture = ExtResource("2_door")
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
-position = Vector2(0, 20)
+position = Vector2(0, 32)
 shape = SubResource("RectangleShape2D_1")
 
 [node name="StaticBody2D" type="StaticBody2D" parent="."]

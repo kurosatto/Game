@@ -87,6 +87,8 @@ func setup_room(data, floor_number: int):
                 add_child(ped)
         elif room_data.type == 3 and not room_data.cleared: # BOSS
             spawn_boss(floor_number)
+        elif room_data.type == 1 and not room_data.cleared: # NORMAL left mid-fight
+            spawn_tactical_enemies(clean_layout, floor_number)
             
         if room_data.cleared:
             for d_dir in door_nodes:
@@ -135,6 +137,10 @@ func setup_room(data, floor_number: int):
                 p.pickup_type = p_info["type"]
                 add_child(p)
             spawn_tactical_enemies(clean_layout, floor_number)
+
+    # A fight room with nobody to fight would keep its doors shut forever
+    if room_data.type == 1 and not room_data.cleared and active_enemies.is_empty():
+        clear_room.call_deferred()
 
 func save_room_state():
     if not room_data:

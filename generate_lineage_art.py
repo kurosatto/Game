@@ -382,21 +382,24 @@ def star(c, t, s, body, arms=5, arm_len=0.36, arm_w=0.085, disc=0.12, thin=False
 # ─────────────────────────── tier 1 and 2 ───────────────────────────
 
 def ancestral_collar_cell(c, t, s):
-    # Choanoflagellate: ovoid cell, a collar of microvilli at the front and
-    # one long flagellum beating out from inside the collar.
-    cx, cy = s / 2, s * 0.6
+    # Choanoflagellate: ovoid cell body in front; behind it a collar of
+    # microvilli and one long flagellum. The flagellum beats behind the cell
+    # and pushes it forward, so collar and flagellum trail (they point down).
+    cx, cy = s / 2, s * 0.36
     body = (90, 200, 220, 255)
     c.shadow(cx, cy + 4, s * 0.17, s * 0.2)
-    pts = [(cx + wave(t, k * 0.25) * 3 * (k / 10), cy - s * 0.24 - k * s * 0.04) for k in range(11)]
-    c.line([(cx, cy - s * 0.2)] + pts, (180, 255, 245, 255), 1)
+    # Flagellum: a travelling wave that grows towards its tip
+    pts = [(cx + wave(t, -k * 0.7) * 3.5 * (k / 10), cy + s * 0.26 + k * s * 0.035) for k in range(11)]
+    c.line([(cx, cy + s * 0.2)] + pts, (180, 255, 245, 255), 1)
+    # Collar of microvilli flaring backwards around the flagellum base
     for k in range(-5, 6):
         x0 = cx + k * 1.6
-        c.d.line([(x0, cy - s * 0.15), (x0 + k * 1.1, cy - s * 0.33)], fill=(170, 250, 240, 255))
+        c.d.line([(x0, cy + s * 0.15), (x0 + k * 1.1, cy + s * 0.33)], fill=(170, 250, 240, 255))
     c.ellipse(cx, cy, s * 0.16, s * 0.2, body)
-    c.ellipse(cx, cy + 2, s * 0.07, s * 0.07, (60, 90, 170, 255))
-    c.dot(cx + 3, cy + 1, (255, 255, 255, 255), 0)
-    c.dot(cx - 4, cy - 4, shade(body, 1.4), 1)
-    c.dot(cx + 5, cy + 6, (120, 220, 140, 255), 1)
+    c.ellipse(cx, cy - 2, s * 0.07, s * 0.07, (60, 90, 170, 255))
+    c.dot(cx + 3, cy - 3, (255, 255, 255, 255), 0)
+    c.dot(cx - 4, cy + 4, shade(body, 1.4), 1)
+    c.dot(cx + 5, cy - 6, (120, 220, 140, 255), 1)
 
 
 def early_arthropod(c, t, s):
