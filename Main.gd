@@ -8,6 +8,7 @@ extends Node2D
 
 var level_gen = preload("res://LevelGenerator.gd")
 var room_scene = preload("res://Room.tscn")
+var fauna = preload("res://data/Fauna.gd")
 
 var floor_number: int = 1
 var dungeon_rooms: Dictionary = {}
@@ -104,6 +105,7 @@ func generate_floor():
     
     load_room(current_room_pos)
     hud.update_minimap(dungeon_rooms, current_room_pos)
+    hud.show_item_banner("WILDLIFE OF THIS ERA", fauna.describe_floor(floor_number))
 
 func load_room(grid_pos: Vector2i):
     hud.hide_boss_health()
