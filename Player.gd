@@ -970,8 +970,100 @@ func perform_bio_dash():
         if main and main.has_method("shake_camera"):
             main.shake_camera(12.0)
 
+    # Smoke / Ink Cloud (Abyssal Kraken Squid, Architeuthis Void Squid)
+    if current_dash_perks.get("smoke_cloud", false):
+        spawn_dash_smoke_cloud()
+
+    # Web Snare (Trapdoor Silk Reaper)
+    if current_dash_perks.get("web_snare", false):
+        spawn_dash_web_snare()
+
+    # Rolling Boulder (Ironclad Roller Titan)
+    if current_dash_perks.get("rolling_boulder", false):
+        invincibility_time = max(invincibility_time, dash_duration + 0.15)
+        var tw = create_tween()
+        tw.tween_property($Sprite2D, "rotation", $Sprite2D.rotation + TAU * 2.0, dash_duration)
+
     $Sprite2D.scale = Vector2(1.45, 0.65)
     $Sprite2D.rotation = dash_direction.angle() - PI/2
+
+func spawn_dash_smoke_cloud():
+    var cloud = Area2D.new()
+    cloud.position = global_position
+    cloud.collision_layer = 0
+    cloud.collision_mask = 2
+    
+    var col = CollisionShape2D.new()
+    var shape = CircleShape2D.new()
+    shape.radius = 65.0
+    col.shape = shape
+    cloud.add_child(col)
+    
+    var p = CPUParticles2D.new()
+    p.amount = 24
+    p.lifetime = 2.2
+    p.emission_shape = CPUParticles2D.EMISSION_SHAPE_SPHERE
+    p.emission_sphere_radius = 45.0
+    p.color = Color(0.12, 0.05, 0.25, 0.85)
+    p.initial_velocity_min = 5.0
+    p.initial_velocity_max = 25.0
+    p.scale_amount_min = 4.0
+    p.scale_amount_max = 9.0
+    cloud.add_child(p)
+    
+    get_parent().add_child(cloud)
+    
+    var timer_node = Timer.new()
+    timer_node.wait_time = 0.35
+    timer_node.autostart = true
+    cloud.add_child(timer_node)
+    timer_node.timeout.connect(func():
+        for body in cloud.get_overlapping_bodies():
+            if body.is_in_group("enemies"):
+                if body.has_method("take_damage"):
+                    body.take_damage(2.5)
+                if body.has_method("apply_stun") and randf() < 0.4:
+                    body.apply_stun(0.8)
+    )
+    var tw = get_tree().create_timer(3.5)
+    tw.timeout.connect(func(): if is_instance_valid(cloud): cloud.queue_free())
+
+func spawn_dash_web_snare():
+    var web = Area2D.new()
+    web.position = global_position
+    web.collision_layer = 0
+    web.collision_mask = 2
+    
+    var col = CollisionShape2D.new()
+    var shape = CircleShape2D.new()
+    shape.radius = 55.0
+    col.shape = shape
+    web.add_child(col)
+    
+    # Visual web silk rings
+    var line = Line2D.new()
+    line.width = 2.0
+    line.default_color = Color(0.9, 0.9, 1.0, 0.7)
+    var pts = PackedVector2Array()
+    for i in range(13):
+        var a = (float(i) / 12.0) * TAU
+        pts.append(Vector2(cos(a), sin(a)) * 50.0)
+    line.points = pts
+    web.add_child(line)
+    
+    get_parent().add_child(web)
+    
+    var timer_node = Timer.new()
+    timer_node.wait_time = 0.25
+    timer_node.autostart = true
+    web.add_child(timer_node)
+    timer_node.timeout.connect(func():
+        for body in web.get_overlapping_bodies():
+            if body.is_in_group("enemies") and body.has_method("apply_stun"):
+                body.apply_stun(1.5)
+    )
+    var tw = get_tree().create_timer(4.0)
+    tw.timeout.connect(func(): if is_instance_valid(web): web.queue_free())
 
 func spawn_dash_acid_pool():
     var pool = Area2D.new()
