@@ -98,7 +98,7 @@ func spawn_hit_chip_fx():
     p.color = Color(0.7, 0.85, 0.95, 0.8)
     get_parent().add_child(p)
     var timer = get_tree().create_timer(0.3)
-    timer.timeout.connect(func(): if is_instance_valid(p): p.queue_free())
+    timer.timeout.connect(p.queue_free)
 
 func destroy_rock():
     spawn_destruction_fx()
@@ -154,4 +154,4 @@ func spawn_destruction_fx():
             
     get_parent().add_child(particles)
     var timer = get_tree().create_timer(0.5)
-    timer.timeout.connect(func(): if is_instance_valid(particles): particles.queue_free())
+    timer.timeout.connect(particles.queue_free)

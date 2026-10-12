@@ -398,7 +398,7 @@ func spawn_dash_smoke_cloud():
                     body.apply_stun(0.8)
     )
     var tw = get_tree().create_timer(3.5)
-    tw.timeout.connect(func(): if is_instance_valid(cloud): cloud.queue_free())
+    tw.timeout.connect(cloud.queue_free)
 
 func spawn_dash_web_snare():
     var web = Area2D.new()
@@ -435,7 +435,7 @@ func spawn_dash_web_snare():
                 body.apply_stun(1.5)
     )
     var tw = get_tree().create_timer(4.0)
-    tw.timeout.connect(func(): if is_instance_valid(web): web.queue_free())
+    tw.timeout.connect(web.queue_free)
 
 func spawn_dash_acid_pool():
     var pool = Area2D.new()
@@ -469,7 +469,7 @@ func spawn_dash_acid_pool():
                 body.take_damage(2.0)
     )
     var tw = get_tree().create_timer(3.0)
-    tw.timeout.connect(func(): if is_instance_valid(pool): pool.queue_free())
+    tw.timeout.connect(pool.queue_free)
 
 func spawn_dash_particles():
     var p = CPUParticles2D.new()
@@ -488,7 +488,7 @@ func spawn_dash_particles():
     p.color = current_modulate * Color(1, 1, 1, 0.75)
     get_parent().add_child(p)
     var tw = get_tree().create_timer(0.3)
-    tw.timeout.connect(func(): if is_instance_valid(p): p.queue_free())
+    tw.timeout.connect(p.queue_free)
 
 func perform_bio_discharge():
     discharge_cooldown = max_discharge_cooldown

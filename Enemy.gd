@@ -988,8 +988,8 @@ func spawn_death_particles():
 		p2.color = Color(1.0, 1.0, 1.0, 0.9)
 		get_parent().add_child(p2)
 		var t2 = get_tree().create_timer(0.6)
-		t2.timeout.connect(func(): if is_instance_valid(p2): p2.queue_free())
+		t2.timeout.connect(p2.queue_free)
 		
 	get_parent().add_child(p)
 	var timer = get_tree().create_timer(p.lifetime + 0.1)
-	timer.timeout.connect(func(): if is_instance_valid(p): p.queue_free())
+	timer.timeout.connect(p.queue_free)

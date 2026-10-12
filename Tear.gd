@@ -190,10 +190,7 @@ func spawn_caustic_pool(pos: Vector2):
     )
     
     var tw = get_tree().create_timer(pool_lifetime)
-    tw.timeout.connect(func():
-        if is_instance_valid(pool):
-            pool.queue_free()
-    )
+    tw.timeout.connect(pool.queue_free)
 
 func trigger_electric_arc(source_enemy: Node):
     var enemies = get_tree().get_nodes_in_group("enemies")
@@ -243,7 +240,7 @@ func trigger_explosion():
     p.scale_amount_max = 6.0
     get_parent().add_child(p)
     var tw = get_tree().create_timer(0.45)
-    tw.timeout.connect(func(): if is_instance_valid(p): p.queue_free())
+    tw.timeout.connect(p.queue_free)
     SoundManager.play_sfx("explosion", 1.2, -2.0)
     var main = get_tree().get_first_node_in_group("main")
     if main and main.has_method("shake_camera"):
@@ -288,4 +285,4 @@ func spawn_splash_particles():
         
     get_parent().add_child(p)
     var timer = get_tree().create_timer(0.35)
-    timer.timeout.connect(func(): p.queue_free())
+    timer.timeout.connect(p.queue_free)
