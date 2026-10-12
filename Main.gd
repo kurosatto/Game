@@ -152,7 +152,7 @@ func get_boss_floor_color(floor_num: int) -> Color:
     match floor_num:
         1: return Color(0.70, 0.78, 0.98) * b  # Stentor: calming abyssal periwinkle
         2: return Color(0.60, 0.88, 0.94) * b  # Anomalocaris: Cambrian turquoise
-        3: return Color(0.65, 0.92, 0.80) * b  # Cameroceras: Devonian emerald seafoam
+        3: return Color(0.65, 0.92, 0.80) * b  # Cameroceras: Ordovician emerald seafoam
         4: return Color(0.70, 0.90, 0.65) * b  # Arthropleura: Carboniferous lush moss
         5: return Color(0.95, 0.75, 0.55) * b  # Postosuchus: Triassic desert amber
         6: return Color(0.98, 0.60, 0.55) * b  # Tyrannosaurus: Cretaceous volcanic glow
@@ -295,7 +295,7 @@ func get_room_theme_color(room_type: int) -> Color:
     match floor_number:
         1: floor_tint = Color(0.95, 0.98, 1.05) # Ediacaran
         2: floor_tint = Color(0.90, 1.05, 1.05) # Cambrian
-        3: floor_tint = Color(0.90, 1.08, 0.95) # Devonian
+        3: floor_tint = Color(0.90, 1.08, 0.95) # Ordovician
         4: floor_tint = Color(0.92, 1.05, 0.88) # Carboniferous
         5: floor_tint = Color(1.08, 0.90, 1.08) # Apex Boundary
         
