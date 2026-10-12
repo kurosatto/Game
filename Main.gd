@@ -3,6 +3,8 @@ extends Node2D
 
 @onready var hud = $HUD
 @onready var player = $Player
+# Not physics-interpolated (Main.tscn): it moves only by tweens and shake,
+# so it draws exactly where it is set each frame
 @onready var camera = $Camera2D
 @onready var transition_rect = $TransitionLayer/ColorRect
 
@@ -21,10 +23,6 @@ var camera_shake_amount: float = 0.0
 func _ready():
     add_to_group("main")
     setup_inputs()
-    # Physics interpolation (project.godot) smooths everything that moves in
-    # _physics_process. The camera only moves by tweens and shake every frame,
-    # so it draws exactly where it is set.
-    camera.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
     
     # Connect player signals to HUD
     player.health_changed.connect(hud.update_health)
