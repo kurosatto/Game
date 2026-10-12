@@ -99,7 +99,22 @@ func emit_all_signals():
     discharge_updated.emit(discharge_cooldown, max_discharge_cooldown)
     creature_changed.emit(current_character_name, current_character_clade, current_modulate)
 
+# Physics interpolation draws the player between its last two physics ticks.
+# Godot has no 2D getter for that drawn position, so keep the previous tick's
+# and blend the same way; the vision fog centres on it.
+var prev_tick_position: Vector2 = Vector2.ZERO
+
+func drawn_position() -> Vector2:
+    if not is_physics_interpolated_and_enabled():
+        return global_position
+    return prev_tick_position.lerp(global_position, Engine.get_physics_interpolation_fraction())
+
+func _notification(what: int):
+    if what == NOTIFICATION_RESET_PHYSICS_INTERPOLATION:
+        prev_tick_position = global_position
+
 func _physics_process(delta: float):
+    prev_tick_position = global_position
     # Dynamic redraw for animated creature anatomical accessories
     queue_redraw()
 
@@ -239,12 +254,12 @@ func _draw():
         "carapace":
             var shell_col = current_modulate * Color(0.8, 0.8, 0.8, 0.9)
             for r in [18.0, 24.0, 30.0]:
-                draw_arc(Vector2.ZERO, r, -PI * 0.7, PI * 0.7, 12, shell_col, 3.0)
+                draw_arc(Vector2.ZERO, r, -PI * 0.7, PI * 0.7, 12, shell_col, 3.0, true)
             # Lateral spines
-            draw_line(Vector2(-26, -10), Vector2(-38, -16), shell_col, 3.0)
-            draw_line(Vector2(26, -10), Vector2(38, -16), shell_col, 3.0)
-            draw_line(Vector2(-28, 10), Vector2(-42, 14), shell_col, 3.0)
-            draw_line(Vector2(28, 10), Vector2(42, 14), shell_col, 3.0)
+            draw_line(Vector2(-26, -10), Vector2(-38, -16), shell_col, 3.0, true)
+            draw_line(Vector2(26, -10), Vector2(38, -16), shell_col, 3.0, true)
+            draw_line(Vector2(-28, 10), Vector2(-42, 14), shell_col, 3.0, true)
+            draw_line(Vector2(28, 10), Vector2(42, 14), shell_col, 3.0, true)
             
         "tentacles":
             var tent_col = current_modulate * Color(1.3, 1.1, 1.4, 0.85)
@@ -253,22 +268,22 @@ func _draw():
                 var start = Vector2(cos(base_angle), sin(base_angle)) * 22.0
                 var mid = start + Vector2(cos(base_angle + sin(t * 6.0 + i) * 0.5), sin(base_angle + sin(t * 6.0 + i) * 0.5)) * 18.0
                 var tip = mid + Vector2(cos(base_angle + cos(t * 8.0 + i) * 0.7), sin(base_angle + cos(t * 8.0 + i) * 0.7)) * 14.0
-                draw_polyline(PackedVector2Array([start, mid, tip]), tent_col, 3.0)
-                draw_circle(tip, 2.5, Color.WHITE)
+                draw_polyline(PackedVector2Array([start, mid, tip]), tent_col, 3.0, true)
+                draw_circle(tip, 2.5, Color.WHITE, true, -1.0, true)
                 
         "shell":
             var shell_col = current_modulate * Color(1.1, 1.0, 0.8, 0.9)
-            draw_arc(Vector2.ZERO, 32.0, 0, TAU, 24, shell_col, 4.0)
-            draw_arc(Vector2(-6, 2), 22.0, 0, TAU * 0.85, 20, shell_col * 0.85, 3.0)
-            draw_arc(Vector2(-10, 4), 14.0, 0, TAU * 0.75, 16, shell_col * 0.7, 2.5)
+            draw_arc(Vector2.ZERO, 32.0, 0, TAU, 24, shell_col, 4.0, true)
+            draw_arc(Vector2(-6, 2), 22.0, 0, TAU * 0.85, 20, shell_col * 0.85, 3.0, true)
+            draw_arc(Vector2(-10, 4), 14.0, 0, TAU * 0.75, 16, shell_col * 0.7, 2.5, true)
             
         "wings":
             var wing_col = Color(0.3, 0.95, 1.0, 0.65)
             var flutter = sin(t * 24.0) * 12.0
-            draw_line(Vector2(-16, -6), Vector2(-54, -28 + flutter), wing_col, 3.0)
-            draw_line(Vector2(-16, 6), Vector2(-48, 18 - flutter), wing_col, 2.5)
-            draw_line(Vector2(16, -6), Vector2(54, -28 + flutter), wing_col, 3.0)
-            draw_line(Vector2(16, 6), Vector2(48, 18 - flutter), wing_col, 2.5)
+            draw_line(Vector2(-16, -6), Vector2(-54, -28 + flutter), wing_col, 3.0, true)
+            draw_line(Vector2(-16, 6), Vector2(-48, 18 - flutter), wing_col, 2.5, true)
+            draw_line(Vector2(16, -6), Vector2(54, -28 + flutter), wing_col, 3.0, true)
+            draw_line(Vector2(16, 6), Vector2(48, 18 - flutter), wing_col, 2.5, true)
             
         "stinger":
             var sting_col = current_modulate * Color(0.9, 1.2, 0.8, 0.95)
@@ -276,9 +291,9 @@ func _draw():
             var p2 = Vector2(sin(t * 5.0) * 6.0, 38)
             var p3 = Vector2(sin(t * 5.0) * 10.0, 52)
             var p4 = Vector2(sin(t * 5.0) * 8.0, 62)
-            draw_polyline(PackedVector2Array([p1, p2, p3, p4]), sting_col, 5.0)
-            draw_circle(p4, 5.5, Color(0.4, 1.0, 0.2, 1.0))
-            draw_line(p4, p4 + Vector2(4, -8), Color.WHITE, 2.0)
+            draw_polyline(PackedVector2Array([p1, p2, p3, p4]), sting_col, 5.0, true)
+            draw_circle(p4, 5.5, Color(0.4, 1.0, 0.2, 1.0), true, -1.0, true)
+            draw_line(p4, p4 + Vector2(4, -8), Color.WHITE, 2.0, true)
             
         "horns":
             var horn_col = current_modulate * Color(1.1, 1.2, 1.0, 0.9)
@@ -293,19 +308,19 @@ func _draw():
             
         "scythe":
             var scythe_col = current_modulate * Color(1.3, 0.8, 1.2, 0.95)
-            draw_arc(Vector2(-26, -14), 22.0, -PI*0.8, -PI*0.2, 12, scythe_col, 4.0)
-            draw_line(Vector2(-44, -26), Vector2(-36, -34), Color.WHITE, 2.0)
-            draw_arc(Vector2(26, -14), 22.0, -PI*0.8, -PI*0.2, 12, scythe_col, 4.0)
-            draw_line(Vector2(44, -26), Vector2(36, -34), Color.WHITE, 2.0)
+            draw_arc(Vector2(-26, -14), 22.0, -PI*0.8, -PI*0.2, 12, scythe_col, 4.0, true)
+            draw_line(Vector2(-44, -26), Vector2(-36, -34), Color.WHITE, 2.0, true)
+            draw_arc(Vector2(26, -14), 22.0, -PI*0.8, -PI*0.2, 12, scythe_col, 4.0, true)
+            draw_line(Vector2(44, -26), Vector2(36, -34), Color.WHITE, 2.0, true)
             
         "clubs":
             var club_col = Color(1.0, 0.2, 0.6, 0.95)
             var p_l = Vector2(-22, -24 + sin(t * 8.0) * 4.0)
             var p_r = Vector2(22, -24 + sin(t * 8.0) * 4.0)
-            draw_line(Vector2(-14, -10), p_l, club_col, 5.0)
-            draw_line(Vector2(14, -10), p_r, club_col, 5.0)
-            draw_circle(p_l, 7.0, Color(1.0, 0.9, 0.2))
-            draw_circle(p_r, 7.0, Color(1.0, 0.9, 0.2))
+            draw_line(Vector2(-14, -10), p_l, club_col, 5.0, true)
+            draw_line(Vector2(14, -10), p_r, club_col, 5.0, true)
+            draw_circle(p_l, 7.0, Color(1.0, 0.9, 0.2), true, -1.0, true)
+            draw_circle(p_r, 7.0, Color(1.0, 0.9, 0.2), true, -1.0, true)
             
         _:
             var cilia_col = current_modulate * Color(1.0, 1.0, 1.0, 0.5)
@@ -313,7 +328,7 @@ func _draw():
                 var a = (float(i) / 12.0) * TAU
                 var p1 = Vector2(cos(a), sin(a)) * 26.0
                 var p2 = p1 + Vector2(cos(a + sin(t * 7.0 + i) * 0.4), sin(a + sin(t * 7.0 + i) * 0.4)) * 9.0
-                draw_line(p1, p2, cilia_col, 2.0)
+                draw_line(p1, p2, cilia_col, 2.0, true)
 
 func perform_bio_dash():
     is_dashing = true

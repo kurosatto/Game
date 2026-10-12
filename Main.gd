@@ -3,6 +3,8 @@ extends Node2D
 
 @onready var hud = $HUD
 @onready var player = $Player
+# Not physics-interpolated (Main.tscn): it moves only by tweens and shake,
+# so it draws exactly where it is set each frame
 @onready var camera = $Camera2D
 @onready var transition_rect = $TransitionLayer/ColorRect
 
@@ -133,6 +135,7 @@ func generate_floor():
     # Position player at 1080p center
     player.global_position = Vector2(960, 540)
     player.velocity = Vector2.ZERO
+    player.reset_physics_interpolation() # teleport, don't glide there
     
     load_room(current_room_pos)
     hud.update_minimap(dungeon_rooms, current_room_pos)
@@ -247,6 +250,8 @@ func _on_room_transition_requested(direction: Vector2i):
     SoundManager.play_sfx("door_open", 1.1, -4.0)
     
     var target_ambient = get_room_theme_color(next_room_data.type)
+    # The tween moves the player every frame; draw it there directly
+    player.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
     var tween = create_tween()
     tween.set_parallel(true)
     tween.tween_property(camera, "position", target_cam_pos, 0.35).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN_OUT)
@@ -265,6 +270,10 @@ func _on_room_transition_requested(direction: Vector2i):
         player.global_position = local_enter_pos
         player.velocity = Vector2.ZERO
         player.door_cooldown = 0.4
+        # Both jumped back to the origin together with the camera
+        current_room_node.reset_physics_interpolation()
+        player.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_INHERIT
+        player.reset_physics_interpolation()
         player.invincibility_time = 0.8 # Buffer to prevent immediate contact damage
         
         current_room_pos = target_pos

@@ -52,11 +52,82 @@ func _ready():
             if has_node("TrailParticles"):
                 $TrailParticles.color = Color(glow.r, glow.g, glow.b, 0.5)
 
+    if has_node("TrailParticles"):
+        setup_trail($TrailParticles)
+
     if velocity == Vector2.ZERO:
         velocity = direction.normalized() * speed
     
     # Deferred: reacting can add/remove physics nodes, which Godot forbids mid physics step
     body_entered.connect(_on_body_entered, CONNECT_DEFERRED)
+
+# Glowing comet tail: a soft additive streak stretched behind the shot along
+# its flight, plus the particle trail as round fading dots instead of hard
+# square specks. One extra quad per shot, so it stays cheap on phones.
+# Textures, material and curves are built once and shared.
+const STREAK_W = 64
+const STREAK_H = 16
+static var dot_texture: GradientTexture2D
+static var streak_texture: ImageTexture
+static var additive: CanvasItemMaterial
+static var fade_ramp: Gradient
+static var shrink_curve: Curve
+var streak: Sprite2D
+
+static func build_trail_resources():
+    var g = Gradient.new()
+    g.set_color(0, Color(1, 1, 1, 1))
+    g.set_color(1, Color(1, 1, 1, 0))
+    dot_texture = GradientTexture2D.new()
+    dot_texture.gradient = g
+    dot_texture.fill = GradientTexture2D.FILL_RADIAL
+    dot_texture.fill_from = Vector2(0.5, 0.5)
+    dot_texture.fill_to = Vector2(1.0, 0.5)
+    dot_texture.width = 32
+    dot_texture.height = 32
+    # Bright at the head (right edge), fading to nothing at the tail
+    var img = Image.create(STREAK_W, STREAK_H, false, Image.FORMAT_RGBA8)
+    for x in STREAK_W:
+        var along = pow(float(x) / (STREAK_W - 1), 1.6)
+        for y in STREAK_H:
+            var across = 1.0 - abs(y - (STREAK_H - 1) / 2.0) / (STREAK_H / 2.0)
+            img.set_pixel(x, y, Color(1, 1, 1, along * across * across))
+    streak_texture = ImageTexture.create_from_image(img)
+    additive = CanvasItemMaterial.new()
+    additive.blend_mode = CanvasItemMaterial.BLEND_MODE_ADD
+    fade_ramp = Gradient.new()
+    fade_ramp.set_color(0, Color(1, 1, 1, 1))
+    fade_ramp.set_color(1, Color(1, 1, 1, 0))
+    shrink_curve = Curve.new()
+    shrink_curve.add_point(Vector2(0, 1))
+    shrink_curve.add_point(Vector2(1, 0.3))
+
+func setup_trail(p: CPUParticles2D):
+    if dot_texture == null:
+        build_trail_resources()
+    p.texture = dot_texture
+    p.material = additive
+    p.color_ramp = fade_ramp
+    p.scale_amount_curve = shrink_curve
+    p.scale_amount_min = 0.5
+    p.scale_amount_max = 0.7
+    streak = Sprite2D.new()
+    streak.texture = streak_texture
+    streak.material = additive
+    streak.centered = false
+    streak.offset = Vector2(-STREAK_W, -STREAK_H / 2.0)
+    streak.modulate = Color(p.color.r, p.color.g, p.color.b).lerp(Color.WHITE, 0.25)
+    streak.show_behind_parent = true
+    add_child(streak)
+    move_child(streak, 0)
+
+func update_streak():
+    if streak == null:
+        return
+    # Tail length follows speed: about a sixth of a second of flight
+    var length = clamp(velocity.length() * 0.16, 50.0, 150.0)
+    streak.rotation = velocity.angle()
+    streak.scale = Vector2(length / STREAK_W, 1.6)
 
 func _physics_process(delta: float):
     if is_homing and not is_enemy_tear:
@@ -74,6 +145,7 @@ func _physics_process(delta: float):
             velocity = velocity.lerp(target_dir * speed, delta * 7.5)
 
     position += velocity * delta
+    update_streak()
     if projectile_kind in POINTED and not is_enemy_tear:
         $Sprite2D.rotation = velocity.angle()
     else:

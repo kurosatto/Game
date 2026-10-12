@@ -15,7 +15,7 @@ const KIND_COLORS = {
 }
 
 var fog: Node
-var player: Node2D
+var player # Player.gd (uses its drawn_position())
 var sense: int = 1
 var color: Color = Color(1, 1, 1)
 var time: float = 0.0
@@ -38,7 +38,7 @@ func _draw():
 		if player == null:
 			return
 	var to_local = get_global_transform_with_canvas().affine_inverse()
-	var center = to_local * player.get_global_transform_with_canvas().origin
+	var center = to_local * (player.get_canvas_transform() * player.drawn_position())
 	var radius: float = fog.radius
 	var reach = 300.0 + sense * 150.0          # 450 px past the light for 1, 1800 for 10
 	var clarity = 0.35 + sense * 0.06          # arrow opacity at its strongest
