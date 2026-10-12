@@ -30,8 +30,14 @@ var hit_flash_timer: float = 0.0
 var knockback_velocity: Vector2 = Vector2.ZERO
 var stun_timer: float = 0.0
 
+# Era look for regular enemies (data/Fauna.gd)
+var base_tint: Color = Color.WHITE
+var base_scale: float = 1.0
+var fauna_name: String = ""
+
 # Preloads
 var tear_scene = preload("res://Tear.tscn")
+var fauna = preload("res://data/Fauna.gd")
 
 @onready var light = $PointLight2D
 
@@ -41,6 +47,8 @@ func _ready():
 	pick_random_wander()
 
 func setup_enemy(floor_number: int):
+	# Each enemy needs its own shape, or a boss radius leaks into every enemy
+	$CollisionShape2D.shape = $CollisionShape2D.shape.duplicate()
 	if enemy_type == "fly":
 		# Amoeba Swarmer
 		max_health = 4.0 + floor_number * 1.5
@@ -193,6 +201,8 @@ func setup_enemy(floor_number: int):
 
 	health = max_health
 
+	if not is_boss():
+		apply_fauna(floor_number)
 	if is_boss():
 		call_deferred("emit_boss_health")
 
@@ -201,6 +211,18 @@ func is_boss() -> bool:
 		"boss_stentor", "boss_anomalocaris", "boss_cameroceras",
 		"boss_arthropleura", "boss_postosuchus", "boss_tyrannosaurus", "boss_apex_sovereign"
 	]
+
+func apply_fauna(floor_number: int):
+	var f = fauna.get_fauna(floor_number, enemy_type)
+	if f.is_empty():
+		return
+	fauna_name = f.name
+	base_tint = f.tint
+	base_scale = f.scale
+	speed *= f.speed
+	$Sprite2D.modulate = base_tint
+	$Sprite2D.scale = Vector2(base_scale, base_scale)
+	$CollisionShape2D.shape.radius *= base_scale
 
 func emit_boss_health():
 	boss_health_changed.emit(health, max_health, boss_title)
@@ -217,7 +239,7 @@ func _physics_process(delta: float):
 	if hit_flash_timer > 0:
 		hit_flash_timer -= delta
 	else:
-		$Sprite2D.modulate = Color.WHITE
+		$Sprite2D.modulate = base_tint
 
 	if not player or not is_instance_valid(player):
 		return
@@ -240,7 +262,7 @@ func _physics_process(delta: float):
 
 		var sx = 1.0 + sin(anim_timer * 8.0) * 0.12
 		var sy = 1.0 - sin(anim_timer * 8.0) * 0.12
-		$Sprite2D.scale = Vector2(sx, sy)
+		$Sprite2D.scale = Vector2(sx, sy) * base_scale
 		$Sprite2D.frame = int(fmod(anim_timer * 6.0, 4.0))
 
 	elif enemy_type == "pacer":
@@ -902,7 +924,7 @@ func take_damage(amount: float):
 	# Bright white flash Tween
 	$Sprite2D.modulate = Color(3.0, 2.5, 2.5, 1.0)
 	var flash_tween = create_tween()
-	flash_tween.tween_property($Sprite2D, "modulate", Color.WHITE, 0.20)
+	flash_tween.tween_property($Sprite2D, "modulate", base_tint, 0.20)
 	
 	if is_boss():
 		boss_health_changed.emit(health, max_health, boss_title)
