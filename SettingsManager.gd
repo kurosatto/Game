@@ -58,6 +58,9 @@ func set_sfx_volume(val: float):
 
 func set_window_mode(index: int):
     window_mode_index = index
+    # Phones always run fullscreen; the desktop window sizes don't apply
+    if OS.has_feature("mobile"):
+        return
     match index:
         0: # 1280x720
             DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)

@@ -74,6 +74,12 @@ func _process(delta: float):
         if Input.is_key_pressed(KEY_R):
             get_tree().reload_current_scene()
 
+func _input(event: InputEvent):
+    # Tap anywhere to restart on touch screens (no R key on a phone)
+    if event is InputEventScreenTouch and event.pressed:
+        if hud.game_over_screen.visible or hud.victory_screen.visible:
+            get_tree().reload_current_scene()
+
 func shake_camera(amount: float):
     camera_shake_amount = amount
 
