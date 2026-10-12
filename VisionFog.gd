@@ -24,7 +24,7 @@ void fragment() {
 var rect: ColorRect
 var hints: Control
 var mat: ShaderMaterial
-var player: Node2D
+var player # Player.gd (uses its drawn_position())
 
 # Current values, eased toward the target after each evolution
 var radius: float = 0.0
@@ -70,7 +70,8 @@ func _process(delta: float):
 			return
 	radius = move_toward(radius, target_radius, delta * 400.0)
 	darkness = move_toward(darkness, target_darkness, delta * 0.4)
-	var screen_pos = player.get_global_transform_with_canvas().origin
+	# Interpolated position: where the player is drawn this frame
+	var screen_pos = player.get_canvas_transform() * player.drawn_position()
 	var local_pos = rect.get_global_transform_with_canvas().affine_inverse() * screen_pos
 	mat.set_shader_parameter("rect_size", rect.size)
 	mat.set_shader_parameter("center", local_pos)
