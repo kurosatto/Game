@@ -46,6 +46,8 @@ var current_tear_perks: Dictionary = {}
 var current_dash_perks: Dictionary = {}
 var current_passive: String = "none"
 var vision: int = 1 # 1-10, see Lineages.VISION; Main.gd passes it to VisionFog
+var sense: int = 1 # 1-10, best non-visual sense, see Lineages.SENSES
+var sense_kind: String = ""
 
 # Passive timer
 var regen_timer: float = 0.0
@@ -857,6 +859,8 @@ func apply_form(data: Dictionary):
     current_dash_perks = data.dash_perks
     current_passive = data.passive
     vision = lineages.get_vision(data)
+    sense = lineages.get_sense(data)
+    sense_kind = lineages.SENSES.get(data.id, [1, "Touch"])[1]
 
     speed = data.speed
     damage = data.damage

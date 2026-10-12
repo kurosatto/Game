@@ -49,7 +49,23 @@ func _initialize():
 	# Vision fog: starting cell (blind) vs. a dragonfly (best eyes)
 	var fog = main.get_node("VisionFog")
 	fog.set_vision(1, true)
+	fog.set_sense(4, "Chemical sense")
+	# Hidden enemies around the cell so the sense arrows show
+	var hidden := []
+	for pos in [Vector2(300, 250), Vector2(1600, 300), Vector2(1500, 850), Vector2(400, 900)]:
+		var he = load("res://Enemy.tscn").instantiate()
+		he.enemy_type = "pacer"
+		he.position = pos
+		he.process_mode = Node.PROCESS_MODE_DISABLED
+		main.current_room_node.add_child(he)
+		he.setup_enemy(1)
+		hidden.append(he)
 	await snap("1d_vision_cell")
+	fog.set_sense(9, "Smell")
+	await snap("1f_sense_mammal")
+	for he in hidden:
+		he.queue_free()
+	fog.set_sense(main.player.sense, main.player.sense_kind)
 	fog.set_vision(10, true)
 	await snap("1e_vision_dragonfly")
 	fog.set_vision(main.player.vision, true)

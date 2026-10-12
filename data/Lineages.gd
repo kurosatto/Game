@@ -1257,6 +1257,81 @@ static func describe_vision(data: Dictionary) -> String:
     var entry = VISION.get(data.get("id", ""), [1, "unknown"])
     return "Vision: %s, %s" % [VISION_WORDS[entry[0]], entry[1]]
 
+# Each form's best sense besides sight, 1 (weak) to 10 (superb): which sense it
+# is, and why. SenseHints.gd turns it into faint arrows at the edge of the lit
+# circle pointing at enemies hidden in the dark: a stronger sense reaches
+# further and shows clearer arrows. Mammals rely on smell (think of a mole),
+# sharks feel electric fields, fish feel water movement with the lateral line.
+const SENSES = {
+    "ancestral_collar_cell": [4, "Chemical sense", "swims up chemical trails, the oldest sense there is"],
+    "pikaia_chordate": [3, "Touch", "feels water currents along the body"],
+    "early_echinoderm": [3, "Chemical sense", "tube feet taste the water"],
+    "early_mollusc": [4, "Smell", "the osphradium tastes the water entering the gills"],
+    "early_arthropod": [4, "Touch", "antennae feel and taste the way ahead"],
+    "jawed_fish": [6, "Lateral line", "senses the water pushed by moving animals"],
+    "jawless_fish": [5, "Smell", "a single nostril on top of the head"],
+    "sea_lily": [2, "Chemical sense", "arms catch scents drifting in the current"],
+    "free_moving_echinoderm": [4, "Chemical sense", "tube feet smell prey from afar"],
+    "cephalopod": [5, "Touch", "suckers that taste what they touch"],
+    "sea_snail": [5, "Smell", "a siphon sniffs the water like a snorkel"],
+    "bivalve": [3, "Touch", "the mantle edge feels vibrations"],
+    "chelicerate": [5, "Vibration", "leg hairs feel the slightest tremor"],
+    "mandibulate": [6, "Smell", "antennae covered in scent receptors"],
+    "lobe_finned_shorewalker": [6, "Lateral line", "feels movement in shallow water"],
+    "early_shark": [8, "Electroreception", "pores that feel the heartbeat of hidden prey"],
+    "ray_finned_fish": [6, "Lateral line", "feels a school mate turn before seeing it"],
+    "lamprey": [6, "Smell", "follows the scent of fish and of spawning rivers"],
+    "hagfish": [8, "Smell", "finds a carcass on the dark sea floor by scent alone"],
+    "sea_star_line": [5, "Smell", "tube feet track the scent of mussels"],
+    "spiny_echinozoan": [3, "Chemical sense", "tube feet taste the sea floor"],
+    "nautilus": [7, "Smell", "tentacles smell carrion metres away in the dark"],
+    "coleoid": [5, "Touch", "suckers that taste, plus a lateral line on the head"],
+    "predatory_sea_snail": [8, "Smell", "whelks and cone snails smell prey from far off"],
+    "sea_slug_line": [6, "Smell", "rhinophores, the ear-like horns, are scent organs"],
+    "scallop": [4, "Touch", "sensory tentacles feel the water flow"],
+    "burrowing_clam": [3, "Touch", "feels vibrations through the sand"],
+    "horseshoe_crab": [5, "Chemical sense", "tastes the water with its legs"],
+    "arachnid": [7, "Vibration", "slit organs in the legs feel footsteps"],
+    "myriapod": [6, "Touch", "long antennae feel the way in the dark"],
+    "pancrustacean": [7, "Smell", "antennae smell food and mates"],
+    "synapsid": [9, "Smell", "mammals live by their noses, a mole hunts almost by smell alone"],
+    "lissamphibian": [5, "Smell", "smells through the nose and the roof of the mouth"],
+    "sauropsid": [6, "Smell", "a forked tongue tastes the air in stereo"],
+    "shark_line": [10, "Electroreception", "ampullae of Lorenzini feel prey buried in sand"],
+    "chimaera": [8, "Electroreception", "electric sensing pores all over the head"],
+    "sturgeon_line": [8, "Electroreception", "a snout full of electric sensors and barbels"],
+    "teleost_line": [7, "Lateral line", "feels every swirl in the water"],
+    "sea_star": [5, "Smell", "follows the scent of clams across the sea floor"],
+    "brittle_star": [4, "Chemical sense", "arms taste the water for food"],
+    "sea_urchin": [3, "Chemical sense", "tube feet taste the rocks"],
+    "sea_cucumber": [3, "Touch", "feeding tentacles feel the sediment"],
+    "squid_line": [6, "Lateral line", "a lateral line on the head feels movement"],
+    "octopus_line": [7, "Touch", "two thousand suckers that touch and taste at once"],
+    "scorpion": [8, "Vibration", "feels a beetle's steps through the sand"],
+    "spider": [8, "Vibration", "reads every twitch of its web"],
+    "centipede": [7, "Touch", "long antennae lead the hunt in the dark"],
+    "millipede": [5, "Touch", "short antennae tap the ground ahead"],
+    "dragonfly_line": [3, "Touch", "tiny antennae, sight does almost everything"],
+    "beetle": [7, "Smell", "some beetles smell a forest fire 50 km away"],
+    "mantis_shrimp_line": [6, "Smell", "antennules sniff out burrows and rivals"],
+}
+
+const SENSE_WORDS = ["", "Faint", "Weak", "Weak", "Fair", "Fair", "Good", "Good", "Strong", "Strong", "Superb"]
+
+# Non-visual sense rating 1-10 for a form (1 when unknown)
+static func get_sense(data: Dictionary) -> int:
+    return SENSES.get(data.get("id", ""), [1, "", ""])[0]
+
+static func describe_sense(data: Dictionary) -> String:
+    var entry = SENSES.get(data.get("id", ""), [1, "Touch", "unknown"])
+    return "%s: %s, %s" % [entry[1], SENSE_WORDS[entry[0]], entry[2]]
+
+# One short line for the evolution cards, which have little room left
+static func describe_senses(data: Dictionary) -> String:
+    var eyes = VISION.get(data.get("id", ""), [1, ""])
+    var other = SENSES.get(data.get("id", ""), [1, "Touch", ""])
+    return "Sight: %s · %s: %s" % [VISION_WORDS[eyes[0]], other[1], SENSE_WORDS[other[0]]]
+
 # How each form attacks, set per form by "weapon" and named by "weapon_name".
 # Ranged weapons fire Tear.gd projectiles drawn from assets/projectiles/<kind>.png;
 # speed and life scale the form's shot_speed and range. Melee weapons hit every
@@ -1322,7 +1397,7 @@ static func describe_perks(data: Dictionary) -> String:
     var weapon = weapon_stats(data.get("weapon", "vesicle"))
     var melee = weapon.melee
     lines.append("Attack: %s (%s)" % [data.get("weapon_name", "Lysosome vesicles"), weapon.label])
-    lines.append(describe_vision(data))
+    lines.append(describe_senses(data))
     var attacks = {
         "triple": "Triple-shot spread", "5way": "Five-way spread", "7way": "Seven-way spread",
         "needle": "Rapid needles, every third shot is a piercing strike",
