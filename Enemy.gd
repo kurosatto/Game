@@ -1004,6 +1004,30 @@ func die():
 	enemy_died.emit()
 	queue_free()
 
+# Average colour of the species sheet's first frame, cached per texture
+static var _burst_colors: Dictionary = {}
+
+func species_burst_color() -> Color:
+	var tex: Texture2D = $Sprite2D.texture
+	var key = tex.resource_path
+	if not _burst_colors.has(key):
+		var img = tex.get_image()
+		var c = Color(0, 0, 0, 0)
+		var n = 0
+		if img:
+			if img.is_compressed():
+				img.decompress()
+			var fw = img.get_width() / 4
+			for x in range(0, fw, 3):
+				for y in range(0, img.get_height(), 3):
+					var px = img.get_pixel(x, y)
+					if px.a > 0.9 and px.get_luminance() > 0.2:
+						c += px
+						n += 1
+		_burst_colors[key] = (c / n).lightened(0.15) if n > 0 else Color(0.9, 0.9, 0.9)
+	var base: Color = _burst_colors[key] * base_tint
+	return Color(base.r, base.g, base.b, 0.95)
+
 func spawn_death_particles():
 	var p = CPUParticles2D.new()
 	p.position = global_position
@@ -1024,6 +1048,15 @@ func spawn_death_particles():
 		p.amount = 32
 		p.lifetime = 0.9
 		p.color = Color(0.0, 0.9, 0.8, 0.95)
+	if has_species_art:
+		# Burst in the animal's own colours rather than the old blob purple/teal
+		p.color = species_burst_color()
+	if not is_boss():
+		var fade = Gradient.new()
+		fade.set_color(0, Color(1.4, 1.4, 1.4, 1.0))
+		fade.add_point(0.25, Color(1, 1, 1, 1))
+		fade.set_color(1, Color(1, 1, 1, 0.0))
+		p.color_ramp = fade
 	elif enemy_type == "boss_stentor":
 		p.amount = 70
 		p.lifetime = 1.6
