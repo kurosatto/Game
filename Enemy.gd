@@ -34,6 +34,14 @@ var stun_timer: float = 0.0
 var base_tint: Color = Color.WHITE
 var base_scale: float = 1.0
 var fauna_name: String = ""
+var behavior: String = ""
+var weave_phase: float = 0.0
+var shoot_delay_mult: float = 1.0
+# Lunge: "windup" (telegraph) then "dash" at the player
+var lunge_state: String = ""
+var lunge_timer: float = 0.0
+var lunge_cooldown: float = 0.0
+var lunge_dir: Vector2 = Vector2.ZERO
 
 # Preloads
 var tear_scene = preload("res://Tear.tscn")
@@ -223,6 +231,37 @@ func apply_fauna(floor_number: int):
 	$Sprite2D.modulate = base_tint
 	$Sprite2D.scale = Vector2(base_scale, base_scale)
 	$CollisionShape2D.shape.radius *= base_scale
+	behavior = f.get("behavior", "")
+	shoot_delay_mult = f.get("shoot_delay", 1.0)
+	weave_phase = randf() * TAU
+	lunge_cooldown = randf_range(1.0, 2.5)
+
+# Ambush predators wind up, then dash at the player. Returns true while lunging.
+func process_lunge(delta: float) -> bool:
+	if lunge_state == "windup":
+		lunge_timer -= delta
+		$Sprite2D.modulate = base_tint.lerp(Color(2.0, 1.2, 1.2), 0.5 + 0.5 * sin(anim_timer * 40.0))
+		if lunge_timer <= 0:
+			lunge_state = "dash"
+			lunge_timer = 0.35
+		return true
+	if lunge_state == "dash":
+		lunge_timer -= delta
+		velocity = lunge_dir * speed * 4.0
+		$Sprite2D.rotation = lunge_dir.angle() - PI/2
+		if move_and_slide() or lunge_timer <= 0:
+			lunge_state = ""
+			lunge_cooldown = randf_range(2.0, 3.2)
+			$Sprite2D.modulate = base_tint
+		return true
+	lunge_cooldown -= delta
+	if lunge_cooldown <= 0 and global_position.distance_to(player.global_position) < 420.0:
+		lunge_state = "windup"
+		lunge_timer = 0.45
+		lunge_dir = (player.global_position - global_position).normalized()
+		velocity = Vector2.ZERO
+		return true
+	return false
 
 func emit_boss_health():
 	boss_health_changed.emit(health, max_health, boss_title)
@@ -257,6 +296,12 @@ func _physics_process(delta: float):
 
 	if enemy_type == "fly":
 		var dir = (player.global_position - global_position).normalized()
+		if behavior == "weave":
+			# Swimmers and fliers approach in an S-curve instead of a straight line
+			dir = dir.rotated(sin(anim_timer * 3.0 + weave_phase) * 0.9)
+		elif behavior == "burst":
+			# Short sprints with pauses between them
+			dir *= 1.6 if fmod(anim_timer + weave_phase, 1.6) < 0.7 else 0.25
 		velocity = dir * speed
 		move_and_slide()
 
@@ -270,6 +315,10 @@ func _physics_process(delta: float):
 		if wander_timer <= 0:
 			pick_random_wander()
 
+		if behavior == "lunge" and process_lunge(delta):
+			check_contact_damage()
+			return
+
 		velocity = wander_dir * speed
 		if move_and_slide():
 			pick_random_wander()
@@ -280,7 +329,7 @@ func _physics_process(delta: float):
 		shoot_timer -= delta
 		if shoot_timer <= 0:
 			shoot_at_player()
-			shoot_timer = randf_range(1.5, 2.5)
+			shoot_timer = randf_range(1.5, 2.5) * shoot_delay_mult
 
 	elif enemy_type == "boss_stentor":
 		$Sprite2D.frame = int(fmod(anim_timer * 4.5, 6.0))
