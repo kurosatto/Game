@@ -37,6 +37,9 @@ func _ready():
     SettingsManager.set_brightness(SettingsManager.brightness)
     
     start_new_game()
+    # How-to-play card; tools/*.gd drive the game from a script, so skip it there
+    if get_tree().get_script() == null:
+        hud.show_run_intro(hud.lineages.get_form(""))
 
 func setup_inputs():
     var inputs = {
@@ -316,6 +319,9 @@ func on_boss_defeated(f_num: int):
 
 func _on_evolution_selected(floor_num: int, choice_index: int):
     player.apply_evolution(floor_num, choice_index)
+    var path_key = hud.lineages.path_key(player.evolution_choices)
+    if hud.lineages.has_form(path_key) and get_tree().get_script() == null:
+        hud.show_evolved_card(hud.lineages.get_form(path_key))
     if current_room_node and current_room_node.has_method("spawn_trapdoor"):
         current_room_node.spawn_trapdoor()
 
