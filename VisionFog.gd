@@ -1,7 +1,8 @@
 # VisionFog.gd
 # Darkness around the player whose size follows how well the current form sees
 # (data/Lineages.gd VISION). One full-screen rect with a tiny shader, so it
-# stays cheap on the phone's Compatibility renderer.
+# stays cheap on the phone's Compatibility renderer. SenseHints.gd draws arrows
+# toward enemies hidden in the dark on top of it.
 extends CanvasLayer
 
 const SHADER_CODE = """
@@ -21,6 +22,7 @@ void fragment() {
 """
 
 var rect: ColorRect
+var hints: Control
 var mat: ShaderMaterial
 var player: Node2D
 
@@ -43,7 +45,14 @@ func _ready():
 	mat.shader = shader
 	rect.material = mat
 	add_child(rect)
+	hints = preload("res://SenseHints.gd").new()
+	hints.fog = self
+	add_child(hints)
 	set_vision(1, true)
+
+# rating: 1-10 and the sense's name from Lineages.SENSES
+func set_sense(rating: int, kind: String):
+	hints.set_sense(rating, kind)
 
 # rating: 1 (blind) to 10 (best eyes alive)
 func set_vision(rating: int, instant: bool = false):
