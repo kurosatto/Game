@@ -89,7 +89,6 @@ static func get_normal_layouts() -> Array:
                 {"gx": 11, "gy": 6, "type": "rock"},
             ],
             "decals": [
-                {"gx": 7, "gy": 3, "type": "decal_vent"},
                 {"gx": 5, "gy": 2, "type": "decal_moss"},
                 {"gx": 9, "gy": 5, "type": "decal_moss"},
             ],
@@ -148,7 +147,6 @@ static func get_normal_layouts() -> Array:
             "decals": [
                 {"gx": 2, "gy": 3, "type": "decal_moss"},
                 {"gx": 12, "gy": 4, "type": "decal_moss"},
-                {"gx": 7, "gy": 3, "type": "decal_vent"},
             ],
             "enemy_spawns": [
                 {"gx": 2, "gy": 2, "type": "fly"},
@@ -230,8 +228,6 @@ static func get_normal_layouts() -> Array:
                 {"gx": 9, "gy": 5, "type": "biocrystal"},
             ],
             "decals": [
-                {"gx": 7, "gy": 3, "type": "decal_vent"},
-                {"gx": 7, "gy": 4, "type": "decal_vent"},
                 {"gx": 3, "gy": 3, "type": "decal_moss"},
                 {"gx": 11, "gy": 4, "type": "decal_moss"},
             ],
@@ -319,7 +315,6 @@ static func get_normal_layouts() -> Array:
                 {"gx": 3, "gy": 3, "type": "decal_moss"},
                 {"gx": 11, "gy": 4, "type": "decal_moss"},
                 {"gx": 7, "gy": 3, "type": "decal_rune"},
-                {"gx": 7, "gy": 5, "type": "decal_vent"},
             ],
             "enemy_spawns": [
                 {"gx": 3, "gy": 1, "type": "fly"},
@@ -372,7 +367,6 @@ static func get_normal_layouts() -> Array:
                 {"gx": 8, "gy": 5, "type": "biocrystal"},
             ],
             "decals": [
-                {"gx": 7, "gy": 3, "type": "decal_vent"},
                 {"gx": 7, "gy": 4, "type": "decal_rune"},
                 {"gx": 2, "gy": 3, "type": "decal_moss"},
                 {"gx": 12, "gy": 4, "type": "decal_moss"},
@@ -400,7 +394,6 @@ static func get_normal_layouts() -> Array:
                 {"gx": 7, "gy": 4, "type": "decal_fossil"},
                 {"gx": 4, "gy": 2, "type": "decal_moss"},
                 {"gx": 10, "gy": 5, "type": "decal_moss"},
-                {"gx": 6, "gy": 4, "type": "decal_vent"},
             ],
             "enemy_spawns": [
                 {"gx": 4, "gy": 3, "type": "fly"},
@@ -457,8 +450,6 @@ static func get_normal_layouts() -> Array:
                 {"gx": 8, "gy": 5, "type": "calcified_sponge"},
             ],
             "decals": [
-                {"gx": 7, "gy": 3, "type": "decal_vent"},
-                {"gx": 7, "gy": 4, "type": "decal_vent"},
                 {"gx": 4, "gy": 3, "type": "decal_fossil"},
                 {"gx": 10, "gy": 4, "type": "decal_fossil"},
                 {"gx": 3, "gy": 5, "type": "decal_rune"},
@@ -490,10 +481,6 @@ static func get_normal_layouts() -> Array:
                 {"gx": 9, "gy": 3, "type": "stromatolite"},
             ],
             "decals": [
-                {"gx": 7, "gy": 3, "type": "decal_vent"},
-                {"gx": 7, "gy": 4, "type": "decal_vent"},
-                {"gx": 4, "gy": 5, "type": "decal_vent"},
-                {"gx": 10, "gy": 2, "type": "decal_vent"},
                 {"gx": 2, "gy": 3, "type": "decal_fossil"},
                 {"gx": 12, "gy": 4, "type": "decal_fossil"},
             ],
@@ -596,8 +583,6 @@ static func get_boss_layout() -> Dictionary:
             {"gx": 12, "gy": 5, "type": "hydrothermal_vent"},
         ],
         "decals": [
-            {"gx": 7, "gy": 3, "type": "decal_vent"},
-            {"gx": 7, "gy": 4, "type": "decal_vent"},
             {"gx": 6, "gy": 3, "type": "decal_rune"},
             {"gx": 8, "gy": 4, "type": "decal_rune"},
             {"gx": 4, "gy": 3, "type": "decal_fossil"},
