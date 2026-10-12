@@ -133,7 +133,7 @@ func generate_floor():
     
     load_room(current_room_pos)
     hud.update_minimap(dungeon_rooms, current_room_pos)
-    hud.show_item_banner("WILDLIFE OF THIS ERA", fauna.describe_floor(floor_number))
+    hud.show_item_banner("WILDLIFE OF THIS ERA", fauna.describe_floor(floor_number), true)
 
 func load_room(grid_pos: Vector2i):
     hud.hide_boss_health()
