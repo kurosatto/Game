@@ -5,7 +5,6 @@ extends Area2D
 @export var damage: float = 3.5
 @export var lifetime: float = 0.85
 @export var is_enemy_tear: bool = false
-@export var slows_target: bool = false # Velvet worm / spider silk
 
 var direction: Vector2 = Vector2.ZERO
 var velocity: Vector2 = Vector2.ZERO
@@ -99,8 +98,6 @@ func _on_body_entered(body: Node):
         if body.is_in_group("enemies") and body.has_method("take_damage"):
             SoundManager.play_sfx("hit", 1.0)
             body.take_damage(damage)
-            if slows_target and body.has_method("apply_slow"):
-                body.apply_slow(1.5)
             
             if knockback_force > 0 and body.has_method("apply_knockback"):
                 body.apply_knockback(velocity.normalized() * knockback_force, 0.3)
