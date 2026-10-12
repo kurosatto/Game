@@ -6,7 +6,7 @@ signal evolution_selected(floor_num: int, choice_index: int)
 const ERA_NAMES = {
     1: "ERA 1: EDIACARAN SOUP (600 MYA)",
     2: "ERA 2: CAMBRIAN RADIANCE (540 MYA)",
-    3: "ERA 3: DEVONIAN WATERS (420 MYA)",
+    3: "ERA 3: ORDOVICIAN SEAS (460 MYA)",
     4: "ERA 4: CARBONIFEROUS SWAMPS (350 MYA)",
     5: "ERA 5: APEX EXTINCTION BOUNDARY (250 MYA)"
 }
