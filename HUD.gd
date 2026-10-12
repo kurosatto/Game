@@ -517,3 +517,165 @@ func _on_evolution_choice_clicked(floor_num: int, choice_idx: int):
     get_tree().paused = false
     SoundManager.play_sfx("evolve")
     evolution_selected.emit(floor_num, choice_idx)
+
+# ---- How-to-play cards ----
+# A short card at the start of a run (what you are, how to play) and after
+# each evolution (your new form and its attack). Pauses until a tap or key.
+
+var intro_card: Control = null
+var intro_ready_time: int = 0
+
+func show_run_intro(form: Dictionary):
+    var touch = TouchControls.should_show()
+    var weapon = lineages.weapon_stats(form.get("weapon", "vesicle"))
+    var rows: Array
+    if touch:
+        rows = [
+            ["MOVE", "Drag the left side of the screen"],
+            ["AIM & FIRE", "Drag the right side; you fire while you hold it"],
+            ["DASH", "Tap DASH to dart away, untouchable for a moment"],
+            ["ZAP", "Tap ZAP for an electric burst around you (recharges)"],
+            ["PAUSE", "⏸ PAUSE, top right"],
+        ]
+    else:
+        rows = [
+            ["MOVE", "W A S D or the arrow keys"],
+            ["AIM & FIRE", "I J K L, or hold the left mouse button to aim at the cursor"],
+            ["DASH", "Space / Shift / right-click to dart away, untouchable for a moment"],
+            ["ZAP", "E / Q / middle-click for an electric burst around you (recharges)"],
+            ["PAUSE", "Esc"],
+        ]
+    rows.append(["SIGHT", lineages.describe_vision(form).trim_prefix("Vision: ") + ". Evolve better eyes to see further."])
+    var attack_line = "Your attack: %s, %s." % [form.get("weapon_name", "Lysosome vesicles").to_lower(), _weapon_hint(weapon)]
+    _show_card(
+        "YOU ARE THE " + form.get("name", "ANCESTRAL COLLAR CELL"),
+        form.get("fact", ""),
+        rows,
+        attack_line + "\nClear each room, beat the era's boss, then pick what your lineage evolves into.",
+        form.get("color", Color(0.0, 0.95, 1.0)))
+
+func show_evolved_card(form: Dictionary):
+    var weapon = lineages.weapon_stats(form.get("weapon", "vesicle"))
+    var aim = "the right stick" if TouchControls.should_show() else "I J K L or the mouse"
+    var how = "Aim with %s to strike in front of you." % aim if weapon.get("melee", false) \
+        else "Aim with %s to fire." % aim
+    _show_card(
+        "YOU ARE NOW " + form.get("name", "YOUR LINEAGE"),
+        "Living today: " + form.get("living_example", ""),
+        [["NEW ATTACK", "%s (%s)" % [form.get("weapon_name", ""), weapon.get("label", "")]], ["HOW", how],
+            ["SIGHT", lineages.describe_vision(form).trim_prefix("Vision: ")]],
+        "",
+        form.get("color", Color(0.0, 0.95, 1.0)), "continue")
+
+func _weapon_hint(weapon: Dictionary) -> String:
+    if weapon.get("melee", false):
+        return "a close-range %s toward where you aim" % weapon.get("label", "strike")
+    return "shot toward where you aim"
+
+func _show_card(title: String, sub: String, rows: Array, footer: String, color: Color, verb: String = "start"):
+    if intro_card:
+        intro_card.queue_free()
+    intro_card = Control.new()
+    intro_card.name = "HowToPlay"
+    intro_card.set_anchors_preset(Control.PRESET_FULL_RECT)
+    intro_card.process_mode = Node.PROCESS_MODE_ALWAYS
+    intro_card.mouse_filter = Control.MOUSE_FILTER_STOP
+    add_child(intro_card)
+
+    var bg = ColorRect.new()
+    bg.set_anchors_preset(Control.PRESET_FULL_RECT)
+    bg.color = Color(0.02, 0.04, 0.08, 0.82)
+    bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    intro_card.add_child(bg)
+
+    var center = CenterContainer.new()
+    center.set_anchors_preset(Control.PRESET_FULL_RECT)
+    center.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    intro_card.add_child(center)
+
+    var panel = PanelContainer.new()
+    panel.custom_minimum_size = Vector2(1100, 0)
+    panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    var style = StyleBoxFlat.new()
+    style.bg_color = Color(0.05, 0.09, 0.15, 0.97)
+    style.set_border_width_all(3)
+    style.border_color = color
+    style.set_corner_radius_all(12)
+    style.shadow_color = color * Color(1, 1, 1, 0.25)
+    style.shadow_size = 20
+    style.set_content_margin_all(36)
+    panel.add_theme_stylebox_override("panel", style)
+    center.add_child(panel)
+
+    var vbox = VBoxContainer.new()
+    vbox.add_theme_constant_override("separation", 14)
+    panel.add_child(vbox)
+
+    var title_lbl = _card_label(title, 36, color)
+    title_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+    vbox.add_child(title_lbl)
+    if sub != "":
+        var sub_lbl = _card_label(sub, 19, Color(0.75, 0.85, 0.95))
+        sub_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+        vbox.add_child(sub_lbl)
+    vbox.add_child(HSeparator.new())
+
+    var grid = GridContainer.new()
+    grid.columns = 2
+    grid.add_theme_constant_override("h_separation", 28)
+    grid.add_theme_constant_override("v_separation", 10)
+    vbox.add_child(grid)
+    for r in rows:
+        var key = _card_label(r[0], 22, Color(0.2, 1.0, 0.75))
+        key.autowrap_mode = TextServer.AUTOWRAP_OFF
+        grid.add_child(key)
+        var val = _card_label(r[1], 22, Color.WHITE)
+        val.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+        grid.add_child(val)
+
+    if footer != "":
+        vbox.add_child(HSeparator.new())
+        vbox.add_child(_card_label(footer, 19, Color(0.75, 0.85, 0.95)))
+
+    var hint = _card_label(("Tap anywhere to " if TouchControls.should_show() else "Press any key or click to ") + verb, 20, Color(1.0, 0.85, 0.3))
+    hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+    vbox.add_child(hint)
+    var tw = hint.create_tween().set_loops()
+    tw.tween_property(hint, "modulate:a", 0.45, 0.7)
+    tw.tween_property(hint, "modulate:a", 1.0, 0.7)
+
+    # Ignore the tap or click that opened the card (e.g. on an evolution card)
+    intro_ready_time = Time.get_ticks_msec() + 400
+    get_tree().paused = true
+
+func _card_label(text: String, size: int, color: Color) -> Label:
+    var l = Label.new()
+    l.text = text
+    l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+    l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    l.add_theme_font_size_override("font_size", size)
+    l.add_theme_color_override("font_color", color)
+    return l
+
+func is_card_up() -> bool:
+    return intro_card != null
+
+func dismiss_card():
+    if intro_card == null:
+        return
+    intro_card.queue_free()
+    intro_card = null
+    get_tree().paused = false
+
+func _input(event: InputEvent):
+    if intro_card == null:
+        return
+    var pressed = (event is InputEventKey and event.pressed and not event.echo) \
+        or (event is InputEventMouseButton and event.pressed) \
+        or (event is InputEventScreenTouch and event.pressed) \
+        or (event is InputEventJoypadButton and event.pressed)
+    if not pressed:
+        return
+    get_viewport().set_input_as_handled()
+    if Time.get_ticks_msec() >= intro_ready_time:
+        dismiss_card()
