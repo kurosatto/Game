@@ -11,6 +11,21 @@ const ERA_NAMES = {
     5: "ERA 5: APEX EXTINCTION BOUNDARY (250 MYA)"
 }
 
+# Shown on the card at the start of each floor: period, its dates and one
+# thing that happened then (dates from the ICS chronostratigraphic chart)
+const ERA_INFO = {
+    1: {"name": "EDIACARAN PERIOD", "dates": "635 to 539 million years ago",
+        "fact": "The first large animals appear: soft-bodied creatures grazing on microbial mats, with no shells, eyes or predators yet."},
+    2: {"name": "CAMBRIAN PERIOD", "dates": "539 to 485 million years ago",
+        "fact": "The Cambrian explosion: most animal body plans appear in a few million years, along with the first eyes, shells and hunters."},
+    3: {"name": "ORDOVICIAN PERIOD", "dates": "485 to 444 million years ago",
+        "fact": "Sea life diversifies fast, the first jawless fish swim and giant nautiloids rule, until the first great mass extinction."},
+    4: {"name": "CARBONIFEROUS PERIOD", "dates": "359 to 299 million years ago",
+        "fact": "Vast coal-swamp forests push oxygen far above today's level, so insects like the dragonfly Meganeura grow huge."},
+    5: {"name": "PERMIAN PERIOD", "dates": "299 to 252 million years ago",
+        "fact": "Synapsids, our own distant relatives, rule the land until the end-Permian extinction wipes out most life on Earth."},
+}
+
 # Evolution choices come from data/Lineages.gd (the accurate tree of life)
 var lineages = preload("res://data/Lineages.gd")
 var codex = preload("res://data/Codex.gd")
@@ -519,13 +534,14 @@ func _on_evolution_choice_clicked(floor_num: int, choice_idx: int):
     evolution_selected.emit(floor_num, choice_idx)
 
 # ---- How-to-play cards ----
-# A short card at the start of a run (what you are, how to play) and after
-# each evolution (your new form and its attack). Pauses until a tap or key.
+# A card at the start of each floor: the era and what you are on the left,
+# how to play on the right. Pauses until a tap or key.
 
 var intro_card: Control = null
 var intro_ready_time: int = 0
 
-func show_run_intro(form: Dictionary):
+# One card per floor: the era on the left, how to play on the right
+func show_era_card(floor_num: int, form: Dictionary):
     var touch = TouchControls.should_show()
     var weapon = lineages.weapon_stats(form.get("weapon", "vesicle"))
     var rows: Array
@@ -540,32 +556,45 @@ func show_run_intro(form: Dictionary):
     else:
         rows = [
             ["MOVE", "W A S D or the arrow keys"],
-            ["AIM & FIRE", "I J K L, or hold the left mouse button to aim at the cursor"],
+            ["AIM & FIRE", "I J K L, or hold the left mouse button"],
             ["DASH", "Space / Shift / right-click to dart away, untouchable for a moment"],
             ["ZAP", "E / Q / middle-click for an electric burst around you (recharges)"],
             ["PAUSE", "Esc"],
         ]
-    rows.append(["SIGHT", lineages.describe_vision(form).trim_prefix("Vision: ") + ". Evolve better eyes to see further."])
-    var attack_line = "Your attack: %s, %s." % [form.get("weapon_name", "Lysosome vesicles").to_lower(), _weapon_hint(weapon)]
-    _show_card(
-        "YOU ARE THE " + form.get("name", "ANCESTRAL COLLAR CELL"),
-        form.get("fact", ""),
-        rows,
-        attack_line + "\nClear each room, beat the era's boss, then pick what your lineage evolves into.",
-        form.get("color", Color(0.0, 0.95, 1.0)))
+    rows.append(["SIGHT", lineages.describe_vision(form).trim_prefix("Vision: ")])
+    var color: Color = form.get("color", Color(0.0, 0.95, 1.0))
+    var era: Dictionary = ERA_INFO.get(clampi(floor_num, 1, 5), {})
+    var vbox = _open_card(color, 1300)
 
-func show_evolved_card(form: Dictionary):
-    var weapon = lineages.weapon_stats(form.get("weapon", "vesicle"))
-    var aim = "the right stick" if TouchControls.should_show() else "I J K L or the mouse"
-    var how = "Aim with %s to strike in front of you." % aim if weapon.get("melee", false) \
-        else "Aim with %s to fire." % aim
-    _show_card(
-        "YOU ARE NOW " + form.get("name", "YOUR LINEAGE"),
-        "Living today: " + form.get("living_example", ""),
-        [["NEW ATTACK", "%s (%s)" % [form.get("weapon_name", ""), weapon.get("label", "")]], ["HOW", how],
-            ["SIGHT", lineages.describe_vision(form).trim_prefix("Vision: ")]],
-        "",
-        form.get("color", Color(0.0, 0.95, 1.0)), "continue")
+    var cols = HBoxContainer.new()
+    cols.add_theme_constant_override("separation", 30)
+    vbox.add_child(cols)
+
+    var left = VBoxContainer.new()
+    left.add_theme_constant_override("separation", 12)
+    left.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+    left.size_flags_stretch_ratio = 0.85
+    cols.add_child(left)
+    left.add_child(_card_label("ERA %d OF 5" % floor_num, 18, Color(0.75, 0.85, 0.95)))
+    left.add_child(_card_label(era.get("name", ""), 36, Color(1.0, 0.85, 0.3)))
+    left.add_child(_card_label(era.get("dates", ""), 22, Color(0.2, 1.0, 0.75)))
+    left.add_child(_card_label(era.get("fact", ""), 22, Color.WHITE))
+    left.add_child(HSeparator.new())
+    var who = ("YOU ARE THE " if floor_num == 1 else "YOU ARE NOW ") + form.get("name", current_creature_name)
+    left.add_child(_card_label(who, 24, color))
+    left.add_child(_card_label("Your attack: %s, %s." % [form.get("weapon_name", "Lysosome vesicles").to_lower(), _weapon_hint(weapon)], 19, Color(0.75, 0.85, 0.95)))
+
+    cols.add_child(VSeparator.new())
+
+    var right = VBoxContainer.new()
+    right.add_theme_constant_override("separation", 12)
+    right.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+    cols.add_child(right)
+    right.add_child(_card_label("HOW TO PLAY", 24, Color(0.2, 1.0, 0.75)))
+    _add_rows(right, rows)
+    right.add_child(_card_label("Clear each room, beat the era's boss, then pick what your lineage evolves into.", 19, Color(0.75, 0.85, 0.95)))
+
+    _close_card(vbox, "start" if floor_num == 1 else "continue")
 
 func _weapon_hint(weapon: Dictionary) -> String:
     if weapon.get("melee", false):
@@ -573,6 +602,23 @@ func _weapon_hint(weapon: Dictionary) -> String:
     return "shot toward where you aim"
 
 func _show_card(title: String, sub: String, rows: Array, footer: String, color: Color, verb: String = "start"):
+    var vbox = _open_card(color, 1100)
+    var title_lbl = _card_label(title, 36, color)
+    title_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+    vbox.add_child(title_lbl)
+    if sub != "":
+        var sub_lbl = _card_label(sub, 19, Color(0.75, 0.85, 0.95))
+        sub_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+        vbox.add_child(sub_lbl)
+    vbox.add_child(HSeparator.new())
+    _add_rows(vbox, rows)
+    if footer != "":
+        vbox.add_child(HSeparator.new())
+        vbox.add_child(_card_label(footer, 19, Color(0.75, 0.85, 0.95)))
+    _close_card(vbox, verb)
+
+# Builds the dimmed backdrop and bordered panel; returns the panel's column
+func _open_card(color: Color, width: float) -> VBoxContainer:
     if intro_card:
         intro_card.queue_free()
     intro_card = Control.new()
@@ -594,7 +640,7 @@ func _show_card(title: String, sub: String, rows: Array, footer: String, color: 
     intro_card.add_child(center)
 
     var panel = PanelContainer.new()
-    panel.custom_minimum_size = Vector2(1100, 0)
+    panel.custom_minimum_size = Vector2(width, 0)
     panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
     var style = StyleBoxFlat.new()
     style.bg_color = Color(0.05, 0.09, 0.15, 0.97)
@@ -610,21 +656,14 @@ func _show_card(title: String, sub: String, rows: Array, footer: String, color: 
     var vbox = VBoxContainer.new()
     vbox.add_theme_constant_override("separation", 14)
     panel.add_child(vbox)
+    return vbox
 
-    var title_lbl = _card_label(title, 36, color)
-    title_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-    vbox.add_child(title_lbl)
-    if sub != "":
-        var sub_lbl = _card_label(sub, 19, Color(0.75, 0.85, 0.95))
-        sub_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-        vbox.add_child(sub_lbl)
-    vbox.add_child(HSeparator.new())
-
+func _add_rows(parent: Container, rows: Array):
     var grid = GridContainer.new()
     grid.columns = 2
     grid.add_theme_constant_override("h_separation", 28)
     grid.add_theme_constant_override("v_separation", 10)
-    vbox.add_child(grid)
+    parent.add_child(grid)
     for r in rows:
         var key = _card_label(r[0], 22, Color(0.2, 1.0, 0.75))
         key.autowrap_mode = TextServer.AUTOWRAP_OFF
@@ -633,10 +672,7 @@ func _show_card(title: String, sub: String, rows: Array, footer: String, color: 
         val.size_flags_horizontal = Control.SIZE_EXPAND_FILL
         grid.add_child(val)
 
-    if footer != "":
-        vbox.add_child(HSeparator.new())
-        vbox.add_child(_card_label(footer, 19, Color(0.75, 0.85, 0.95)))
-
+func _close_card(vbox: VBoxContainer, verb: String):
     var hint = _card_label(("Tap anywhere to " if TouchControls.should_show() else "Press any key or click to ") + verb, 20, Color(1.0, 0.85, 0.3))
     hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
     vbox.add_child(hint)
