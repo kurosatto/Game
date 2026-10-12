@@ -4,7 +4,12 @@ extends CharacterBody2D
 signal enemy_died
 signal boss_health_changed(current, max_value)
 
-@export var enemy_type: String = "fly" # "fly" (Amoeba), "pacer" (Trilobite), "boss" (Nautiloid)
+@export var enemy_type: String = "fly" # AI behaviour: "fly" (chaser), "pacer" (wanders and shoots), "boss"
+
+# Real organism this enemy represents (see data/Bestiary.gd)
+var species_name: String = ""
+var slow_timer: float = 0.0
+var base_scale: float = 1.0
 
 var max_health: float = 5.0
 var health: float = 5.0
@@ -65,6 +70,27 @@ func setup_enemy(floor_number: int):
     if enemy_type == "boss":
         call_deferred("emit_boss_health")
 
+# Sets this enemy up as a real organism from data/Bestiary.gd.
+func setup_from_data(data: Dictionary, floor_number: int):
+    enemy_type = data.ai
+    species_name = data.name
+    setup_enemy(floor_number)
+
+    max_health = data.health + floor_number * data.health_per_floor
+    health = max_health
+    speed = data.speed + (randf_range(-10, 10) if enemy_type != "boss" else 0.0)
+    $Sprite2D.texture = load(data.texture)
+    $Sprite2D.self_modulate = data.tint
+    base_scale = data.scale
+    $Sprite2D.scale = Vector2.ONE * base_scale
+    $CollisionShape2D.shape.radius = data.radius
+
+    if enemy_type == "boss":
+        call_deferred("emit_boss_health")
+
+func apply_slow(duration: float):
+    slow_timer = max(slow_timer, duration)
+
 func emit_boss_health():
     boss_health_changed.emit(health, max_health)
 
@@ -85,22 +111,27 @@ func _physics_process(delta: float):
 
     if not player or not is_instance_valid(player):
         return
+
+    var move_speed = speed
+    if slow_timer > 0:
+        slow_timer -= delta
+        move_speed = speed * 0.5
         
     if enemy_type == "fly":
         var dir = (player.global_position - global_position).normalized()
-        velocity = dir * speed
+        velocity = dir * move_speed
         move_and_slide()
         
         var sx = 1.0 + sin(anim_timer * 8.0) * 0.15
         var sy = 1.0 - sin(anim_timer * 8.0) * 0.15
-        $Sprite2D.scale = Vector2(sx, sy)
+        $Sprite2D.scale = Vector2(sx, sy) * base_scale
         
     elif enemy_type == "pacer":
         wander_timer -= delta
         if wander_timer <= 0:
             pick_random_wander()
             
-        velocity = wander_dir * speed
+        velocity = wander_dir * move_speed
         if move_and_slide():
             pick_random_wander()
             
@@ -146,7 +177,7 @@ func process_boss_ai(delta: float):
         move_and_slide()
         
         var s = 1.0 + sin(anim_timer * 3.0) * 0.06
-        $Sprite2D.scale = Vector2(s, s)
+        $Sprite2D.scale = Vector2(s, s) * base_scale
         
         if boss_timer <= 0:
             boss_state = "prep"
@@ -156,7 +187,7 @@ func process_boss_ai(delta: float):
             
     elif boss_state == "prep":
         $Sprite2D.position = Vector2(randf_range(-6, 6), randf_range(-6, 6))
-        $Sprite2D.scale = Vector2(0.85, 1.25)
+        $Sprite2D.scale = Vector2(0.85, 1.25) * base_scale
         
         if boss_timer <= 0:
             $Sprite2D.position = Vector2.ZERO
@@ -175,10 +206,10 @@ func process_boss_ai(delta: float):
             
         var t = boss_timer / 0.8
         var height_scale = 1.0 + sin(t * PI) * 0.5
-        $Sprite2D.scale = Vector2(height_scale, height_scale)
+        $Sprite2D.scale = Vector2(height_scale, height_scale) * base_scale
         
         if boss_timer <= 0:
-            $Sprite2D.scale = Vector2.ONE
+            $Sprite2D.scale = Vector2.ONE * base_scale
             boss_state = "land"
             boss_timer = 0.3
             velocity = Vector2.ZERO
@@ -193,10 +224,10 @@ func process_boss_ai(delta: float):
                 
     elif boss_state == "land":
         $Sprite2D.position = Vector2(randf_range(-4, 4), randf_range(-4, 4))
-        $Sprite2D.scale = Vector2(1.3, 0.7)
+        $Sprite2D.scale = Vector2(1.3, 0.7) * base_scale
         if boss_timer <= 0:
             $Sprite2D.position = Vector2.ZERO
-            $Sprite2D.scale = Vector2.ONE
+            $Sprite2D.scale = Vector2.ONE * base_scale
             boss_state = "cooldown"
             boss_timer = 1.2
             

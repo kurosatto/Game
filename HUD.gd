@@ -142,6 +142,9 @@ func update_dna(current_dna: int, max_dna: int, level: int):
 func update_floor(floor_num: int):
     floor_label.text = "PRIMORDIAL TIDEPOOL " + str(floor_num)
 
+func update_era(era_name: String, lineage_name: String):
+    floor_label.text = era_name.to_upper() + "  |  " + lineage_name.to_upper()
+
 func update_minimap(rooms: Dictionary, current_pos: Vector2i):
     dungeon_rooms = rooms
     current_room_pos = current_pos
