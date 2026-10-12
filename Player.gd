@@ -308,7 +308,7 @@ func perform_bio_dash():
     var iframe_dur = current_dash_perks.get("invulnerable_duration", 0.28)
     invincibility_time = iframe_dur
     
-    SoundManager.play_sfx("door_open", 1.9, -1.0)
+    SoundManager.play_sfx("dash")
     
     # Camouflage active stealth (Phantom Cuttlefish)
     if current_dash_perks.get("camouflage", false):
@@ -494,8 +494,7 @@ func perform_bio_discharge():
     discharge_cooldown = max_discharge_cooldown
     discharge_updated.emit(discharge_cooldown, max_discharge_cooldown)
     
-    SoundManager.play_sfx("explosion", 1.8, 1.0)
-    SoundManager.play_sfx("shoot", 0.7, 2.0)
+    SoundManager.play_sfx("zap")
     
     var main = get_tree().get_first_node_in_group("main")
     if main and main.has_method("shake_camera"):

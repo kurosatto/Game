@@ -6,6 +6,7 @@ signal sfx_volume_changed(value: float)
 
 var brightness: float = 1.2 # Default bright & vibrant
 var sfx_volume: float = 1.0
+var music_volume: float = 0.8
 var window_mode_index: int = 1 # Default 1920x1080 (Full HD)
 
 var config_path: String = "user://settings.cfg"
@@ -21,18 +22,21 @@ func load_settings():
     if err == OK:
         brightness = config.get_value("graphics", "brightness", 1.2)
         sfx_volume = config.get_value("audio", "sfx_volume", 1.0)
+        music_volume = config.get_value("audio", "music_volume", 0.8)
         window_mode_index = config.get_value("display", "window_mode", 1)
 
 func save_settings():
     var config = ConfigFile.new()
     config.set_value("graphics", "brightness", brightness)
     config.set_value("audio", "sfx_volume", sfx_volume)
+    config.set_value("audio", "music_volume", music_volume)
     config.set_value("display", "window_mode", window_mode_index)
     config.save(config_path)
 
 func apply_all_settings():
     set_brightness(brightness)
     set_sfx_volume(sfx_volume)
+    set_music_volume(music_volume)
     set_window_mode(window_mode_index)
 
 func set_brightness(val: float):
@@ -50,13 +54,20 @@ func set_sfx_volume(val: float):
     sfx_volume = clamp(val, 0.0, 1.5)
     sfx_volume_changed.emit(sfx_volume)
     
-    var bus_idx = AudioServer.get_bus_index("Master")
-    if val <= 0.01:
-        AudioServer.set_bus_mute(bus_idx, true)
-    else:
-        AudioServer.set_bus_mute(bus_idx, false)
-        var db = linear_to_db(val)
-        AudioServer.set_bus_volume_db(bus_idx, db)
+    _set_bus_volume("SFX", sfx_volume)
+
+func set_music_volume(val: float):
+    music_volume = clamp(val, 0.0, 1.5)
+    _set_bus_volume("Music", music_volume)
+
+# The SFX and Music buses are created by SoundManager, which loads first
+func _set_bus_volume(bus_name: String, val: float):
+    var bus_idx = AudioServer.get_bus_index(bus_name)
+    if bus_idx == -1:
+        return
+    AudioServer.set_bus_mute(bus_idx, val <= 0.01)
+    if val > 0.01:
+        AudioServer.set_bus_volume_db(bus_idx, linear_to_db(val))
 
 func set_window_mode(index: int):
     window_mode_index = index

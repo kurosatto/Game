@@ -96,6 +96,25 @@ func setup_settings_ui():
     update_volume_label(SettingsManager.sfx_volume)
     volume_slider.value_changed.connect(_on_volume_changed)
 
+    # Music volume: a copy of the SFX row, added under it
+    var music_section = $SettingsModal/Panel/Margin/VBox/VolumeSection.duplicate()
+    music_section.name = "MusicSection"
+    $SettingsModal/Panel/Margin/VBox.add_child(music_section)
+    $SettingsModal/Panel/Margin/VBox.move_child(music_section, $SettingsModal/Panel/Margin/VBox/VolumeSection.get_index() + 1)
+    music_label = music_section.get_node("VolumeLabel")
+    var music_slider: HSlider = music_section.get_node("VolumeSlider")
+    music_slider.value = SettingsManager.music_volume
+    update_music_label(SettingsManager.music_volume)
+    music_slider.value_changed.connect(func(val):
+        SettingsManager.set_music_volume(val)
+        update_music_label(val)
+    )
+
+var music_label: Label
+
+func update_music_label(val: float):
+    music_label.text = "🎵 Music Volume: %d%%" % int(val * 100)
+
 func _unhandled_input(event: InputEvent):
     if event is InputEventKey and event.pressed and not event.echo:
         if event.keycode == KEY_ESCAPE:
@@ -466,4 +485,5 @@ func _on_evolution_choice_clicked(floor_num: int, choice_idx: int):
     if evolution_modal:
         evolution_modal.visible = false
     get_tree().paused = false
+    SoundManager.play_sfx("evolve")
     evolution_selected.emit(floor_num, choice_idx)

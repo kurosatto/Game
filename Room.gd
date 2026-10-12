@@ -507,6 +507,7 @@ func spawn_random_pickup(pos: Vector2):
 
 func clear_room():
     room_data.cleared = true
+    SoundManager.play_sfx("room_clear")
     
     for d_dir in door_nodes:
         door_nodes[d_dir].open_door()

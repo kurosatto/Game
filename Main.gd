@@ -95,6 +95,7 @@ func start_new_game():
 
 func generate_floor():
     hud.update_floor(floor_number)
+    SoundManager.play_music(SoundManager.music_for_floor(floor_number))
     
     dungeon_rooms = level_gen.generate_level(floor_number)
     current_room_pos = Vector2i(4, 4)
@@ -142,6 +143,8 @@ func is_room_visited(grid_pos: Vector2i) -> bool:
     return false
 
 func register_boss(boss_node: Node):
+    SoundManager.play_sfx("boss_intro")
+    SoundManager.play_music("boss")
     boss_node.boss_health_changed.connect(hud.show_boss_health)
     boss_node.enemy_died.connect(hud.hide_boss_health)
     var boss_floor_color = get_boss_floor_color(floor_number)
@@ -272,6 +275,7 @@ func display_item_banner(title: String, desc: String):
     hud.show_item_banner(title, desc)
 
 func on_boss_defeated(f_num: int):
+    SoundManager.play_music(SoundManager.music_for_floor(f_num))
     if f_num >= 5:
         # Ultimate Final Boss Defeated!
         hud.show_victory(player.get_evolution_summary())
