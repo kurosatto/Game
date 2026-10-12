@@ -3,6 +3,7 @@
 [ext_resource type="Script" path="res://Main.gd" id="1_main"]
 [ext_resource type="PackedScene" uid="uid://c3player" path="res://Player.tscn" id="2_player"]
 [ext_resource type="PackedScene" uid="uid://c9hud" path="res://HUD.tscn" id="3_hud"]
+[ext_resource type="Script" path="res://TouchControls.gd" id="4_touch"]
 
 [sub_resource type="Environment" id="Environment_1"]
 background_mode = 3
@@ -31,11 +32,17 @@ position = Vector2(960, 540)
 
 [node name="HUD" parent="." instance=ExtResource("3_hud")]
 
+[node name="TouchControls" type="CanvasLayer" parent="."]
+script = ExtResource("4_touch")
+
 [node name="TransitionLayer" type="CanvasLayer" parent="."]
 layer = 100
 
 [node name="ColorRect" type="ColorRect" parent="TransitionLayer"]
 visible = false
-offset_right = 1920.0
-offset_bottom = 1080.0
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
 color = Color(0, 0, 0, 1)

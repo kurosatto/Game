@@ -1216,7 +1216,9 @@ func handle_shooting():
     
     if shoot_dir != Vector2.ZERO:
         shoot_tear(shoot_dir.normalized())
-    elif Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):
+    # On touch screens taps are also reported as left clicks, so mouse aiming
+    # would fire at the move-stick thumb; TouchControls drives shooting there
+    elif not TouchControls.should_show() and Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):
         var mouse_pos = get_global_mouse_position()
         var to_mouse = (mouse_pos - global_position).normalized()
         if to_mouse != Vector2.ZERO:

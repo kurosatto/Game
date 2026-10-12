@@ -487,6 +487,9 @@ func update_floor(floor_num: int):
     var era_str = ERA_NAMES.get(floor_num, "ERA %d" % floor_num)
     floor_label.text = "%s | 🧬 %s" % [era_str, current_creature_name]
 
+func update_era(era_name: String, lineage_name: String):
+    floor_label.text = era_name.to_upper() + "  |  " + lineage_name.to_upper()
+
 func update_minimap(rooms: Dictionary, current_pos: Vector2i):
     dungeon_rooms = rooms
     current_room_pos = current_pos
