@@ -311,6 +311,62 @@ func spawn_ambient_particles():
     particles2.z_index = -4
     add_child(particles2)
 
+    spawn_light_shafts(particle_color)
+    spawn_bubble_streams()
+
+# Soft sunlight rays slanting down from the surface, gently swaying.
+# Additive polygons with vertex alpha: no shader, cheap on phones.
+func spawn_light_shafts(tint: Color):
+    var add_mat = CanvasItemMaterial.new()
+    add_mat.blend_mode = CanvasItemMaterial.BLEND_MODE_ADD
+    var rng = RandomNumberGenerator.new()
+    rng.seed = hash(room_data.grid_pos) if room_data else 0
+    for i in 4:
+        var shaft = Polygon2D.new()
+        var x = rng.randf_range(300, 1620)
+        var top_w = rng.randf_range(50, 110)
+        var bottom_w = top_w * rng.randf_range(2.2, 3.2)
+        var slant = rng.randf_range(120, 260)
+        shaft.polygon = PackedVector2Array([
+            Vector2(x - top_w, 110), Vector2(x + top_w, 110),
+            Vector2(x + slant + bottom_w, 980), Vector2(x + slant - bottom_w, 980)])
+        var c = Color(tint.r * 0.6 + 0.4, tint.g * 0.6 + 0.4, tint.b * 0.6 + 0.4, 0.07)
+        var clear = Color(c.r, c.g, c.b, 0.0)
+        shaft.vertex_colors = PackedColorArray([c, c, clear, clear])
+        shaft.material = add_mat
+        shaft.z_index = -6
+        add_child(shaft)
+        # Slow shimmer: fade in and out at different rates per shaft
+        shaft.modulate.a = rng.randf_range(0.3, 1.0)
+        var tw = shaft.create_tween().set_loops()
+        tw.tween_property(shaft, "modulate:a", rng.randf_range(0.15, 0.4), rng.randf_range(3.0, 6.0)).set_trans(Tween.TRANS_SINE)
+        tw.tween_property(shaft, "modulate:a", 1.0, rng.randf_range(3.0, 6.0)).set_trans(Tween.TRANS_SINE)
+
+# A few thin columns of bubbles rising from the floor
+func spawn_bubble_streams():
+    var ramp = Gradient.new()
+    ramp.set_color(0, Color(0.8, 0.95, 1.0, 0.0))
+    ramp.add_point(0.15, Color(0.8, 0.95, 1.0, 0.45))
+    ramp.set_color(1, Color(0.8, 0.95, 1.0, 0.0))
+    var rng = RandomNumberGenerator.new()
+    rng.seed = (hash(room_data.grid_pos) if room_data else 0) + 7
+    for i in 3:
+        var b = CPUParticles2D.new()
+        b.position = Vector2(rng.randf_range(260, 1660), rng.randf_range(820, 940))
+        b.amount = 8
+        b.lifetime = 5.0
+        b.preprocess = 5.0
+        b.direction = Vector2.UP
+        b.spread = 6.0
+        b.gravity = Vector2(0, -12)
+        b.initial_velocity_min = 50.0
+        b.initial_velocity_max = 90.0
+        b.scale_amount_min = 2.0
+        b.scale_amount_max = 4.5
+        b.color_ramp = ramp
+        b.z_index = -5
+        add_child(b)
+
 func spawn_layout_decals(layout: Dictionary):
     for decal in layout.get("decals", []):
         var gx = decal["gx"]
