@@ -12,7 +12,7 @@ exit /b
     - Android SDK command-line tools
     - SDK packages required by Godot 4.7:
         platform-tools, build-tools;35.0.1, platforms;android-35,
-        cmdline-tools;latest, cmake;3.10.2.4988404, ndk;28.1.13356709
+        cmake;3.10.2.4988404, ndk;28.1.13356709
   Sets JAVA_HOME / ANDROID_HOME and adds adb to the user PATH.
 
   This is a single self-contained file: the lines above launch PowerShell,
@@ -29,7 +29,6 @@ $SdkPackages = @(
     'platform-tools',
     'build-tools;35.0.1',
     'platforms;android-35',
-    'cmdline-tools;latest',
     'cmake;3.10.2.4988404',
     'ndk;28.1.13356709'
 )
@@ -94,13 +93,31 @@ if (-not (Test-Path $SdkManager)) {
 }
 
 # --- 3. SDK packages ---------------------------------------------------------
-Step 'Accepting Android SDK licenses'
-$yes = ("y`n" * 50)
-$yes | & $SdkManager --sdk_root="$SdkRoot" --licenses | Out-Null
+# Newer command-line tools ship the "android" CLI and turn sdkmanager into a
+# wrapper around it. Its package names use "/" instead of ";" (build-tools/35.0.1).
+$AndroidCli = Get-ChildItem "$SdkRoot\cmdline-tools\latest" -Recurse -File -ErrorAction SilentlyContinue |
+              Where-Object { $_.Name -in 'android.exe', 'android.bat', 'android.cmd' } |
+              Select-Object -First 1 -ExpandProperty FullName
 
 Step 'Installing SDK packages (NDK is large, this can take a while)'
-& $SdkManager --sdk_root="$SdkRoot" @SdkPackages
-if ($LASTEXITCODE -ne 0) { throw "sdkmanager failed with exit code $LASTEXITCODE" }
+if ($AndroidCli) {
+    Write-Host "Using Android CLI: $AndroidCli"
+    $packages = $SdkPackages | ForEach-Object { $_ -replace ';', '/' }
+    & $AndroidCli --sdk="$SdkRoot" sdk install @packages
+} else {
+    $yes = ("y`n" * 50)
+    $yes | & $SdkManager --sdk_root="$SdkRoot" --licenses | Out-Null
+    # Quote each name so cmd.exe doesn't split it at the ";".
+    $packages = $SdkPackages | ForEach-Object { '"' + $_ + '"' }
+    & $SdkManager --sdk_root="$SdkRoot" @packages
+}
+
+# The tools don't always fail with an error code, so check the folders directly.
+$missing = $SdkPackages | Where-Object { -not (Test-Path (Join-Path $SdkRoot ($_ -replace ';', '\'))) }
+if ($missing) {
+    throw "These SDK packages did not install: $($missing -join ', ')"
+}
+Write-Host 'All SDK packages installed.'
 
 # --- 4. Environment variables ------------------------------------------------
 Step 'Setting user environment variables'
