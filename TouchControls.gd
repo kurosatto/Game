@@ -40,6 +40,9 @@ func _ready():
     canvas.resized.connect(canvas.queue_redraw)
     add_child(canvas)
 
+    if visible:
+        _connect_player_haptics.call_deferred()
+
 static func should_show() -> bool:
     return OS.has_feature("mobile") or DisplayServer.is_touchscreen_available()
 
@@ -61,6 +64,31 @@ func rest_origin(stick: Dictionary) -> Vector2:
     if is_same(stick, move_stick):
         return Vector2(220.0, s.y - 220.0)
     return Vector2(s.x - 220.0, s.y - 220.0)
+
+func _process(_delta: float):
+    # Menus, the evolution cards and end screens: get the sticks out of the way
+    if canvas:
+        canvas.visible = not get_tree().paused and not _end_screen_up()
+
+func _end_screen_up() -> bool:
+    var main = get_tree().get_first_node_in_group("main")
+    if main == null or not "hud" in main or main.hud == null:
+        return false
+    return main.hud.game_over_screen.visible or main.hud.victory_screen.visible
+
+# A short buzz whenever the player loses health
+var last_health: int = -1
+
+func _connect_player_haptics():
+    var player = get_tree().get_first_node_in_group("player")
+    if player and player.has_signal("health_changed"):
+        last_health = player.health
+        player.health_changed.connect(_on_player_health_changed)
+
+func _on_player_health_changed(health, _max_health):
+    if last_health >= 0 and health < last_health:
+        Input.vibrate_handheld(40)
+    last_health = health
 
 func _input(event: InputEvent):
     if not visible:

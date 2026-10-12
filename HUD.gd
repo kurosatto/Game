@@ -162,6 +162,10 @@ func update_dna(current_dna: int, max_dna: int, level: int):
 # Phones have no keyboard: name the on-screen buttons instead of keys
 func use_touch_texts():
     resume_btn.text = "RESUME GAME"
+    # The settings menu pauses the game; make it a thumb-sized pause button
+    settings_btn.text = " ⏸ PAUSE "
+    settings_btn.custom_minimum_size = Vector2(190, 56)
+    settings_btn.add_theme_font_size_override("font_size", 24)
     # Window sizes mean nothing on a phone, which is always fullscreen
     $SettingsModal/Panel/Margin/VBox/DisplaySection.visible = false
     $GameOverScreen/Center/SubLabel.text = "Your genetic lineage was severed.
@@ -351,9 +355,8 @@ func _create_evolution_modal():
     
     var center_box = VBoxContainer.new()
     center_box.name = "CenterBox"
-    center_box.set_anchors_preset(Control.PRESET_CENTER)
-    center_box.custom_minimum_size = Vector2(1640, 860)
-    center_box.position = Vector2(140, 110)
+    # Fill the screen with a margin so the cards stay centred on any aspect
+    center_box.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT, Control.PRESET_MODE_MINSIZE, 60)
     center_box.alignment = BoxContainer.ALIGNMENT_CENTER
     center_box.add_theme_constant_override("separation", 24)
     evolution_modal.add_child(center_box)
