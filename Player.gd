@@ -26,9 +26,10 @@ var evolution_choices: Array = [] # Tracks chosen path index per floor [0 or 1, 
 var evolution_history: Array = [] # [{ "floor": 1, "title": "...", "clade": "...", "choice": 0 }]
 
 # Active Creature State (Transforms on every floor into a distinct character)
-var current_character_id: String = "protozoa"
-var current_character_name: String = "PRIMORDIAL PROTOZOA"
-var current_character_clade: String = "Ediacaran Microbiota — The First Spark"
+var current_character_id: String = ""
+var current_character_name: String = ""
+var current_character_clade: String = ""
+var current_living_example: String = ""
 var current_modulate: Color = Color(0.0, 0.95, 1.0)
 var current_accessory: String = "cilia"
 var current_attack_type: String = "single"
@@ -66,644 +67,15 @@ var door_cooldown: float = 0.0
 # Preloads
 var tear_scene = preload("res://Tear.tscn")
 
-# ══════════════════════════════════════════════════════════════════════════════
-# 31 DISTINCT PLAYABLE CHARACTERS (1 Root + 2 Floor 2 + 4 Floor 3 + 8 Floor 4 + 16 Floor 5)
-# ══════════════════════════════════════════════════════════════════════════════
-const CHARACTERS = {
-    # ── Level 1 / Floor 1 (Root) ──
-    "": {
-        "id": "protozoa",
-        "name": "PRIMORDIAL PROTOZOA",
-        "clade": "Ediacaran Microbiota — The First Spark",
-        "desc": "Single-celled ancestral organism pulsing in the primordial soup.",
-        "color": Color(0.0, 0.95, 1.0),
-        "light_color": Color(0.0, 0.95, 1.0),
-        "light_energy": 1.3,
-        "scale": Vector2(1.0, 1.0),
-        "speed": 390.0,
-        "damage": 3.5,
-        "fire_delay": 0.28,
-        "shot_speed": 720.0,
-        "max_health_add": 0,
-        "attack_type": "single",
-        "tear_perks": {},
-        "dash_perks": {},
-        "passive": "none",
-        "accessory": "cilia"
-    },
-
-    # ── Level 2 / Floor 2 (2 Playable Characters) ──
-    "0": {
-        "id": "pikaia",
-        "name": "PIKAIA VERTEBRATA",
-        "clade": "Phylum Chordata — The First Spine",
-        "desc": "Agile eel-like chordate with flexible dorsal nerve cord and slipstream dash.",
-        "color": Color(0.1, 0.9, 1.25),
-        "light_color": Color(0.0, 0.9, 1.0),
-        "light_energy": 1.5,
-        "scale": Vector2(1.1, 0.95),
-        "speed": 470.0,
-        "damage": 3.8,
-        "fire_delay": 0.25,
-        "shot_speed": 820.0,
-        "max_health_add": 0,
-        "attack_type": "single",
-        "tear_perks": {},
-        "dash_perks": {"slipstream": true},
-        "passive": "none",
-        "accessory": "fin"
-    },
-    "1": {
-        "id": "trilobita",
-        "name": "PROTO-CARAPACE TRILOBITA",
-        "clade": "Phylum Arthropoda — Mineralized Exoskeleton",
-        "desc": "Heavily armored benthic arthropod with mineralized calcite plates and defensive spines.",
-        "color": Color(1.2, 0.85, 0.35),
-        "light_color": Color(1.0, 0.75, 0.2),
-        "light_energy": 1.4,
-        "scale": Vector2(1.15, 1.15),
-        "speed": 360.0,
-        "damage": 4.2,
-        "fire_delay": 0.30,
-        "shot_speed": 680.0,
-        "max_health_add": 4,
-        "attack_type": "single",
-        "tear_perks": {"knockback": 250.0},
-        "dash_perks": {},
-        "passive": "retaliatory_spines",
-        "accessory": "carapace"
-    },
-
-    # ── Level 3 / Floor 3 (4 Playable Characters) ──
-    "0,0": {
-        "id": "dunkleosteus",
-        "name": "DUNKLEOSTEUS JAWS",
-        "clade": "Placodermi — Armored Jawed Predator",
-        "desc": "Heavy cranial bone armor with armor-crushing concussive bite force.",
-        "color": Color(1.25, 0.45, 0.45),
-        "light_color": Color(1.0, 0.35, 0.3),
-        "light_energy": 1.6,
-        "scale": Vector2(1.25, 1.2),
-        "speed": 420.0,
-        "damage": 6.8,
-        "fire_delay": 0.29,
-        "shot_speed": 760.0,
-        "max_health_add": 2,
-        "attack_type": "single",
-        "tear_perks": {"knockback": 550.0},
-        "dash_perks": {"slam_damage": 6.0},
-        "passive": "none",
-        "accessory": "fin"
-    },
-    "0,1": {
-        "id": "nautiloid",
-        "name": "NAUTILOID CEPHALOPOD",
-        "clade": "Cephalopoda — Siphon Jet Hunter",
-        "desc": "Buoyant chambered shell and multi-directional tentacles firing magnetic homing spreads.",
-        "color": Color(0.2, 1.2, 0.95),
-        "light_color": Color(0.0, 1.0, 0.85),
-        "light_energy": 1.5,
-        "scale": Vector2(1.1, 1.1),
-        "speed": 430.0,
-        "damage": 4.0,
-        "fire_delay": 0.23,
-        "shot_speed": 730.0,
-        "max_health_add": 0,
-        "attack_type": "triple",
-        "tear_perks": {"homing": true},
-        "dash_perks": {},
-        "passive": "none",
-        "accessory": "tentacles"
-    },
-    "1,0": {
-        "id": "eurypterid",
-        "name": "EURYPTERID SEA SCORPION",
-        "clade": "Chelicerata — Apex Stalker of the Shallows",
-        "desc": "Venomous tail stinger and raptorial appendages injecting caustic poison.",
-        "color": Color(0.4, 1.25, 0.35),
-        "light_color": Color(0.3, 1.0, 0.3),
-        "light_energy": 1.5,
-        "scale": Vector2(1.2, 1.15),
-        "speed": 400.0,
-        "damage": 4.8,
-        "fire_delay": 0.26,
-        "shot_speed": 750.0,
-        "max_health_add": 2,
-        "attack_type": "single",
-        "tear_perks": {"caustic": true},
-        "dash_perks": {"poison_trail": true},
-        "passive": "none",
-        "accessory": "stinger"
-    },
-    "1,1": {
-        "id": "bastion",
-        "name": "CALCIFIED BASTION",
-        "clade": "Dinocaridida — Armored Dreadnought",
-        "desc": "Titanic interlocking thoracic shield plates that crush obstacles and ram foes.",
-        "color": Color(1.2, 0.85, 0.25),
-        "light_color": Color(0.95, 0.75, 0.2),
-        "light_energy": 1.5,
-        "scale": Vector2(1.35, 1.35),
-        "speed": 360.0,
-        "damage": 5.2,
-        "fire_delay": 0.32,
-        "shot_speed": 680.0,
-        "max_health_add": 6,
-        "attack_type": "single",
-        "tear_perks": {"knockback": 400.0},
-        "dash_perks": {"slam_damage": 10.0},
-        "passive": "double_iframes",
-        "accessory": "carapace"
-    },
-
-    # ── Level 4 / Floor 4 (8 Playable Characters) ──
-    "0,0,0": {
-        "id": "tiktaalik",
-        "name": "TIKTAALIK SHOREWALKER",
-        "clade": "Tetrapodomorpha — The Land Pioneer",
-        "desc": "First lungs and muscular weight-bearing limbs with cellular oxygen regeneration.",
-        "color": Color(0.35, 1.3, 0.65),
-        "light_color": Color(0.2, 1.0, 0.5),
-        "light_energy": 1.5,
-        "scale": Vector2(1.25, 1.25),
-        "speed": 420.0,
-        "damage": 7.5,
-        "fire_delay": 0.26,
-        "shot_speed": 780.0,
-        "max_health_add": 4,
-        "attack_type": "single",
-        "tear_perks": {"knockback": 450.0},
-        "dash_perks": {"slipstream": true},
-        "passive": "regen",
-        "accessory": "fin"
-    },
-    "0,0,1": {
-        "id": "cladoselache",
-        "name": "CLADOSELACHE SWIFT-SHARK",
-        "clade": "Chondrichthyes — Pelagic Razor Phantom",
-        "desc": "Hydrodynamic cartilaginous predator firing piercing high-voltage electric tears.",
-        "color": Color(0.25, 0.95, 1.35),
-        "light_color": Color(0.2, 0.85, 1.0),
-        "light_energy": 1.6,
-        "scale": Vector2(1.2, 1.0),
-        "speed": 490.0,
-        "damage": 6.5,
-        "fire_delay": 0.20,
-        "shot_speed": 920.0,
-        "max_health_add": 2,
-        "attack_type": "single",
-        "tear_perks": {"piercing": true, "electric": true},
-        "dash_perks": {"slipstream": true},
-        "passive": "none",
-        "accessory": "fin"
-    },
-    "0,1,0": {
-        "id": "kraken",
-        "name": "ABYSSAL KRAKEN SQUID",
-        "clade": "Coleoidea — Terror of the Deep Trenches",
-        "desc": "Titanic deep-ocean cephalopod with 5-way omnidirectional magnetic homing spray.",
-        "color": Color(0.85, 0.4, 1.35),
-        "light_color": Color(0.7, 0.3, 1.0),
-        "light_energy": 1.6,
-        "scale": Vector2(1.25, 1.25),
-        "speed": 440.0,
-        "damage": 5.0,
-        "fire_delay": 0.19,
-        "shot_speed": 760.0,
-        "max_health_add": 2,
-        "attack_type": "5way",
-        "tear_perks": {"homing": true},
-        "dash_perks": {"smoke_cloud": true},
-        "passive": "none",
-        "accessory": "tentacles"
-    },
-    "0,1,1": {
-        "id": "ammonite",
-        "name": "SPHERICAL AMMONITE FORTRESS",
-        "clade": "Ammonoidea — Eternal Living Vault",
-        "desc": "Fractal suture chambered shell absorbing kinetic shocks and reducing damage.",
-        "color": Color(1.25, 1.05, 0.45),
-        "light_color": Color(1.0, 0.85, 0.3),
-        "light_energy": 1.5,
-        "scale": Vector2(1.35, 1.3),
-        "speed": 370.0,
-        "damage": 5.8,
-        "fire_delay": 0.28,
-        "shot_speed": 720.0,
-        "max_health_add": 4,
-        "attack_type": "single",
-        "tear_perks": {"knockback": 350.0},
-        "dash_perks": {},
-        "passive": "damage_reduction",
-        "accessory": "shell"
-    },
-    "1,0,0": {
-        "id": "pulmonoscorpius",
-        "name": "PULMONOSCORPIUS TITAN",
-        "clade": "Scorpiones — Terrestrial Venom Monarch",
-        "desc": "One-meter Carboniferous scorpion leaving burning pools of corrosive caustic acid.",
-        "color": Color(0.5, 1.3, 0.25),
-        "light_color": Color(0.4, 1.0, 0.2),
-        "light_energy": 1.6,
-        "scale": Vector2(1.3, 1.25),
-        "speed": 410.0,
-        "damage": 6.5,
-        "fire_delay": 0.23,
-        "shot_speed": 770.0,
-        "max_health_add": 4,
-        "attack_type": "single",
-        "tear_perks": {"caustic": true},
-        "dash_perks": {"poison_trail": true},
-        "passive": "none",
-        "accessory": "stinger"
-    },
-    "1,0,1": {
-        "id": "meganeura",
-        "name": "MEGANEURA DRAGONFLY",
-        "clade": "Meganisoptera — Giant Carboniferous Aviator",
-        "desc": "Hyper-oxygenated aviator soaring over rocks with rapid aerodynamic gale shots.",
-        "color": Color(0.2, 1.35, 1.2),
-        "light_color": Color(0.0, 1.0, 0.9),
-        "light_energy": 1.6,
-        "scale": Vector2(1.15, 1.1),
-        "speed": 520.0,
-        "damage": 5.2,
-        "fire_delay": 0.15,
-        "shot_speed": 940.0,
-        "max_health_add": 0,
-        "attack_type": "needle",
-        "tear_perks": {"piercing": true},
-        "dash_perks": {},
-        "passive": "flight",
-        "accessory": "wings"
-    },
-    "1,1,0": {
-        "id": "arthropleura",
-        "name": "ARTHROPLEURA CENTIPEDE",
-        "clade": "Myriapoda — Forest Floor Colossus",
-        "desc": "Two-meter millipede titan with 30 armored body rings trampling everything in its path.",
-        "color": Color(1.3, 0.6, 0.3),
-        "light_color": Color(0.95, 0.45, 0.2),
-        "light_energy": 1.5,
-        "scale": Vector2(1.45, 1.35),
-        "speed": 390.0,
-        "damage": 6.2,
-        "fire_delay": 0.26,
-        "shot_speed": 730.0,
-        "max_health_add": 8,
-        "attack_type": "single",
-        "tear_perks": {"knockback": 500.0},
-        "dash_perks": {"slam_damage": 12.0},
-        "passive": "double_iframes",
-        "accessory": "carapace"
-    },
-    "1,1,1": {
-        "id": "mantis",
-        "name": "MANTIS SHRIMP CAVITATOR",
-        "clade": "Stomatopoda — Kinetic Shockwave Striker",
-        "desc": "10,000G spring-loaded cavitation clubs unleashing explosive stun shockwaves.",
-        "color": Color(1.35, 0.3, 0.7),
-        "light_color": Color(1.0, 0.2, 0.5),
-        "light_energy": 1.7,
-        "scale": Vector2(1.2, 1.2),
-        "speed": 440.0,
-        "damage": 9.8,
-        "fire_delay": 0.28,
-        "shot_speed": 820.0,
-        "max_health_add": 2,
-        "attack_type": "single",
-        "tear_perks": {"knockback": 700.0, "stun": true},
-        "dash_perks": {"cavitation_burst": true},
-        "passive": "none",
-        "accessory": "clubs"
-    },
-
-    # ── Level 5 / Floor 5: THE 16 APEX PLAYABLE CHARACTERS! ──
-    "0,0,0,0": {
-        "id": "gorgonopsid",
-        "name": "GORGONOPSID THERAPSID",
-        "clade": "Synapsida — Proto-Mammal Sovereign",
-        "desc": "Saber canines and endothermic predatory power with vampiric life leech on hits.",
-        "color": Color(1.3, 0.5, 0.2),
-        "light_color": Color(1.0, 0.4, 0.15),
-        "light_energy": 1.8,
-        "scale": Vector2(1.35, 1.3),
-        "speed": 450.0,
-        "damage": 9.5,
-        "fire_delay": 0.22,
-        "shot_speed": 840.0,
-        "max_health_add": 4,
-        "attack_type": "single",
-        "tear_perks": {"vampiric": true, "knockback": 550.0},
-        "dash_perks": {"slam_damage": 10.0},
-        "passive": "none",
-        "accessory": "fin"
-    },
-    "0,0,0,1": {
-        "id": "diplocaulus",
-        "name": "DIPLOCAULUS BOOMERANG",
-        "clade": "Lepospondyli — Boomerang Hydrofoil Amphibian",
-        "desc": "Wide aerodynamic cephalic wing firing twin piercing boomerang projectiles that return.",
-        "color": Color(0.25, 1.3, 0.85),
-        "light_color": Color(0.2, 1.0, 0.7),
-        "light_energy": 1.7,
-        "scale": Vector2(1.35, 1.15),
-        "speed": 470.0,
-        "damage": 7.0,
-        "fire_delay": 0.22,
-        "shot_speed": 800.0,
-        "max_health_add": 4,
-        "attack_type": "boomerang",
-        "tear_perks": {"piercing": true, "boomerang": true},
-        "dash_perks": {"slipstream": true},
-        "passive": "regen",
-        "accessory": "horns"
-    },
-    "0,0,1,0": {
-        "id": "megalodon",
-        "name": "MEGALODON LEVIATHAN",
-        "clade": "Otodontidae — Apex Lord of the Deep",
-        "desc": "Greatest apex shark: serrated razor jaws piercing all enemies with chained high-voltage lightning.",
-        "color": Color(0.15, 0.85, 1.45),
-        "light_color": Color(0.1, 0.7, 1.0),
-        "light_energy": 1.9,
-        "scale": Vector2(1.4, 1.35),
-        "speed": 500.0,
-        "damage": 8.5,
-        "fire_delay": 0.18,
-        "shot_speed": 960.0,
-        "max_health_add": 4,
-        "attack_type": "single",
-        "tear_perks": {"piercing": true, "electric": true},
-        "dash_perks": {"slipstream": true},
-        "passive": "none",
-        "accessory": "fin"
-    },
-    "0,0,1,1": {
-        "id": "mosasaur",
-        "name": "MOSASAURUS OCEAN TYRANT",
-        "clade": "Mosasauridae — Cretaceous Marine Juggernaut",
-        "desc": "Gargantuan marine reptile: shrapnel fangs burst into secondary teeth, tidal tail-whip dash.",
-        "color": Color(0.15, 1.25, 1.05),
-        "light_color": Color(0.1, 0.95, 0.8),
-        "light_energy": 1.8,
-        "scale": Vector2(1.4, 1.3),
-        "speed": 480.0,
-        "damage": 8.0,
-        "fire_delay": 0.21,
-        "shot_speed": 880.0,
-        "max_health_add": 6,
-        "attack_type": "shrapnel",
-        "tear_perks": {"shrapnel": true},
-        "dash_perks": {"slam_damage": 14.0},
-        "passive": "none",
-        "accessory": "fin"
-    },
-    "0,1,0,0": {
-        "id": "architeuthis",
-        "name": "ARCHITEUTHIS VOID SQUID",
-        "clade": "Architeuthidae — Midnight Trench Sovereign",
-        "desc": "7-way omnidirectional siphon barrage pulling targets into gravitational void singularities.",
-        "color": Color(1.0, 0.25, 1.4),
-        "light_color": Color(0.8, 0.2, 1.0),
-        "light_energy": 1.9,
-        "scale": Vector2(1.35, 1.35),
-        "speed": 450.0,
-        "damage": 5.8,
-        "fire_delay": 0.17,
-        "shot_speed": 800.0,
-        "max_health_add": 4,
-        "attack_type": "7way",
-        "tear_perks": {"homing": true},
-        "dash_perks": {"smoke_cloud": true},
-        "passive": "none",
-        "accessory": "tentacles"
-    },
-    "0,1,0,1": {
-        "id": "cuttlefish",
-        "name": "PHANTOM CUTTLEFISH",
-        "clade": "Sepiida — Master of Chromatic Deception",
-        "desc": "Active optical camouflage: dash turns player invisible and invulnerable for 1.5s, rapid pulse fire.",
-        "color": Color(0.35, 1.3, 1.2),
-        "light_color": Color(0.3, 1.0, 0.9),
-        "light_energy": 1.7,
-        "scale": Vector2(1.2, 1.2),
-        "speed": 480.0,
-        "damage": 6.0,
-        "fire_delay": 0.15,
-        "shot_speed": 880.0,
-        "max_health_add": 2,
-        "attack_type": "triple",
-        "tear_perks": {"stun": true},
-        "dash_perks": {"camouflage": true, "invulnerable_duration": 1.5},
-        "passive": "none",
-        "accessory": "tentacles"
-    },
-    "0,1,1,0": {
-        "id": "sphenodiscus",
-        "name": "SPHENODISCUS SHRAPNEL SHELL",
-        "clade": "Sphenodiscidae — Oxyconic Blast Shell",
-        "desc": "Knife-edge compressed shell: every tear hit bursts into 4 ricocheting shell flechettes.",
-        "color": Color(1.3, 1.05, 0.3),
-        "light_color": Color(1.0, 0.8, 0.2),
-        "light_energy": 1.8,
-        "scale": Vector2(1.35, 1.35),
-        "speed": 400.0,
-        "damage": 8.5,
-        "fire_delay": 0.24,
-        "shot_speed": 820.0,
-        "max_health_add": 4,
-        "attack_type": "shrapnel",
-        "tear_perks": {"shrapnel": true, "knockback": 450.0},
-        "dash_perks": {},
-        "passive": "damage_reduction",
-        "accessory": "shell"
-    },
-    "0,1,1,1": {
-        "id": "prismatic_ammonite",
-        "name": "PRISMATIC BASTION AMMONITE",
-        "clade": "Pachydiscidae — Radiant Diamond Citadel",
-        "desc": "Unbreakable pearlescent prism: reduces damage by 1 and passively reflects enemy projectiles.",
-        "color": Color(1.2, 1.25, 1.4),
-        "light_color": Color(0.9, 0.95, 1.0),
-        "light_energy": 1.8,
-        "scale": Vector2(1.4, 1.4),
-        "speed": 380.0,
-        "damage": 7.5,
-        "fire_delay": 0.26,
-        "shot_speed": 760.0,
-        "max_health_add": 8,
-        "attack_type": "single",
-        "tear_perks": {"knockback": 400.0},
-        "dash_perks": {},
-        "passive": "damage_reduction_plus_reflect",
-        "accessory": "shell"
-    },
-    "1,0,0,0": {
-        "id": "plague_scorpion",
-        "name": "EMPEROR PLAGUE SCORPION",
-        "clade": "Heterometrinae — Sovereign of Corrosive Venom",
-        "desc": "Concentrated necrotic enzymes: toxic acid pools melt enemies and explode into venom clouds.",
-        "color": Color(0.5, 1.4, 0.15),
-        "light_color": Color(0.4, 1.0, 0.1),
-        "light_energy": 1.8,
-        "scale": Vector2(1.35, 1.3),
-        "speed": 430.0,
-        "damage": 8.5,
-        "fire_delay": 0.20,
-        "shot_speed": 820.0,
-        "max_health_add": 4,
-        "attack_type": "single",
-        "tear_perks": {"caustic": true},
-        "dash_perks": {"poison_trail": true},
-        "passive": "none",
-        "accessory": "stinger"
-    },
-    "1,0,0,1": {
-        "id": "trapdoor_spider",
-        "name": "TRAPDOOR SILK REAPER",
-        "clade": "Araneae — Ancient Silkweaver Stalker",
-        "desc": "High-tensile silk webs pin enemies in place, dash drops an ensnaring ambush trap.",
-        "color": Color(0.85, 0.75, 1.2),
-        "light_color": Color(0.7, 0.6, 0.9),
-        "light_energy": 1.7,
-        "scale": Vector2(1.25, 1.25),
-        "speed": 450.0,
-        "damage": 7.5,
-        "fire_delay": 0.22,
-        "shot_speed": 800.0,
-        "max_health_add": 4,
-        "attack_type": "single",
-        "tear_perks": {"stun": true},
-        "dash_perks": {"web_snare": true},
-        "passive": "none",
-        "accessory": "stinger"
-    },
-    "1,0,1,0": {
-        "id": "meganeuropsis",
-        "name": "MEGANEUROPSIS SUPERSONIC",
-        "clade": "Meganeuridae — 30-Inch Winged Supersonic Ace",
-        "desc": "Largest flying creature of its era: 580 max speed, true flight, ultra-rapid piercing needlegun.",
-        "color": Color(0.15, 1.35, 1.05),
-        "light_color": Color(0.1, 1.0, 0.8),
-        "light_energy": 1.9,
-        "scale": Vector2(1.2, 1.15),
-        "speed": 580.0,
-        "damage": 6.0,
-        "fire_delay": 0.10,
-        "shot_speed": 1000.0,
-        "max_health_add": 2,
-        "attack_type": "needle",
-        "tear_perks": {"piercing": true},
-        "dash_perks": {},
-        "passive": "flight",
-        "accessory": "wings"
-    },
-    "1,0,1,1": {
-        "id": "bombardier",
-        "name": "PYROTECHNIC BOMBARDIER BEETLE",
-        "clade": "Carabidae — Hydroquinone Blast Cannon",
-        "desc": "Twin chemical reaction chambers firing 100°C high-explosive artillery shells.",
-        "color": Color(1.35, 0.45, 0.1),
-        "light_color": Color(1.0, 0.35, 0.05),
-        "light_energy": 1.9,
-        "scale": Vector2(1.3, 1.25),
-        "speed": 420.0,
-        "damage": 11.0,
-        "fire_delay": 0.30,
-        "shot_speed": 800.0,
-        "max_health_add": 4,
-        "attack_type": "explosive",
-        "tear_perks": {"explosive": true},
-        "dash_perks": {"slam_damage": 8.0},
-        "passive": "none",
-        "accessory": "carapace"
-    },
-    "1,1,0,0": {
-        "id": "scolopendra",
-        "name": "SCOLOPENDRA EARTH-CRUSHER",
-        "clade": "Scolopendridae — 100-Legged Seism Titan",
-        "desc": "Unstoppable 16 HP colossus: dash triggers an earthquake that stuns all room enemies for 2s.",
-        "color": Color(1.2, 0.35, 0.25),
-        "light_color": Color(0.9, 0.3, 0.2),
-        "light_energy": 1.8,
-        "scale": Vector2(1.5, 1.4),
-        "speed": 410.0,
-        "damage": 8.5,
-        "fire_delay": 0.24,
-        "shot_speed": 760.0,
-        "max_health_add": 10,
-        "attack_type": "single",
-        "tear_perks": {"knockback": 600.0},
-        "dash_perks": {"seismic": true, "slam_damage": 15.0},
-        "passive": "double_iframes",
-        "accessory": "carapace"
-    },
-    "1,1,0,1": {
-        "id": "roller_titan",
-        "name": "IRONCLAD ROLLER TITAN",
-        "clade": "Armadillidiidae — Adamantine Ballistic Sphere",
-        "desc": "Bio-Dash curls organism into an INVINCIBLE rolling boulder dealing 25 crushing damage.",
-        "color": Color(0.85, 0.9, 1.1),
-        "light_color": Color(0.7, 0.75, 0.85),
-        "light_energy": 1.7,
-        "scale": Vector2(1.45, 1.45),
-        "speed": 400.0,
-        "damage": 7.0,
-        "fire_delay": 0.26,
-        "shot_speed": 740.0,
-        "max_health_add": 8,
-        "attack_type": "single",
-        "tear_perks": {"knockback": 500.0},
-        "dash_perks": {"rolling_boulder": true, "slam_damage": 25.0},
-        "passive": "double_iframes",
-        "accessory": "carapace"
-    },
-    "1,1,1,0": {
-        "id": "stomatopod_supernova",
-        "name": "STOMATOPOD SUPERNOVA",
-        "clade": "Gonodactylidae — Plasma Cavitation God",
-        "desc": "10,000G sonoluminescent punch generating 4000°K plasma cavitation flash explosions.",
-        "color": Color(1.35, 0.15, 0.75),
-        "light_color": Color(1.0, 0.1, 0.6),
-        "light_energy": 2.0,
-        "scale": Vector2(1.3, 1.3),
-        "speed": 460.0,
-        "damage": 12.5,
-        "fire_delay": 0.26,
-        "shot_speed": 880.0,
-        "max_health_add": 4,
-        "attack_type": "explosive",
-        "tear_perks": {"explosive": true, "stun": true, "knockback": 800.0},
-        "dash_perks": {"cavitation_burst": true},
-        "passive": "none",
-        "accessory": "clubs"
-    },
-    "1,1,1,1": {
-        "id": "orchid_scythe",
-        "name": "ORCHID SCYTHE PREDATOR",
-        "clade": "Hymenopodidae — Bladed Floral Executioner",
-        "desc": "Razor crescent scythes slicing through foes: kills heal half-heart and grant +50% speed frenzy.",
-        "color": Color(1.3, 0.6, 1.15),
-        "light_color": Color(1.0, 0.5, 0.85),
-        "light_energy": 1.8,
-        "scale": Vector2(1.25, 1.25),
-        "speed": 500.0,
-        "damage": 9.0,
-        "fire_delay": 0.18,
-        "shot_speed": 900.0,
-        "max_health_add": 2,
-        "attack_type": "piercing",
-        "tear_perks": {"piercing": true, "vampiric": true},
-        "dash_perks": {"slipstream": true},
-        "passive": "none",
-        "accessory": "scythe"
-    }
-}
+# Playable forms live in data/Lineages.gd, keyed by the path of evolution choices
+var lineages = preload("res://data/Lineages.gd")
+var codex = preload("res://data/Codex.gd")
 
 func _ready():
     add_to_group("player")
-    update_creature_visuals()
+    var start_form = lineages.get_form("")
+    apply_form(start_form)
+    codex.discover(start_form.id)
     call_deferred("emit_all_signals")
 
 func emit_all_signals():
@@ -1281,64 +653,76 @@ func add_dna(amount: int):
     stats_changed.emit(dna_biomass, keys)
     dna_changed.emit(dna_biomass, 0, evolution_choices.size() + 1)
 
-# Called by Main.gd after the player picks an evolution on the choice screen
+# Called by Main.gd after the player picks an evolution on the choice screen.
+# choice is the index of the card picked; a form with no real split known
+# shows a single "refine" card, which keeps the form and strengthens it.
 func apply_evolution(floor_num: int, choice: int):
     evolution_choices.append(choice)
     SoundManager.play_sfx("level_up", 1.0)
-    
-    var path_key = ""
-    var str_elements = []
-    for p in evolution_choices:
-        str_elements.append(str(p))
-    path_key = ",".join(str_elements)
-    
-    if not CHARACTERS.has(path_key):
-        return
-        
-    var data = CHARACTERS[path_key]
-    current_character_id = data["id"]
-    current_character_name = data["name"]
-    current_character_clade = data["clade"]
-    current_modulate = data["color"]
-    current_accessory = data["accessory"]
-    current_attack_type = data["attack_type"]
-    current_tear_perks = data["tear_perks"]
-    current_dash_perks = data["dash_perks"]
-    current_passive = data["passive"]
-    
-    # Apply stats
-    speed = data["speed"]
-    damage = data["damage"]
-    fire_delay = data["fire_delay"]
-    shot_speed = data["shot_speed"]
-    
-    var hp_add = data.get("max_health_add", 0)
-    if hp_add > 0:
-        add_max_health(hp_add)
-        heal(hp_add)
-        
+
+    var path_key = lineages.path_key(evolution_choices)
+    var refined = not lineages.has_form(path_key)
+    var data: Dictionary
+    if refined:
+        # In-clade upgrade: same form, stronger
+        damage += 1.5
+        speed += 20.0
+        fire_delay = max(0.1, fire_delay - 0.02)
+        add_max_health(2)
+        heal(2)
+    else:
+        data = lineages.get_form(path_key)
+        apply_form(data)
+        var hp_add = data.get("max_health_add", 0)
+        if hp_add > 0:
+            add_max_health(hp_add)
+            heal(hp_add)
+        codex.discover(data.id)
+
+    evolution_history.append({
+        "floor": floor_num,
+        "title": current_character_name if not refined else "REFINED " + current_character_name,
+        "clade": current_character_clade,
+        "living": current_living_example,
+        "choice": choice
+    })
+
+    var main = get_tree().get_first_node_in_group("main")
+    if main and main.has_method("display_item_banner"):
+        if refined:
+            main.display_item_banner("REFINED " + current_character_name, "No real split is known here, so your lineage adapts: +damage, +speed, +2 health")
+        else:
+            main.display_item_banner(current_character_name, data.fact)
+
+    creature_changed.emit(current_character_name, current_character_clade, current_modulate)
+    dna_changed.emit(dna_biomass, 0, evolution_choices.size() + 1)
+    health_changed.emit(health, max_health)
+
+# Copies a form from data/Lineages.gd onto the player
+func apply_form(data: Dictionary):
+    current_character_id = data.id
+    current_character_name = data.name
+    current_character_clade = data.clade
+    current_living_example = data.living_example
+    current_modulate = data.color
+    current_accessory = data.accessory
+    current_attack_type = data.attack_type
+    current_tear_perks = data.tear_perks
+    current_dash_perks = data.dash_perks
+    current_passive = data.passive
+
+    speed = data.speed
+    damage = data.damage
+    fire_delay = data.fire_delay
+    shot_speed = data.shot_speed
+
     # Flight collision mask
     if current_passive == "flight":
         set_collision_mask_value(3, false) # Fly over obstacle layer
     else:
         set_collision_mask_value(3, true)
-        
+
     update_creature_visuals()
-    
-    evolution_history.append({
-        "floor": floor_num,
-        "title": current_character_name,
-        "clade": current_character_clade,
-        "choice": choice
-    })
-    
-    var main = get_tree().get_first_node_in_group("main")
-    if main and main.has_method("display_item_banner"):
-        main.display_item_banner(current_character_name, data["desc"])
-    
-    creature_changed.emit(current_character_name, current_character_clade, current_modulate)
-    dna_changed.emit(dna_biomass, 0, evolution_choices.size() + 1)
-    health_changed.emit(health, max_health)
 
 func update_creature_visuals():
     $Sprite2D.modulate = current_modulate

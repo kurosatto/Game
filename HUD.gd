@@ -11,317 +11,9 @@ const ERA_NAMES = {
     5: "ERA 5: APEX EXTINCTION BOUNDARY (250 MYA)"
 }
 
-# 15 branching fork nodes: 1 at Floor 1, 2 at Floor 2, 4 at Floor 3, 8 at Floor 4.
-# Leads into 16 unique Apex Playable Characters on Floor 5 (31 total characters across game).
-const EVOLUTION_TREE = {
-    # ═══ FLOOR 1 COMPLETE: Root Speciation (Path "") ═══
-    "": {
-        "era_title": "ERA 1 COMPLETE — EDIACARAN SOUP",
-        "subtitle": "The Dawn of Multicellularity: Select your fundamental body plan:",
-        "choice_a": {
-            "id": "pikaia",
-            "title": "NOTOCHORD & DORSAL AXIS",
-            "clade": "Lineage: Phylum Chordata (Pikaia Vertebrata)",
-            "desc": "The ancestral flexible dorsal notochord that established the spine of all vertebrates. Unlocks rapid linear propulsion and concussive slipstreams.",
-            "perks": "⚡ +80 Movement Speed & +100 Shot Speed\n💨 Dash leaves a hydrodynamic slipstream shockwave\n🎯 Agile streamlined swimming",
-            "color": Color(0.0, 0.9, 1.0)
-        },
-        "choice_b": {
-            "id": "trilobita",
-            "title": "CHITINOUS CUTICLE CARAPACE",
-            "clade": "Lineage: Phylum Arthropoda (Proto-Trilobita)",
-            "desc": "Hardened, protein-linked mineralized calcite cuticle forming an external shell against predators. Unlocks defensive retaliatory spine darts.",
-            "perks": "❤️ +2 Max HP Containers (Heals 2 Hearts)\n🛡️ Ejects 4 defensive calcified darts whenever damaged\n🪨 Heavy damage resistance",
-            "color": Color(1.0, 0.75, 0.2)
-        }
-    },
-    
-    # ═══ FLOOR 2 COMPLETE: Second Speciation (Paths "0" & "1") ═══
-    "0": {
-        "era_title": "ERA 2 COMPLETE — CAMBRIAN RADIANCE",
-        "subtitle": "Chordate Speciation: Select your predatory specialization:",
-        "choice_a": {
-            "id": "dunkleosteus",
-            "title": "MINERALIZED CRANIAL JAWS",
-            "clade": "Lineage: Placodermi (Dunkleosteus Jaws)",
-            "desc": "The revolutionary leap of hinged biting jaws and cranial bone casing, creating the first true vertebrate apex predators.",
-            "perks": "⚔️ +3.0 Tear Damage (6.5 base dmg!)\n💥 Heavy concussive knockback on all tear hits\n🦷 Tears crush enemy armor",
-            "color": Color(1.0, 0.3, 0.35)
-        },
-        "choice_b": {
-            "id": "nautiloid",
-            "title": "SIPHON JET & TENTACLE ARMS",
-            "clade": "Lineage: Cephalopoda (Ancient Nautiloid)",
-            "desc": "Multi-directional jet siphon propulsion paired with prehensile grasping tentacles for maximum projectile coverage.",
-            "perks": "🎯 Triple-Shot spread attack\n🧲 Magnetic homing tears steer toward closest enemies\n💨 Hydrodynamic swimming",
-            "color": Color(0.0, 1.0, 0.8)
-        }
-    },
-    "1": {
-        "era_title": "ERA 2 COMPLETE — CAMBRIAN RADIANCE",
-        "subtitle": "Arthropod Speciation: Select your chitinous adaptation:",
-        "choice_a": {
-            "id": "eurypterid",
-            "title": "NEUROTOXIC CHELICERAL STINGER",
-            "clade": "Lineage: Chelicerata (Eurypterid Sea Scorpion)",
-            "desc": "Razor grasping appendages paired with a venomous tail barb. Injects corrosive biochemical enzymes that liquefy prey.",
-            "perks": "🧪 Tears inflict lingering neurotoxic acid pools\n⚡ Bio-discharge releases a 360° venom shockwave\n⚔️ +1.5 Tear Damage",
-            "color": Color(0.3, 1.0, 0.3)
-        },
-        "choice_b": {
-            "id": "bastion",
-            "title": "CALCIFIED THORACIC BASTION",
-            "clade": "Lineage: Dinocaridida (Anomalocarid Bastion)",
-            "desc": "Thick interlocking thoracic plates providing impenetrable defense, paired with massive crushing appendages.",
-            "perks": "❤️ +3 Max HP Containers (Heals 3 Hearts)\n🛡️ Post-hit invincibility doubled to 2.0 seconds\n💥 Bio-Dash deals 10 heavy contact damage to enemies",
-            "color": Color(0.9, 0.7, 0.2)
-        }
-    },
-
-    # ═══ FLOOR 3 COMPLETE: Third Speciation (4 Nodes) ═══
-    "0,0": {
-        "era_title": "ERA 3 COMPLETE — DEVONIAN WATERS",
-        "subtitle": "Placoderm Speciation: Select your aquatic dominion:",
-        "choice_a": {
-            "id": "tiktaalik",
-            "title": "TETRAPOD LUNGS & ROBUST LIMBS",
-            "clade": "Lineage: Tetrapodomorpha (Tiktaalik Shorewalker)",
-            "desc": "First breath of atmospheric air! Muscular fin-limbs with distinct digits capable of crawling from shallows onto land.",
-            "perks": "❤️ +2 Max HP Containers (Heals 2 Hearts)\n🌿 Passive cellular oxygen regeneration (1 half-heart / 10s)\n⚔️ Muscular Fin-Dart Volley (+2.0 Damage)",
-            "color": Color(0.2, 1.0, 0.5)
-        },
-        "choice_b": {
-            "id": "cladoselache",
-            "title": "PELAGIC DORSAL FIN & AMPULLAE",
-            "clade": "Lineage: Chondrichthyes (Cladoselache Swift-Shark)",
-            "desc": "Streamlined cartilaginous body and electro-receptive ampullae sensing minute bio-electrical impulses of nearby prey.",
-            "perks": "⚡ Tears chain high-voltage electric arcs between foes\n💨 +80 Movement Speed & +150 Shot Speed\n🩸 Blood Frenzy: +25% Fire Rate on consecutive hits",
-            "color": Color(0.2, 0.85, 1.0)
-        }
-    },
-    "0,1": {
-        "era_title": "ERA 3 COMPLETE — DEVONIAN WATERS",
-        "subtitle": "Cephalopod Speciation: Select your marine supremacy:",
-        "choice_a": {
-            "id": "kraken",
-            "title": "ABYSSAL BIOLUMINESCENT TENTACLES",
-            "clade": "Lineage: Coleoidea (Abyssal Kraken Squid)",
-            "desc": "Titanic deep-ocean cephalopod with ten powerful tentacles, pressurized ink jets, and bioluminescent lure organs.",
-            "perks": "🎯 5-Way Omnidirectional spread barrage\n🧲 Enhanced magnetic homing on all 5 projectiles\n💨 Ink Jet Dash leaves blinding smoke clouds that slow foes",
-            "color": Color(0.7, 0.3, 1.0)
-        },
-        "choice_b": {
-            "id": "ammonite",
-            "title": "CHAMBERED SUTURE CITADEL",
-            "clade": "Lineage: Ammonoidea (Spherical Ammonite Fortress)",
-            "desc": "A heavy mathematical golden-ratio shell with fractal suture lines engineered to withstand crushing hydrostatic pressure.",
-            "perks": "🛡️ Rigid Septal Wall: Reduces all incoming damage by 1!\n❤️ +2 Max HP Containers\n⚡ Bio-discharge radius increased by +75%",
-            "color": Color(1.0, 0.85, 0.3)
-        }
-    },
-    "1,0": {
-        "era_title": "ERA 3 COMPLETE — DEVONIAN WATERS",
-        "subtitle": "Chelicerate Speciation: Select your terrestrial or aerial expansion:",
-        "choice_a": {
-            "id": "pulmonoscorpius",
-            "title": "GARGANTUAN CAUSTIC METASOMA",
-            "clade": "Lineage: Scorpiones (Pulmonoscorpius Titan)",
-            "desc": "One-meter terrestrial scorpion with high-pressure venom reservoirs and chitin-crushing pedipalps.",
-            "perks": "🧪 Caustic Acid Slime: Tears create lingering burning pools\n⚡ Discharge cooldown reduced to 2.2s with toxic blast\n💨 Dash leaves an acid slime trail damaging chasers",
-            "color": Color(0.4, 1.0, 0.2)
-        },
-        "choice_b": {
-            "id": "meganeura",
-            "title": "TRACHEAL HYPER-OXYGENATED WINGS",
-            "clade": "Lineage: Meganisoptera (Meganeura Dragonfly Titan)",
-            "desc": "High-oxygen Carboniferous atmosphere fuels a 2.5-foot wingspan predator capable of agile aerial dogfights.",
-            "perks": "🪶 TRUE FLIGHT: Glides freely over rocks, water & obstacles!\n💨 +120 Movement Speed & +40% Rapid Fire Rate\n🌪️ Every 3rd shot launches a hyper-velocity gale dart",
-            "color": Color(0.0, 1.0, 0.9)
-        }
-    },
-    "1,1": {
-        "era_title": "ERA 3 COMPLETE — DEVONIAN WATERS",
-        "subtitle": "Carapace Speciation: Select your armored offensive evolution:",
-        "choice_a": {
-            "id": "arthropleura",
-            "title": "SEGMENTED DORSAL TERGITES",
-            "clade": "Lineage: Myriapoda (Arthropleura Centipede Titan)",
-            "desc": "Two-meter millipede colossus with 30 armored body rings and interlocking plates capable of trampling undergrowth.",
-            "perks": "❤️ +4 Max HP Containers (Massive 14 HP pool!)\n💥 Trampling Dash: Slams directly through enemies for 12 dmg\n🦷 Heavy concussive mandibles crush enemy armor",
-            "color": Color(0.95, 0.45, 0.2)
-        },
-        "choice_b": {
-            "id": "mantis",
-            "title": "SPRING-LOADED DACTYL CLUBS",
-            "clade": "Lineage: Stomatopoda (Mantis Shrimp Cavitator)",
-            "desc": "Biological hammer appendages that accelerate at 10,000G, creating underwater cavitation shockwaves hotter than the sun.",
-            "perks": "⚔️ +5.0 Massive Tear Damage (9.5 base dmg!)\n💥 Cavitation Shockwave: High knockback & stun on hits\n⚡ Rapid spring-loaded strike cadence",
-            "color": Color(1.0, 0.2, 0.5)
-        }
-    },
-
-    # ═══ FLOOR 4 COMPLETE: Fourth Speciation (8 Nodes -> 16 Apex Forms!) ═══
-    "0,0,0": {
-        "era_title": "ERA 4 COMPLETE — CARBONIFEROUS SWAMPS",
-        "subtitle": "Tetrapod Zenith: Select your Apex Floor 5 Creature:",
-        "choice_a": {
-            "id": "gorgonopsid",
-            "title": "SABER-FANGED THERAPSID DENTITION",
-            "clade": "Lineage: Synapsida (Gorgonopsid — Proto-Mammal Sovereign)",
-            "desc": "The crowning apex predator of the Permian. Four-inch saber canine teeth and an endothermic predatory sprint.",
-            "perks": "⚔️ +4.0 Tear Damage & Heavy Armor Piercing\n🩸 Vampiric Leech: 30% chance on tear hit to heal half-heart\n⚡ Bio-discharge emits a feral soul-draining predator roar",
-            "color": Color(1.0, 0.4, 0.15)
-        },
-        "choice_b": {
-            "id": "diplocaulus",
-            "title": "AERODYNAMIC HYDROFOIL CEPHALON",
-            "clade": "Lineage: Lepospondyli (Diplocaulus Boomerang Amphibian)",
-            "desc": "Massive lateral cheek horns forming a hydrodynamic boomerang wing that channels fluid dynamics for twin piercing projectiles.",
-            "perks": "🪃 Boomerang Projectiles: Tears arc out, pierce foes, and return to you!\n💨 +70 Movement Speed & Double Dash charges\n🌿 Enhanced cellular oxygen regeneration (1 heart / 8s)",
-            "color": Color(0.2, 1.0, 0.7)
-        }
-    },
-    "0,0,1": {
-        "era_title": "ERA 4 COMPLETE — CARBONIFEROUS SWAMPS",
-        "subtitle": "Chondrichthyes Zenith: Select your Apex Floor 5 Creature:",
-        "choice_a": {
-            "id": "megalodon",
-            "title": "SERRATED MEGALODON DENTITION",
-            "clade": "Lineage: Otodontidae (Megalodon Leviathan)",
-            "desc": "The greatest marine apex predator in history. Seven-inch serrated triangular teeth that shear through ancient whales.",
-            "perks": "🏹 Razor Serrated Jaws: Tears pierce ALL enemies indefinitely\n⚡ Chained Lightning: Electrical arcs chain through entire rooms\n💨 +90 Movement Speed & +200 Shot Speed",
-            "color": Color(0.1, 0.7, 1.0)
-        },
-        "choice_b": {
-            "id": "mosasaur",
-            "title": "PTERYGOID JAWS & TIDAL FLUKES",
-            "clade": "Lineage: Mosasauridae (Mosasaurus Ocean Tyrant)",
-            "desc": "Gargantuan marine reptile with double-hinged jaws and an undulating hypocercal tail capable of shattering fleets.",
-            "perks": "💥 Shrapnel Fangs: Tears shatter into 4 secondary razor teeth\n🌊 Tidal Tail-Whip: Bio-Dash slams enemies for 14 damage\n❤️ +3 Max HP Containers",
-            "color": Color(0.1, 0.95, 0.8)
-        }
-    },
-    "0,1,0": {
-        "era_title": "ERA 4 COMPLETE — CARBONIFEROUS SWAMPS",
-        "subtitle": "Coleoid Zenith: Select your Apex Floor 5 Creature:",
-        "choice_a": {
-            "id": "architeuthis",
-            "title": "ABYSSAL VOID JET & CRUSHING SUCKERS",
-            "clade": "Lineage: Architeuthidae (Architeuthis Void Sovereign)",
-            "desc": "Titanic monarch of the midnight trenches. Ten prehensile tentacles firing 7-way pressurized siphon beams.",
-            "perks": "🎯 7-Way Omnidirectional spread barrage\n🌌 Void Singularity: Tears pull enemies toward impact center\n🧲 Maximum magnetic homing curvature on all shots",
-            "color": Color(0.8, 0.2, 1.0)
-        },
-        "choice_b": {
-            "id": "cuttlefish",
-            "title": "CHROMATOPHORE OPTICAL CAMOUFLAGE",
-            "clade": "Lineage: Sepiida (Phantom Cuttlefish)",
-            "desc": "Millions of pigment cells and iridophores creating instant active cloaking and hypnotic chromatic pulse waves.",
-            "perks": "👻 Stealth Camouflage: Bio-Dash renders you INVISIBLE & INVULNERABLE for 1.5s!\n⚡ Hypnotic Pulse: Tears confuse & stun enemies for 1.2s\n🔥 +45% Rapid Fire Rate",
-            "color": Color(0.3, 1.0, 0.9)
-        }
-    },
-    "0,1,1": {
-        "era_title": "ERA 4 COMPLETE — CARBONIFEROUS SWAMPS",
-        "subtitle": "Ammonite Zenith: Select your Apex Floor 5 Creature:",
-        "choice_a": {
-            "id": "sphenodiscus",
-            "title": "OXYCONIC SHRAPNEL BLAST-SHELL",
-            "clade": "Lineage: Sphenodiscidae (Sphenodiscus Blast Shell)",
-            "desc": "Ultra-compressed knife-edge keel shell loaded with pressurized gas chambers that explode into razor calcite flechettes.",
-            "perks": "💥 Shatter Flechettes: Every tear hit bursts into 4 ricocheting shell shards!\n⚡ Bio-discharge emits a 360° razor calcite shrapnel nova\n⚔️ +3.0 Tear Damage",
-            "color": Color(1.0, 0.8, 0.2)
-        },
-        "choice_b": {
-            "id": "prismatic_ammonite",
-            "title": "PRISMATIC DIAMOND BULWARK",
-            "clade": "Lineage: Pachydiscidae (Prismatic Bastion Ammonite)",
-            "desc": "Dense crystalline nacreous aragonite forming an unbreakable pearlescent prism that refracts all incoming kinetic force.",
-            "perks": "💎 Kinetic Reflection: Passively reflects 50% of enemy shots as friendly tears!\n🛡️ Rigid Shield: Reduces all incoming damage by 1 (minimum 1)\n❤️ +4 Max HP Containers (Heals 4 Hearts)",
-            "color": Color(0.9, 0.95, 1.0)
-        }
-    },
-    "1,0,0": {
-        "era_title": "ERA 4 COMPLETE — CARBONIFEROUS SWAMPS",
-        "subtitle": "Scorpiones Zenith: Select your Apex Floor 5 Creature:",
-        "choice_a": {
-            "id": "plague_scorpion",
-            "title": "CORROSIVE PLAGUE RESERVOIRS",
-            "clade": "Lineage: Heterometrinae (Emperor Plague Scorpion)",
-            "desc": "Concentrated necrotic enzymes that melt organic tissue on contact and infect whole groups of predators.",
-            "perks": "🧪 Corrosive Plague: Poisoned enemies explode into toxic clouds upon death!\n🔥 Burning acid pools deal 2x damage and last 4 seconds\n⚡ Bio-discharge coats the entire room in toxic miasma",
-            "color": Color(0.4, 1.0, 0.1)
-        },
-        "choice_b": {
-            "id": "trapdoor_spider",
-            "title": "AMBUSH SPINNERETS & RETRACTABLE CHELICERAE",
-            "clade": "Lineage: Araneae (Trapdoor Silk Reaper)",
-            "desc": "High-tensile protein silk glands and subterranean ambush sensory hairs detecting microscopic floor vibrations.",
-            "perks": "🕸️ Ensnaring Web: Tears pin enemies in place for 1.5 seconds\n💨 Bio-Dash leaves a sticky web snare that strangles enemies\n⚔️ Ambush Strike: +100% damage to immobilized targets",
-            "color": Color(0.7, 0.6, 0.9)
-        }
-    },
-    "1,0,1": {
-        "era_title": "ERA 4 COMPLETE — CARBONIFEROUS SWAMPS",
-        "subtitle": "Insecta Zenith: Select your Apex Floor 5 Creature:",
-        "choice_a": {
-            "id": "meganeuropsis",
-            "title": "SUPERSONIC CORONA WINGS",
-            "clade": "Lineage: Meganeuridae (Meganeuropsis Supersonic Ace)",
-            "desc": "The largest flying insect ever known. High-velocity aerodynamic wing dynamics capable of supersonic aerial dives.",
-            "perks": "🪶 TRUE FLIGHT: Immune to ground hazards, rocks & obstacles\n💨 +160 Movement Speed (580 max speed!)\n🏹 Machine-Gun Cadence: Ultra rapid fire (0.10s delay) with piercing needle darts",
-            "color": Color(0.1, 1.0, 0.8)
-        },
-        "choice_b": {
-            "id": "bombardier",
-            "title": "PYROTECHNIC HYDROQUINONE CANNON",
-            "clade": "Lineage: Carabidae (Pyrotechnic Bombardier Beetle)",
-            "desc": "Twin chemical reaction chambers mixing hydrogen peroxide and hydroquinones into boiling 100°C explosive artillery volleys.",
-            "perks": "💣 High-Explosive Shells: Tears DETONATE on contact dealing massive radius damage!\n🔥 Leaves burning thermal craters that scorch enemies\n💥 Screen-shaking artillery impact",
-            "color": Color(1.0, 0.35, 0.05)
-        }
-    },
-    "1,1,0": {
-        "era_title": "ERA 4 COMPLETE — CARBONIFEROUS SWAMPS",
-        "subtitle": "Myriapoda Zenith: Select your Apex Floor 5 Creature:",
-        "choice_a": {
-            "id": "scolopendra",
-            "title": "SEISMIC TERGITE EARTH-CRUSHER",
-            "clade": "Lineage: Scolopendridae (Scolopendra Earth-Crusher)",
-            "desc": "A hundred armored claws marching in rhythmic seismic resonance, shattering subterranean rock formations.",
-            "perks": "❤️ +6 Max HP Containers (Unstoppable 16 HP juggernaut!)\n🌍 Seismic Quake: Bio-Dash causes an earthquake that stuns all room enemies for 2s!\n💥 Ramming deals 15 crushing damage to anything in your path",
-            "color": Color(0.9, 0.3, 0.2)
-        },
-        "choice_b": {
-            "id": "roller_titan",
-            "title": "BALLISTIC ADAMANTINE SPHERE",
-            "clade": "Lineage: Armadillidiidae (Ironclad Roller Titan)",
-            "desc": "Segmented interlocking titanium-chitin plates that lock into an impenetrable ballistic kinetic wrecking ball.",
-            "perks": "🛡️ Ballistic Rolling Ball: Bio-Dash curls into an INVINCIBLE boulder for 25 damage!\n🛡️ Double Invincibility Frames (2.0s post-hit)\n❤️ +4 Max HP Containers",
-            "color": Color(0.7, 0.75, 0.85)
-        }
-    },
-    "1,1,1": {
-        "era_title": "ERA 4 COMPLETE — CARBONIFEROUS SWAMPS",
-        "subtitle": "Stomatopoda Zenith: Select your Apex Floor 5 Creature:",
-        "choice_a": {
-            "id": "stomatopod_supernova",
-            "title": "PLASMA CAVITATION SUPERNOVA",
-            "clade": "Lineage: Gonodactylidae (Stomatopod Supernova)",
-            "desc": "Club acceleration so violent it generates incandescent 4000°K sonoluminescent plasma flash explosions underwater.",
-            "perks": "⚔️ Massive +6.0 Tear Damage (Base 11.5 damage!)\n💥 Supernova Blast: Tears create blinding plasma explosions on impact\n⚡ High stun and concussive shockwave knockback",
-            "color": Color(1.0, 0.1, 0.6)
-        },
-        "choice_b": {
-            "id": "orchid_scythe",
-            "title": "SERRATED FLORAL EXECUTIONER SCYTHES",
-            "clade": "Lineage: Hymenopodidae (Orchid Scythe Predator)",
-            "desc": "Femoral spine teeth and razor raptorial scythes that decapitate targets with lightning-fast kinetic efficiency.",
-            "perks": "⚔️ Razor Crescent Scythes: Tears slice through multiple foes with critical bleed\n🩸 Executioner's Surge: Kills heal half-heart and grant +50% speed burst for 3s\n💨 Sleek predatory dash cadence",
-            "color": Color(1.0, 0.5, 0.85)
-        }
-    }
-}
+# Evolution choices come from data/Lineages.gd (the accurate tree of life)
+var lineages = preload("res://data/Lineages.gd")
+var codex = preload("res://data/Codex.gd")
 
 var evolution_modal: Control = null
 
@@ -487,9 +179,6 @@ func update_floor(floor_num: int):
     var era_str = ERA_NAMES.get(floor_num, "ERA %d" % floor_num)
     floor_label.text = "%s | 🧬 %s" % [era_str, current_creature_name]
 
-func update_era(era_name: String, lineage_name: String):
-    floor_label.text = era_name.to_upper() + "  |  " + lineage_name.to_upper()
-
 func update_minimap(rooms: Dictionary, current_pos: Vector2i):
     dungeon_rooms = rooms
     current_room_pos = current_pos
@@ -583,37 +272,52 @@ func show_victory(summary: Dictionary = {}):
         text += summary.get("clade", "") + "\n\nPhylogenetic Path Across Earth's Eras:\n"
         for h in summary.get("history", []):
             text += "• Era %d: %s (%s)\n" % [h["floor"], h["title"], h["clade"]]
+            if h.get("living", "") != "":
+                text += "    Living today: %s\n" % h["living"]
+        text += "\nCodex: %d of %d lineages discovered" % [codex.load_discovered().size(), lineages.TREE.size()]
         sublabel.text = text
 
 func show_evolution_modal(floor_num: int, current_path: Array = []):
-    var path_key = ""
-    if current_path.size() > 0:
-        var str_elements = []
-        for p in current_path:
-            str_elements.append(str(p))
-        path_key = ",".join(str_elements)
-        
-    if not EVOLUTION_TREE.has(path_key):
-        if EVOLUTION_TREE.has(""):
-            path_key = ""
-        else:
-            return
-            
+    var path_key = lineages.path_key(current_path)
+    var form = lineages.get_form(path_key)
+    var child_paths = lineages.get_child_paths(path_key)
+
     _create_evolution_modal()
-    var def = EVOLUTION_TREE[path_key]
-    
+
     var header = evolution_modal.get_node("CenterBox/Header") as Label
     var subheader = evolution_modal.get_node("CenterBox/SubHeader") as Label
-    header.text = "🧬 " + def["era_title"]
-    subheader.text = def["subtitle"]
-    
+    header.text = "🧬 " + ERA_NAMES.get(floor_num, "ERA %d" % floor_num) + " COMPLETE"
+
     var cards_row = evolution_modal.get_node("CenterBox/CardsRow") as HBoxContainer
     for c in cards_row.get_children():
         c.queue_free()
-        
-    _build_choice_card(cards_row, floor_num, 0, def["choice_a"])
-    _build_choice_card(cards_row, floor_num, 1, def["choice_b"])
-    
+
+    if child_paths.is_empty():
+        # No real split known for this lineage here: offer an in-clade upgrade
+        var name_text = form.get("name", "YOUR LINEAGE") if not form.is_empty() else "YOUR LINEAGE"
+        subheader.text = "No real split is known for your lineage in this era, so it adapts instead:"
+        _build_choice_card(cards_row, floor_num, 0, {
+            "title": "REFINE: " + name_text,
+            "clade": "Lineage: " + form.get("clade", "in-clade adaptation"),
+            "desc": "Evolution does not always branch. Your lineage stays itself and gets better at what it does.",
+            "perks": "+1.5 damage, +20 speed, faster fire\n+2 max health (heals 2)",
+            "color": form.get("color", Color(0.0, 1.0, 0.85)),
+        }, 1)
+    else:
+        subheader.text = "Pick which real descendant group your lineage becomes:"
+        for i in range(child_paths.size()):
+            var child = lineages.get_form(child_paths[i])
+            var desc = child.fact + "\n\nLiving today: " + child.living_example + "\n" + child.clade_path
+            if not codex.is_discovered(child.id):
+                desc = "NEW TO YOUR CODEX\n" + desc
+            _build_choice_card(cards_row, floor_num, i, {
+                "title": child.name,
+                "clade": "Lineage: " + child.clade,
+                "desc": desc,
+                "perks": lineages.describe_perks(child),
+                "color": child.color,
+            }, child_paths.size())
+
     evolution_modal.visible = true
     get_tree().paused = true
 
@@ -665,9 +369,12 @@ func _create_evolution_modal():
     cards_row.add_theme_constant_override("separation", 50)
     center_box.add_child(cards_row)
 
-func _build_choice_card(parent: HBoxContainer, floor_num: int, choice_idx: int, data: Dictionary):
+func _build_choice_card(parent: HBoxContainer, floor_num: int, choice_idx: int, data: Dictionary, total: int = 2):
     var card = PanelContainer.new()
-    card.custom_minimum_size = Vector2(680, 560)
+    # Up to four cards share the row
+    var gap = 50 if total <= 2 else 24
+    card.custom_minimum_size = Vector2(min(680.0, (1640.0 - gap * (total - 1)) / total), 560)
+    parent.add_theme_constant_override("separation", gap)
     
     var style = StyleBoxFlat.new()
     style.bg_color = Color(0.05, 0.09, 0.15, 0.96)
@@ -697,12 +404,14 @@ func _build_choice_card(parent: HBoxContainer, floor_num: int, choice_idx: int, 
     
     var clade_lbl = Label.new()
     clade_lbl.text = data["clade"].to_upper()
+    clade_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
     clade_lbl.add_theme_font_size_override("font_size", 16)
     clade_lbl.add_theme_color_override("font_color", data["color"] * Color(1, 1, 1, 0.8))
     vbox.add_child(clade_lbl)
     
     var title_lbl = Label.new()
     title_lbl.text = data["title"]
+    title_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
     title_lbl.add_theme_font_size_override("font_size", 28)
     title_lbl.add_theme_color_override("font_color", Color.WHITE)
     vbox.add_child(title_lbl)
@@ -719,6 +428,7 @@ func _build_choice_card(parent: HBoxContainer, floor_num: int, choice_idx: int, 
     
     var perks_lbl = Label.new()
     perks_lbl.text = data["perks"]
+    perks_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
     perks_lbl.add_theme_font_size_override("font_size", 19)
     perks_lbl.add_theme_color_override("font_color", Color(0.2, 1.0, 0.75))
     vbox.add_child(perks_lbl)
