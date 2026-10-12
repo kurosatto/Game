@@ -41,7 +41,7 @@ func _ready():
     start_new_game()
     # How-to-play card; tools/*.gd drive the game from a script, so skip it there
     if get_tree().get_script() == null:
-        hud.show_run_intro(hud.lineages.get_form(""))
+        hud.show_era_card(1, hud.lineages.get_form(""))
 
 func setup_inputs():
     var inputs = {
@@ -310,6 +310,8 @@ func advance_floor():
     tween.tween_callback(func():
         transition_rect.visible = false
         player.set_physics_process(true)
+        if get_tree().get_script() == null:
+            hud.show_era_card(floor_number, current_form())
     )
 
 func display_item_banner(title: String, desc: String):
@@ -328,11 +330,16 @@ func on_boss_defeated(f_num: int):
 
 func _on_evolution_selected(floor_num: int, choice_index: int):
     player.apply_evolution(floor_num, choice_index)
-    var path_key = hud.lineages.path_key(player.evolution_choices)
-    if hud.lineages.has_form(path_key) and get_tree().get_script() == null:
-        hud.show_evolved_card(hud.lineages.get_form(path_key))
+    # The new form and its attack are shown on the next era's card
     if current_room_node and current_room_node.has_method("spawn_trapdoor"):
         current_room_node.spawn_trapdoor()
+
+# The player's current form; a refine keeps the last real form on the path
+func current_form() -> Dictionary:
+    var choices = player.evolution_choices.duplicate()
+    while choices.size() > 0 and not hud.lineages.has_form(hud.lineages.path_key(choices)):
+        choices.pop_back()
+    return hud.lineages.get_form(hud.lineages.path_key(choices))
 
 func _on_player_creature_changed(c_name: String, _c_clade: String, _c_color: Color):
     hud.set_current_creature(c_name)
