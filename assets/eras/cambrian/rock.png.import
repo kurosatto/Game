@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://rrt6e1u3jhl0"
-path="res://.godot/imported/room_bg_boss.png-24bf11a017426b870bd78d1db6450469.ctex"
+uid="uid://c7xh664t83rnr"
+path="res://.godot/imported/rock.png-4ddabac4ed81745ced6841aa43992d04.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/room_bg_boss.png"
-dest_files=["res://.godot/imported/room_bg_boss.png-24bf11a017426b870bd78d1db6450469.ctex"]
+source_file="res://assets/eras/cambrian/rock.png"
+dest_files=["res://.godot/imported/rock.png-4ddabac4ed81745ced6841aa43992d04.ctex"]
 
 [params]
 

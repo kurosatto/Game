@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://ccnfc5y8pihnq"
-path="res://.godot/imported/room_bg_treasure.png-1dd06062f8dde2faf942d722ff1caa8c.ctex"
+uid="uid://dpulv3tfiyrvp"
+path="res://.godot/imported/fossil.png-010588903ec0768c53d756ed767388ca.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/room_bg_treasure.png"
-dest_files=["res://.godot/imported/room_bg_treasure.png-1dd06062f8dde2faf942d722ff1caa8c.ctex"]
+source_file="res://assets/eras/carboniferous/fossil.png"
+dest_files=["res://.godot/imported/fossil.png-010588903ec0768c53d756ed767388ca.ctex"]
 
 [params]
 

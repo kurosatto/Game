@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://crv1hb2xslcie"
-path="res://.godot/imported/room_bg_normal.png-2bb99952b0e312f9bcae648e14df5b1a.ctex"
+uid="uid://qf8euk2leynl"
+path="res://.godot/imported/rock.png-d67438d295b260d464919676e8c1472d.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/room_bg_normal.png"
-dest_files=["res://.godot/imported/room_bg_normal.png-2bb99952b0e312f9bcae648e14df5b1a.ctex"]
+source_file="res://assets/eras/ediacaran/rock.png"
+dest_files=["res://.godot/imported/rock.png-d67438d295b260d464919676e8c1472d.ctex"]
 
 [params]
 

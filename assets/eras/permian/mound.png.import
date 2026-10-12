@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://b33yh2rpiuaek"
-path="res://.godot/imported/room_bg_start.png-73bc19f07bf10d3ddae903cf3e9f792d.ctex"
+uid="uid://civo4jav4s535"
+path="res://.godot/imported/mound.png-534315af304dfa63fb0eb436fd9a6e64.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/room_bg_start.png"
-dest_files=["res://.godot/imported/room_bg_start.png-73bc19f07bf10d3ddae903cf3e9f792d.ctex"]
+source_file="res://assets/eras/permian/mound.png"
+dest_files=["res://.godot/imported/mound.png-534315af304dfa63fb0eb436fd9a6e64.ctex"]
 
 [params]
 
