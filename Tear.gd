@@ -5,6 +5,17 @@ extends Area2D
 @export var damage: float = 3.5
 @export var lifetime: float = 0.85
 @export var is_enemy_tear: bool = false
+# Player weapon this projectile belongs to (data/Lineages.gd WEAPONS), e.g. "vesicle"
+@export var projectile_kind: String = ""
+
+# Projectile art in assets/projectiles/<kind>.png and the glow it casts.
+# Pointed kinds face their flight direction instead of spinning.
+const PROJECTILE_GLOW = {
+    "vesicle": Color(1.0, 0.45, 0.7), "jet": Color(0.55, 0.85, 1.0), "spit": Color(0.75, 1.0, 0.2),
+    "harpoon": Color(1.0, 0.9, 0.7), "slime": Color(0.8, 1.0, 0.85), "silk": Color(0.95, 0.95, 1.0),
+    "spray": Color(1.0, 0.65, 0.15),
+}
+const POINTED = ["jet", "spit", "harpoon", "silk", "spray"]
 
 var direction: Vector2 = Vector2.ZERO
 var velocity: Vector2 = Vector2.ZERO
@@ -31,6 +42,15 @@ func _ready():
             $PointLight2D.energy = 1.3
         if has_node("TrailParticles"):
             $TrailParticles.color = Color(0.0, 0.95, 1.0, 0.6)
+        var art = "res://assets/projectiles/%s.png" % projectile_kind
+        if projectile_kind != "" and ResourceLoader.exists(art):
+            $Sprite2D.texture = load(art)
+            $Sprite2D.hframes = 1
+            var glow: Color = PROJECTILE_GLOW.get(projectile_kind, Color(0.0, 0.95, 1.0))
+            if has_node("PointLight2D"):
+                $PointLight2D.color = glow
+            if has_node("TrailParticles"):
+                $TrailParticles.color = Color(glow.r, glow.g, glow.b, 0.5)
 
     if velocity == Vector2.ZERO:
         velocity = direction.normalized() * speed
@@ -54,7 +74,10 @@ func _physics_process(delta: float):
             velocity = velocity.lerp(target_dir * speed, delta * 7.5)
 
     position += velocity * delta
-    $Sprite2D.rotation += 8.0 * delta
+    if projectile_kind in POINTED and not is_enemy_tear:
+        $Sprite2D.rotation = velocity.angle()
+    else:
+        $Sprite2D.rotation += (3.0 if projectile_kind != "" else 8.0) * delta
     if not is_enemy_tear and $Sprite2D.hframes > 1:
         $Sprite2D.frame = int(fmod(lifetime * 14.0, 3.0))
         
@@ -281,7 +304,8 @@ func spawn_splash_particles():
     if is_enemy_tear:
         p.color = Color(1.0, 0.2, 0.35, 0.8)
     else:
-        p.color = Color(0.0, 0.95, 1.0, 0.8)
+        var glow: Color = PROJECTILE_GLOW.get(projectile_kind, Color(0.0, 0.95, 1.0))
+        p.color = Color(glow.r, glow.g, glow.b, 0.8)
         
     get_parent().add_child(p)
     var timer = get_tree().create_timer(0.35)
