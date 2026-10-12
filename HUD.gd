@@ -276,7 +276,7 @@ func show_victory(summary: Dictionary = {}):
     var sublabel = $VictoryScreen/Center/SubLabel
     if summary.is_empty():
         label.text = "600 MILLION YEARS OF EVOLUTION COMPLETE!"
-        sublabel.text = "Your lineage dominated Earth through all 7 geological epochs!"
+        sublabel.text = "Your lineage dominated Earth through all 5 eras!"
     else:
         label.text = "APEX EVOLUTION: VICTORY!"
         var text = "Final Evolved Lineage: " + summary.get("title", "Apex Organism") + "\n"
