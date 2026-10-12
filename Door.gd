@@ -13,7 +13,8 @@ var trigger_cooldown: float = 0.6
 
 func _ready():
 	add_to_group("doors")
-	body_entered.connect(_on_body_entered)
+	# Deferred: reacting can add/remove physics nodes, which Godot forbids mid physics step
+	body_entered.connect(_on_body_entered, CONNECT_DEFERRED)
 	update_visuals()
 
 func _process(delta: float):
@@ -79,6 +80,8 @@ func blow_open():
 		update_visuals()
 
 func _on_body_entered(body: Node):
+	if not is_instance_valid(body):
+		return
 	if trigger_cooldown > 0:
 		return
 		

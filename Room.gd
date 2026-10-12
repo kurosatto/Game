@@ -548,9 +548,9 @@ func spawn_trapdoor():
     add_child(td)
     
     td.body_entered.connect(func(body):
-        if body.is_in_group("player"):
+        if is_instance_valid(body) and body.is_in_group("player"):
             get_parent().advance_floor()
-    )
+    , CONNECT_DEFERRED)
 
 func _on_door_entered(direction):
     room_transition_requested.emit(direction)

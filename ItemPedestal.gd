@@ -10,7 +10,8 @@ var start_y: float = -20.0
 var elapsed: float = 0.0
 
 func _ready():
-    body_entered.connect(_on_body_entered)
+    # Deferred: reacting can add/remove physics nodes, which Godot forbids mid physics step
+    body_entered.connect(_on_body_entered, CONNECT_DEFERRED)
     start_y = $ItemSprite.position.y
     setup_visuals()
 
@@ -70,6 +71,8 @@ func _process(delta: float):
     $ItemSprite.position.y = start_y + sin(elapsed * 4.0) * 4.0
 
 func _on_body_entered(body: Node):
+    if not is_instance_valid(body):
+        return
     if collected or item_id == "":
         return
         
