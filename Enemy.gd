@@ -987,6 +987,11 @@ func die():
 	# Spawn colorful death burst particles
 	spawn_death_particles()
 
+	# A beat of freeze-frame sells the kill; longer for bosses
+	var main = get_tree().get_first_node_in_group("main")
+	if main and main.has_method("hit_stop"):
+		main.hit_stop(0.22 if is_boss() else 0.035)
+
 	enemy_died.emit()
 	queue_free()
 

@@ -19,6 +19,8 @@ func _initialize():
 	var tc = main.get_node("TouchControls"); tc.visible = true
 	main.hud.use_touch_texts()
 	await snap("1_room")
+	main.hud.flash_hurt()
+	await snap("1b_hurt")
 	main.hud.show_evolution_modal(1, main.player.evolution_choices)
 	await snap("2_evolution")
 	main.hud._on_evolution_choice_clicked(1, 0)

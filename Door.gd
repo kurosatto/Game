@@ -28,8 +28,17 @@ func _process(delta: float):
 func open_door():
 	if is_locked:
 		return
+	var was_open = is_open
 	is_open = true
 	update_visuals()
+	if not was_open and is_inside_tree():
+		# Pop and glow so a newly opened exit catches the eye
+		var sprite = $Sprite2D
+		sprite.scale = Vector2.ONE * 1.3
+		var tw = create_tween()
+		tw.tween_property(sprite, "scale", Vector2.ONE, 0.35).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		if light:
+			light.energy = 3.0
 
 func close_door():
 	is_open = false

@@ -91,7 +91,7 @@ func step_to(target: Vector2i) -> bool:
 				return true
 		main.player.global_position = main.current_room_node.global_position + Vector2(960, 540)
 		await wait(70)
-	report("STUCK at %s trying door %s (open=%s locked=%s)" % [cur, dir, door.is_open, door.is_locked])
+	report("STUCK at %s trying door %s (open=%s locked=%s time_scale=%s transitioning=%s room=%s)" % [cur, dir, door.is_open, door.is_locked, Engine.time_scale, main.is_transitioning, main.current_room_pos])
 	return false
 
 func run():

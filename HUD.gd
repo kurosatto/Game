@@ -112,6 +112,33 @@ func setup_settings_ui():
 
 var music_label: Label
 
+# Red edges that flash when the player is hurt
+var hurt_vignette: TextureRect
+
+func flash_hurt():
+    if hurt_vignette == null:
+        var grad = Gradient.new()
+        grad.set_color(0, Color(0.8, 0.0, 0.1, 0.0))
+        grad.set_color(1, Color(0.85, 0.0, 0.1, 0.9))
+        grad.add_point(0.42, Color(0.8, 0.0, 0.1, 0.0))
+        var tex = GradientTexture2D.new()
+        tex.gradient = grad
+        tex.fill = GradientTexture2D.FILL_RADIAL
+        tex.fill_from = Vector2(0.5, 0.5)
+        tex.fill_to = Vector2(1.05, 1.05)
+        tex.width = 256
+        tex.height = 256
+        hurt_vignette = TextureRect.new()
+        hurt_vignette.texture = tex
+        hurt_vignette.stretch_mode = TextureRect.STRETCH_SCALE
+        hurt_vignette.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+        hurt_vignette.mouse_filter = Control.MOUSE_FILTER_IGNORE
+        add_child(hurt_vignette)
+        move_child(hurt_vignette, 0)
+    hurt_vignette.modulate.a = 1.0
+    var tw = create_tween()
+    tw.tween_property(hurt_vignette, "modulate:a", 0.0, 0.45).set_ease(Tween.EASE_OUT)
+
 func update_music_label(val: float):
     music_label.text = "🎵 Music Volume: %d%%" % int(val * 100)
 

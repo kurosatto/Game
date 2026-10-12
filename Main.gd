@@ -24,6 +24,8 @@ func _ready():
     
     # Connect player signals to HUD
     player.health_changed.connect(hud.update_health)
+    player.health_changed.connect(_on_player_health_feedback)
+    Engine.time_scale = 1.0 # in case a restart happened mid hit-stop
     player.stats_changed.connect(hud.update_inventory)
     player.dna_changed.connect(hud.update_dna)
     player.player_died.connect(_on_player_died)
@@ -87,7 +89,32 @@ func _input(event: InputEvent):
             get_tree().reload_current_scene()
 
 func shake_camera(amount: float):
-    camera_shake_amount = amount
+    # Phones are held close to the eyes; keep the shake gentler there
+    if TouchControls.should_show():
+        amount *= 0.6
+    camera_shake_amount = max(camera_shake_amount, amount)
+
+# Freeze-frame on big impacts: time nearly stops for a moment. The timer runs
+# in real time so it always ends; only the newest hit-stop restores the speed.
+var hit_stop_id: int = 0
+
+func hit_stop(duration: float, time_scale: float = 0.05):
+    if get_tree().paused:
+        return
+    hit_stop_id += 1
+    var my_id = hit_stop_id
+    Engine.time_scale = time_scale
+    await get_tree().create_timer(duration, true, false, true).timeout
+    if my_id == hit_stop_id:
+        Engine.time_scale = 1.0
+
+var last_player_health: int = -1
+
+func _on_player_health_feedback(health, _max_health):
+    if last_player_health >= 0 and health < last_player_health:
+        hit_stop(0.07)
+        hud.flash_hurt()
+    last_player_health = health
 
 func start_new_game():
     floor_number = 1
