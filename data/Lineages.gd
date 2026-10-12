@@ -1085,6 +1085,74 @@ const TREE = {
     }
 }
 
+# How well each form sees, 1 (light-sensing at best) to 10 (best eyes alive).
+# Drives the darkness around the player (VisionFog.gd): poor eyes mean a small
+# lit circle, sharp eyes light most of the room. Ratings follow the real eyes
+# of the living group, not the extinct stem animals.
+const VISION = {
+    "ancestral_collar_cell": [1, "no eyes, a single cell senses only light and chemicals"],
+    "pikaia_chordate": [2, "a pair of simple light-sensing spots"],
+    "early_echinoderm": [1, "no eyes, light-sensitive skin"],
+    "early_mollusc": [2, "simple cup-shaped eyespots"],
+    "early_arthropod": [5, "early compound eyes, like trilobites"],
+    "jawed_fish": [6, "true camera eyes with lens and retina"],
+    "jawless_fish": [4, "simple camera eyes without eye muscles"],
+    "sea_lily": [1, "no eyes, only light-sensitive tissue"],
+    "free_moving_echinoderm": [2, "light-sensitive tube feet"],
+    "cephalopod": [8, "large camera eyes, evolved separately from ours"],
+    "sea_snail": [3, "small eyes on the tentacle bases"],
+    "bivalve": [2, "a few eyespots along the mantle edge"],
+    "chelicerate": [5, "compound side eyes plus simple middle eyes"],
+    "mandibulate": [6, "compound eyes with many facets"],
+    "lobe_finned_shorewalker": [6, "camera eyes, starting to see through air"],
+    "early_shark": [6, "camera eyes with a reflective tapetum"],
+    "ray_finned_fish": [7, "sharp camera eyes, many see colour well"],
+    "lamprey": [4, "camera eyes without the muscles to focus fast"],
+    "hagfish": [1, "degenerate eyespots under the skin"],
+    "sea_star_line": [3, "a simple eye at the tip of every arm"],
+    "spiny_echinozoan": [2, "the whole body senses light"],
+    "nautilus": [4, "pinhole eyes with no lens"],
+    "coleoid": [9, "huge lens eyes, some of the best in the sea"],
+    "predatory_sea_snail": [3, "small eyes, hunts mostly by smell"],
+    "sea_slug_line": [2, "tiny eyes buried behind the rhinophores"],
+    "scallop": [5, "up to 200 mirror eyes along the mantle"],
+    "burrowing_clam": [1, "no eyes, buried in the sediment"],
+    "horseshoe_crab": [5, "large compound eyes that brighten at night"],
+    "arachnid": [5, "several simple eyes, some very sharp"],
+    "myriapod": [3, "clusters of simple eyes, some are blind"],
+    "pancrustacean": [7, "fast, colour-sensitive compound eyes"],
+    "synapsid": [8, "mammal eyes, sharp and good in dim light"],
+    "lissamphibian": [6, "big eyes tuned to see at dusk"],
+    "sauropsid": [9, "reptile and bird eyes, with four-colour vision"],
+    "shark_line": [7, "eyes that see well in murky, dim water"],
+    "chimaera": [6, "large eyes for the deep sea"],
+    "sturgeon_line": [3, "small eyes, finds food with whisker barbels"],
+    "teleost_line": [7, "sharp eyes, many see ultraviolet"],
+    "sea_star": [3, "an eye at each arm tip that sees blurry shapes"],
+    "brittle_star": [3, "light-sensing cells all over the skeleton"],
+    "sea_urchin": [2, "the whole body acts as one dim eye"],
+    "sea_cucumber": [1, "no eyes"],
+    "squid_line": [9, "the largest eyes of any animal belong to squid"],
+    "octopus_line": [9, "lens eyes that track polarised light"],
+    "scorpion": [4, "up to 12 eyes, but hunts mostly by vibration"],
+    "spider": [6, "eight eyes, jumping spiders see sharp and in colour"],
+    "centipede": [3, "simple eyes, some cave centipedes are blind"],
+    "millipede": [2, "simple eyes or none at all"],
+    "dragonfly_line": [10, "about 30,000 facets covering almost all around"],
+    "beetle": [6, "compound eyes, some see in near darkness"],
+    "mantis_shrimp_line": [10, "12 to 16 kinds of colour receptors and polarised light"],
+}
+
+const VISION_WORDS = ["", "Blind", "Very poor", "Poor", "Dim", "Fair", "Good", "Sharp", "Keen", "Superb", "Superb"]
+
+# Vision rating 1-10 for a form (1 when unknown)
+static func get_vision(data: Dictionary) -> int:
+    return VISION.get(data.get("id", ""), [1, ""])[0]
+
+static func describe_vision(data: Dictionary) -> String:
+    var entry = VISION.get(data.get("id", ""), [1, "unknown"])
+    return "Vision: %s, %s" % [VISION_WORDS[entry[0]], entry[1]]
+
 static func path_key(choices: Array) -> String:
     var parts: Array = []
     for c in choices:
@@ -1116,6 +1184,7 @@ static func describe_perks(data: Dictionary) -> String:
     lines.append("Speed %d · Damage %.1f · Fire delay %.2fs" % [int(data.speed), data.damage, data.fire_delay])
     if data.max_health_add > 0:
         lines.append("+%d max health" % data.max_health_add)
+    lines.append(describe_vision(data))
     var attacks = {
         "triple": "Triple-shot spread", "5way": "Five-way spread", "7way": "Seven-way spread",
         "needle": "Rapid needles, every third shot is a piercing strike",

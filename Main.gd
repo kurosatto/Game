@@ -319,6 +319,7 @@ func _on_evolution_selected(floor_num: int, choice_index: int):
 
 func _on_player_creature_changed(c_name: String, _c_clade: String, _c_color: Color):
     hud.set_current_creature(c_name)
+    $VisionFog.set_vision(player.vision)
     hud.update_floor(floor_number)
 
 func get_room_theme_color(room_type: int) -> Color:

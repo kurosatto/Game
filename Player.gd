@@ -41,6 +41,7 @@ var current_attack_type: String = "single"
 var current_tear_perks: Dictionary = {}
 var current_dash_perks: Dictionary = {}
 var current_passive: String = "none"
+var vision: int = 1 # 1-10, see Lineages.VISION; Main.gd passes it to VisionFog
 
 # Passive timer
 var regen_timer: float = 0.0
@@ -716,6 +717,7 @@ func apply_form(data: Dictionary):
     current_tear_perks = data.tear_perks
     current_dash_perks = data.dash_perks
     current_passive = data.passive
+    vision = lineages.get_vision(data)
 
     speed = data.speed
     damage = data.damage

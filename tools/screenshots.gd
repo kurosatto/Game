@@ -46,6 +46,13 @@ func _initialize():
 	for e in get_nodes_in_group("enemies"):
 		if e.process_mode == Node.PROCESS_MODE_DISABLED:
 			e.queue_free()
+	# Vision fog: starting cell (blind) vs. a dragonfly (best eyes)
+	var fog = main.get_node("VisionFog")
+	fog.set_vision(1, true)
+	await snap("1d_vision_cell")
+	fog.set_vision(10, true)
+	await snap("1e_vision_dragonfly")
+	fog.set_vision(main.player.vision, true)
 	main.hud.flash_hurt()
 	await snap("1b_hurt")
 	main.hud.show_evolution_modal(1, main.player.evolution_choices)
