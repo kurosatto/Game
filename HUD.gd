@@ -70,6 +70,8 @@ func _ready():
         minimap_ctrl.draw.connect(_on_minimap_draw)
         
     setup_settings_ui()
+    if TouchControls.should_show():
+        use_touch_texts()
 
 func setup_settings_ui():
     settings_btn.pressed.connect(toggle_settings)
@@ -157,17 +159,26 @@ func update_dna(current_dna: int, max_dna: int, level: int):
     dna_bar.max_value = max_dna
     dna_bar.value = current_dna
 
+# Phones have no keyboard: name the on-screen buttons instead of keys
+func use_touch_texts():
+    resume_btn.text = "RESUME GAME"
+    # Window sizes mean nothing on a phone, which is always fullscreen
+    $SettingsModal/Panel/Margin/VBox/DisplaySection.visible = false
+    $GameOverScreen/Center/SubLabel.text = "Your genetic lineage was severed.
+Tap to Mutate Anew"
+    $VictoryScreen/Center/RestartLabel.text = "Tap to Restart Genetic Lineage"
+
 func update_discharge_cooldown(current_cd: float, max_cd: float):
     if not is_instance_valid(ability_label) or not is_instance_valid(ability_bar):
         return
     if current_cd <= 0.0:
         ability_bar.value = 1.0
-        ability_label.text = "⚡ [E / MMB] DISCHARGE: READY"
+        ability_label.text = "⚡ ZAP: READY" if TouchControls.should_show() else "⚡ [E / MMB] DISCHARGE: READY"
         ability_label.add_theme_color_override("font_color", Color(0.0, 1.0, 0.9, 1.0))
     else:
         var ratio = 1.0 - (current_cd / max(0.001, max_cd))
         ability_bar.value = ratio
-        ability_label.text = "⚡ [E] RECHARGING (%.1fs)" % current_cd
+        ability_label.text = ("⚡ ZAP RECHARGING (%.1fs)" if TouchControls.should_show() else "⚡ [E] RECHARGING (%.1fs)") % current_cd
         ability_label.add_theme_color_override("font_color", Color(0.4, 0.75, 0.85, 0.85))
 
 var current_creature_name: String = "PRIMORDIAL PROTOZOA"
