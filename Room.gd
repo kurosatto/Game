@@ -185,6 +185,16 @@ func spawn_fullscreen_background():
     bg.texture = load(bg_path)
     add_child(bg)
 
+    # Wide phone screens show past the 1920px room; mirror the background
+    # outward so the outer walls continue seamlessly into the extra space
+    for side in [-1, 1]:
+        var ext = Sprite2D.new()
+        ext.texture = bg.texture
+        ext.flip_h = true
+        ext.position = Vector2(960 + side * 1920, 540)
+        ext.z_index = -21
+        add_child(ext)
+
 func spawn_boundary_colliders_and_doors():
     # Top Wall (thickness 128, leaving 896..1024 open for door at x=960)
     _add_static_box(Vector2(448, 64), Vector2(896, 128))
