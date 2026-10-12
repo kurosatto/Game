@@ -32,6 +32,11 @@ var current_character_clade: String = ""
 var current_living_example: String = ""
 var current_modulate: Color = Color(0.0, 0.95, 1.0)
 var current_accessory: String = "cilia"
+# Per-lineage art: assets/lineages/<id>_sheet.png (4 frames of 128px, facing up).
+# The default player_sheet.png needs a -90 degree turn; lineage sheets need +90.
+var default_texture: Texture2D = null
+var has_lineage_art: bool = false
+var heading_offset: float = -PI/2
 var current_attack_type: String = "single"
 var current_tear_perks: Dictionary = {}
 var current_dash_perks: Dictionary = {}
@@ -191,7 +196,7 @@ func _physics_process(delta: float):
         var stretch_x = 1.0 + sin(swim_time) * 0.15
         var stretch_y = 1.0 - sin(swim_time) * 0.15
         $Sprite2D.scale = Vector2(stretch_x, stretch_y)
-        $Sprite2D.rotation = lerp_angle($Sprite2D.rotation, move_dir.angle() - PI/2, delta * 9.0)
+        $Sprite2D.rotation = lerp_angle($Sprite2D.rotation, move_dir.angle() + heading_offset, delta * 9.0)
         $Sprite2D.frame = int(fmod(swim_time, 4.0))
     else:
         swim_time += delta * 3.5
@@ -205,6 +210,8 @@ func _physics_process(delta: float):
 
 func _draw():
     # Render rich creature anatomical accessories that physically animate with swimming
+    if has_lineage_art:
+        return
     var t = swim_time
     
     match current_accessory:
@@ -357,7 +364,7 @@ func perform_bio_dash():
         tw.tween_property($Sprite2D, "rotation", $Sprite2D.rotation + TAU * 2.0, dash_duration)
 
     $Sprite2D.scale = Vector2(1.45, 0.65)
-    $Sprite2D.rotation = dash_direction.angle() - PI/2
+    $Sprite2D.rotation = dash_direction.angle() + heading_offset
 
 func spawn_dash_smoke_cloud():
     var cloud = Area2D.new()
@@ -724,7 +731,16 @@ func apply_form(data: Dictionary):
     update_creature_visuals()
 
 func update_creature_visuals():
-    $Sprite2D.modulate = current_modulate
+    if default_texture == null:
+        default_texture = $Sprite2D.texture
+    var sheet_path = "res://assets/lineages/%s_sheet.png" % current_character_id
+    has_lineage_art = ResourceLoader.exists(sheet_path)
+    $Sprite2D.texture = load(sheet_path) if has_lineage_art else default_texture
+    $Sprite2D.hframes = 4
+    heading_offset = PI/2 if has_lineage_art else -PI/2
+    # Lineage art carries its own colours and anatomy, so no tint or drawn accessory
+    $Sprite2D.modulate = Color.WHITE if has_lineage_art else current_modulate
+    queue_redraw()
     if has_node("PointLight2D"):
         $PointLight2D.color = current_modulate
         $PointLight2D.energy = 1.5
@@ -762,7 +778,7 @@ func take_damage(amount: int):
     # White flash tween
     $Sprite2D.modulate = Color(2.5, 2.5, 2.5, 1.0)
     var flash_tween = create_tween()
-    flash_tween.tween_property($Sprite2D, "modulate", current_modulate, 0.25)
+    flash_tween.tween_property($Sprite2D, "modulate", Color.WHITE if has_lineage_art else current_modulate, 0.25)
     
     var main = get_tree().get_first_node_in_group("main")
     if main and main.has_method("shake_camera"):
