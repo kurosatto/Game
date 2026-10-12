@@ -8,6 +8,10 @@ extends Node2D
 
 var level_gen = preload("res://LevelGenerator.gd")
 var room_scene = preload("res://Room.tscn")
+var eras = preload("res://data/Eras.gd")
+var lineages = preload("res://data/Lineages.gd")
+
+var evolution_screen = preload("res://EvolutionScreen.gd").new()
 
 var floor_number: int = 1
 var dungeon_rooms: Dictionary = {}
@@ -28,6 +32,9 @@ func _ready():
     player.player_died.connect(_on_player_died)
     
     SettingsManager.set_brightness(SettingsManager.brightness)
+
+    add_child(evolution_screen)
+    evolution_screen.lineage_chosen.connect(_on_lineage_chosen)
     
     start_new_game()
 
@@ -78,10 +85,13 @@ func shake_camera(amount: float):
 
 func start_new_game():
     floor_number = 1
+    player.apply_lineage(lineages.START_ID)
     generate_floor()
 
 func generate_floor():
-    hud.update_floor(floor_number)
+    var era = eras.for_floor(floor_number)
+    hud.update_era(era.name, lineages.get_lineage(player.lineage_id).name)
+    player.refresh_era_abilities()
     
     dungeon_rooms = level_gen.generate_level(floor_number)
     current_room_pos = Vector2i(4, 4)
@@ -198,14 +208,17 @@ func _on_room_transition_requested(direction: Vector2i):
         is_transitioning = false
     )
 
+# Called by the boss room's trapdoor. Fades out, offers the evolution
+# choice for the next era, then builds that era's floor.
 func advance_floor():
-    if floor_number >= 3:
+    if is_transitioning:
+        return
+    if floor_number >= eras.count():
         hud.show_victory()
         player.set_physics_process(false)
         return
-        
-    floor_number += 1
-    
+
+    is_transitioning = true
     transition_rect.visible = true
     transition_rect.color.a = 0.0
     player.set_physics_process(false)
@@ -219,13 +232,21 @@ func advance_floor():
             bomb.queue_free()
         for pickup in get_tree().get_nodes_in_group("pickups"):
             pickup.queue_free()
-            
-        generate_floor()
+
+        evolution_screen.show_choices(player.lineage_id, eras.for_floor(floor_number + 1))
     )
+
+func _on_lineage_chosen(id: String):
+    player.apply_lineage(id)
+    floor_number += 1
+    generate_floor()
+
+    var tween = create_tween()
     tween.tween_property(transition_rect, "color:a", 0.0, 0.4)
     tween.tween_callback(func():
         transition_rect.visible = false
         player.set_physics_process(true)
+        is_transitioning = false
     )
 
 func display_item_banner(title: String, desc: String):

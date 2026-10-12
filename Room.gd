@@ -12,9 +12,14 @@ var door_scene = preload("res://Door.tscn")
 var pickup_scene = preload("res://Pickup.tscn")
 var pedestal_scene = preload("res://ItemPedestal.tscn")
 var enemy_scene = preload("res://Enemy.tscn")
+var eras = preload("res://data/Eras.gd")
+var bestiary = preload("res://data/Bestiary.gd")
+
+var era: Dictionary = {}
 
 func setup_room(data, floor_number: int):
     room_data = data
+    era = eras.for_floor(floor_number)
     
     # 1. Clear existing children
     for child in get_children():
@@ -137,6 +142,7 @@ func spawn_floor(pos: Vector2):
     floor_tile.texture = load("res://assets/floor.png")
     floor_tile.position = pos
     floor_tile.z_index = -10
+    floor_tile.modulate = era.get("floor_tint", Color.WHITE)
     add_child(floor_tile)
 
 func spawn_obstacles():
@@ -207,9 +213,8 @@ func spawn_normal_enemies(floor_number: int):
             
         var enemy = enemy_scene.instantiate()
         enemy.position = pos
-        var type = "fly" if randf() < 0.6 else "pacer"
-        enemy.enemy_type = type
-        enemy.setup_enemy(floor_number)
+        var species: String = era.enemies.pick_random()
+        enemy.setup_from_data(bestiary.get_enemy(species), floor_number)
         
         add_child(enemy)
         active_enemies.append(enemy)
@@ -219,8 +224,7 @@ func spawn_normal_enemies(floor_number: int):
 func spawn_boss(floor_number: int):
     var boss = enemy_scene.instantiate()
     boss.position = Vector2(960, 540)
-    boss.enemy_type = "boss"
-    boss.setup_enemy(floor_number)
+    boss.setup_from_data(bestiary.get_enemy(era.boss), floor_number)
     
     add_child(boss)
     active_enemies.append(boss)

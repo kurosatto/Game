@@ -30,6 +30,14 @@ var shoot_cooldown: float = 0.0
 var invincibility_time: float = 0.0
 var door_cooldown: float = 0.0
 
+# Evolution: current lineage (see data/Lineages.gd) and its abilities
+var lineages = preload("res://data/Lineages.gd")
+var lineage_id: String = ""
+var abilities: Array = []
+var base_scale: float = 1.0
+var armor_hit_count: int = 0
+var cryptobiosis_ready: bool = false
+
 # Preloads
 var tear_scene = preload("res://Tear.tscn")
 var bomb_scene = preload("res://Bomb.tscn")
@@ -69,12 +77,12 @@ func _physics_process(delta: float):
         swim_time += delta * 12.0
         var stretch_x = 1.0 + sin(swim_time) * 0.15
         var stretch_y = 1.0 - sin(swim_time) * 0.15
-        $Sprite2D.scale = Vector2(stretch_x, stretch_y)
+        $Sprite2D.scale = Vector2(stretch_x, stretch_y) * base_scale
         $Sprite2D.rotation = lerp_angle($Sprite2D.rotation, move_dir.angle() - PI/2, delta * 8.0)
     else:
         swim_time += delta * 4.0
         var pulse = 1.0 + sin(swim_time) * 0.05
-        $Sprite2D.scale = Vector2(pulse, pulse)
+        $Sprite2D.scale = Vector2(pulse, pulse) * base_scale
         $Sprite2D.rotation = lerp_angle($Sprite2D.rotation, 0.0, delta * 8.0)
 
     # 2. Shooting
@@ -98,9 +106,9 @@ func _physics_process(delta: float):
 func shoot_tear(dir: Vector2):
     shoot_cooldown = fire_delay
     SoundManager.play_sfx("shoot", 1.0)
-    $Sprite2D.scale = Vector2(1.25, 0.8)
+    $Sprite2D.scale = Vector2(1.25, 0.8) * base_scale
     
-    var is_triple_shot = has_meta("triple_shot") and get_meta("triple_shot")
+    var is_triple_shot = (has_meta("triple_shot") and get_meta("triple_shot")) or has_ability("triple_shot")
     if is_triple_shot:
         var angles = [-0.22, 0.0, 0.22]
         for angle in angles:
@@ -115,6 +123,7 @@ func spawn_tear(dir: Vector2):
     tear.lifetime = range_lifetime
     tear.speed = shot_speed
     tear.velocity = dir * shot_speed + velocity * 0.35
+    tear.slows_target = has_ability("slime_shot")
     get_parent().add_child(tear)
 
 func place_bomb():
@@ -148,12 +157,31 @@ func add_coin(amount: int):
 func take_damage(amount: int):
     if invincibility_time > 0:
         return
+
+    # Exoskeleton: every fourth hit glances off
+    if has_ability("armor"):
+        armor_hit_count += 1
+        if armor_hit_count % 4 == 0:
+            invincibility_time = 0.5
+            SoundManager.play_sfx("hit", 0.6)
+            return
+
+    # Water bear: survive one fatal hit per era by drying out
+    if health - amount <= 0 and has_ability("cryptobiosis") and cryptobiosis_ready:
+        cryptobiosis_ready = false
+        health = 1
+        invincibility_time = 2.0
+        health_changed.emit(health, max_health)
+        var tree_main = get_tree().get_first_node_in_group("main")
+        if tree_main and tree_main.has_method("display_item_banner"):
+            tree_main.display_item_banner("CRYPTOBIOSIS!", "Dried out and survived a fatal hit")
+        return
         
     health = max(0, health - amount)
     invincibility_time = 1.0
     
     SoundManager.play_sfx("player_hurt", 1.0)
-    $Sprite2D.scale = Vector2(0.7, 1.4)
+    $Sprite2D.scale = Vector2(0.7, 1.4) * base_scale
     
     var main = get_tree().get_first_node_in_group("main")
     if main and main.has_method("shake_camera"):
@@ -199,6 +227,37 @@ func apply_item_upgrade(item_id: String):
         
     health_changed.emit(health, max_health)
     stats_changed.emit(dna_biomass, bombs, keys)
+
+func has_ability(ability: String) -> bool:
+    return abilities.has(ability)
+
+# Evolve into a lineage. Stats are added on top of the current ones, so an
+# in-clade upgrade (choosing the same lineage again) stacks.
+func apply_lineage(id: String):
+    var data = lineages.get_lineage(id)
+    lineage_id = id
+    abilities = data.abilities.duplicate()
+
+    var stats: Dictionary = data.stats
+    speed = max(200.0, speed + stats.get("speed", 0.0))
+    damage = max(1.0, damage + stats.get("damage", 0.0))
+    fire_delay = max(0.12, fire_delay + stats.get("fire_delay", 0.0))
+    shot_speed += stats.get("shot_speed", 0.0)
+    range_lifetime += stats.get("range", 0.0)
+    var extra_health: int = stats.get("max_health", 0)
+    max_health = max(2, max_health + extra_health)
+    health = clamp(health + max(0, extra_health), 1, max_health)
+
+    base_scale = data.scale
+    $Sprite2D.self_modulate = data.tint
+    $Sprite2D.scale = Vector2.ONE * base_scale
+
+    health_changed.emit(health, max_health)
+    stats_changed.emit(dna_biomass, bombs, keys)
+
+# Called at the start of every era
+func refresh_era_abilities():
+    cryptobiosis_ready = true
 
 func die():
     SoundManager.play_sfx("player_hurt", 0.7)
