@@ -30,6 +30,10 @@ window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
 window/handheld/orientation=4
 
+[gui]
+
+theme/custom="res://assets/ui/organic_theme.tres"
+
 [physics]
 
 common/physics_interpolation=true

@@ -572,11 +572,12 @@ func spawn_tactical_enemies(layout: Dictionary, floor_number: int):
             
         spawn_enemy(cand_pos, roll_enemy_type("fly" if randf() < 0.55 else "pacer", floor_number), floor_number)
 
-# About a quarter of spawns become the era's third animal (data/Fauna.gd)
+# About a third of spawns become one of the era's special animals
+# (data/Fauna.gd: the third and fourth animal of each era)
 func roll_enemy_type(base: String, floor_number: int) -> String:
-    var special = fauna.special_type(floor_number)
-    if special != "" and randf() < 0.28:
-        return special
+    var specials = fauna.special_types(floor_number)
+    if not specials.is_empty() and randf() < 0.36:
+        return specials.pick_random()
     return base
 
 func spawn_enemy(pos: Vector2, type: String, floor_number: int):

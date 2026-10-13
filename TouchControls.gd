@@ -22,8 +22,8 @@ var shoot_stick := {
 }
 # Action buttons above the shoot stick: action name -> on-screen label
 var buttons := [
-    {"action": "dash", "label": "DASH", "touch": -1, "color": Color(0.3, 0.8, 1.0)},
-    {"action": "discharge", "label": "ZAP", "touch": -1, "color": Color(0.95, 0.8, 0.2)},
+    {"action": "dash", "label": "DASH", "touch": -1, "color": Color(0.45, 0.9, 0.85)},
+    {"action": "discharge", "label": "ZAP", "touch": -1, "color": Color(1.0, 0.8, 0.4)},
 ]
 
 var canvas: Control
@@ -181,10 +181,10 @@ func _notification(what: int):
         release_all()
 
 func _on_canvas_draw():
-    _draw_stick(move_stick, Color(0.0, 0.85, 0.65))
-    _draw_stick(shoot_stick, Color(1.0, 0.45, 0.35))
+    _draw_stick(move_stick, Color(0.62, 0.93, 0.5))
+    _draw_stick(shoot_stick, Color(1.0, 0.47, 0.4))
 
-    var font = ThemeDB.fallback_font
+    var font = canvas.get_theme_default_font() # the rounded UI font
     var fs = 26
     for i in buttons.size():
         var b = buttons[i]
@@ -199,7 +199,7 @@ func _on_canvas_draw():
             if player and player.has_method("dash_label"):
                 label = player.dash_label()
         var tw = font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
-        canvas.draw_string(font, bc + Vector2(-tw / 2.0, fs * 0.35), label, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(1, 1, 1, 0.9))
+        canvas.draw_string(font, bc + Vector2(-tw / 2.0, fs * 0.35), label, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(0.98, 0.94, 0.84, 0.95))
 
 func _draw_stick(stick: Dictionary, col: Color):
     var active = stick.touch != -1

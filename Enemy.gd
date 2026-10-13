@@ -57,7 +57,15 @@ const SPECIAL_STATS = {
 	"charger": {"hp": 7.0, "hp_per_floor": 1.5, "speed": 110.0, "radius": 24.0, "worth": 2.0},
 	"swarm": {"hp": 2.5, "hp_per_floor": 0.5, "speed": 235.0, "radius": 17.0, "worth": 0.5},
 	"burrower": {"hp": 8.0, "hp_per_floor": 2.0, "speed": 150.0, "radius": 28.0, "worth": 2.0},
+	"colony": {"hp": 5.0, "hp_per_floor": 1.5, "speed": 0.0, "radius": 30.0, "worth": 0.5},
+	"skittish": {"hp": 3.0, "hp_per_floor": 0.8, "speed": 265.0, "radius": 20.0, "worth": 3.0},
+	"enroll": {"hp": 10.0, "hp_per_floor": 2.0, "speed": 80.0, "radius": 34.0, "worth": 2.0},
+	"snarer": {"hp": 6.0, "hp_per_floor": 1.5, "speed": 95.0, "radius": 24.0, "worth": 2.0},
+	"orbiter": {"hp": 7.0, "hp_per_floor": 1.5, "speed": 210.0, "radius": 24.0, "worth": 2.0},
 }
+# Animals that never hurt on contact
+const HARMLESS = ["colony", "skittish"]
+const COLONY_CAP = 6
 var facing: Vector2 = Vector2.DOWN # armoured: where its shielded front points
 var charge_state: String = ""
 var charge_timer: float = 0.0
@@ -67,6 +75,14 @@ var flee_timer: float = 0.0
 var burrow_state: String = "walk"
 var burrow_timer: float = 0.0
 var dust: CPUParticles2D = null
+var floor_num: int = 1
+var sprout_timer: float = 0.0 # colony: time to the next runner
+var grow: float = 1.0 # colony: new sprouts grow in from small
+var enroll_time: float = 0.0 # enroll: rolled up and untouchable
+var enroll_cooldown: float = 0.0
+var spray_state: String = "" # snarer: "windup" before a slime jet
+var spray_timer: float = 0.0
+var orbit_sign: float = 1.0 # orbiter: which way it circles
 
 # Preloads
 var tear_scene = preload("res://Tear.tscn")
@@ -158,13 +174,14 @@ func draw_health_bar():
 
 # A small shove from an ordinary shot, without the stun a real knockback gives
 func apply_hit_push(force: Vector2):
-	if is_burrowed():
+	if is_burrowed() or is_enrolled() or enemy_type == "colony":
 		return
 	if enemy_type in ["tank", "armoured"]:
 		force *= 0.3
 	knockback_velocity = (knockback_velocity + force).limit_length(max(force.length(), 420.0))
 
 func setup_enemy(floor_number: int):
+	floor_num = floor_number
 	# Each enemy needs its own shape, or a boss radius leaks into every enemy
 	$CollisionShape2D.shape = $CollisionShape2D.shape.duplicate()
 	if enemy_type == "fly":
@@ -202,6 +219,11 @@ func setup_enemy(floor_number: int):
 		$CollisionShape2D.shape.radius = st.radius
 		charge_cooldown = randf_range(1.0, 2.0)
 		burrow_timer = randf_range(1.2, 2.2)
+		sprout_timer = randf_range(3.0, 5.0)
+		spray_timer = randf_range(1.5, 2.5)
+		orbit_sign = 1.0 if randf() < 0.5 else -1.0
+		if enemy_type in HARMLESS:
+			damage = 0
 		if light:
 			light.color = Color(0.9, 0.75, 0.4)
 			light.scale = Vector2(1.3, 1.3)
@@ -349,6 +371,11 @@ func _physics_process(delta: float):
 			"charger": process_charger(delta)
 			"swarm": process_swarm(delta)
 			"burrower": process_burrower(delta)
+			"colony": process_colony(delta)
+			"skittish": process_skittish(delta)
+			"enroll": process_enroll(delta)
+			"snarer": process_snarer(delta)
+			"orbiter": process_orbiter(delta)
 
 	check_contact_damage()
 
@@ -477,6 +504,180 @@ func process_burrower(delta: float):
 				var main = get_tree().get_first_node_in_group("main")
 				if main: main.shake_camera(5.0)
 
+# ═══════════════════════════════════════════════════════════
+# FOURTH ANIMALS: a second new behaviour per era
+# ═══════════════════════════════════════════════════════════
+# Fractofusus: rooted and harmless, but sends out runners that sprout new
+# fronds nearby, so a colony left alone fills the room
+func process_colony(delta: float):
+	velocity = Vector2.ZERO
+	grow = min(1.0, grow + delta / 1.5)
+	var sway = 1.0 + 0.04 * sin(anim_timer * 2.0 + weave_phase)
+	$Sprite2D.scale = Vector2.ONE * base_scale * (0.4 + 0.6 * grow) * sway
+	$Sprite2D.rotation = weave_phase
+	if grow < 1.0:
+		return
+	sprout_timer -= delta
+	if sprout_timer <= 0:
+		sprout_timer = randf_range(4.5, 6.5)
+		spread_runner()
+
+func spread_runner():
+	var room = get_parent()
+	if room == null or not room.has_method("spawn_enemy"):
+		return
+	var fronds = get_tree().get_nodes_in_group("enemies").filter(func(e): return is_instance_valid(e) and e.get("enemy_type") == "colony" and not e.dead)
+	if fronds.size() >= COLONY_CAP:
+		return
+	for attempt in 8:
+		var pos = position + Vector2.RIGHT.rotated(randf() * TAU) * randf_range(110.0, 170.0)
+		if pos.x < 320.0 or pos.x > 1600.0 or pos.y < 260.0 or pos.y > 820.0:
+			continue
+		if room.to_global(pos).distance_to(player.global_position) < 130.0:
+			continue
+		var blocked = false
+		for c in room.get_children():
+			if (c is StaticBody2D or c is CharacterBody2D) and c.position.distance_to(pos) < 75.0:
+				blocked = true
+				break
+		if blocked:
+			continue
+		# A pale runner thread reaches out first
+		var runner = Line2D.new()
+		runner.width = 3.0
+		runner.default_color = Color(0.95, 0.85, 0.7, 0.8)
+		runner.points = PackedVector2Array([position, pos])
+		runner.z_index = -1
+		room.add_child(runner)
+		var tw = runner.create_tween()
+		tw.tween_property(runner, "modulate:a", 0.0, 1.6)
+		tw.tween_callback(runner.queue_free)
+		room.spawn_enemy(pos, "colony", floor_num)
+		var sprout = room.active_enemies.back()
+		if is_instance_valid(sprout):
+			sprout.grow = 0.2
+			sprout.health = sprout.max_health * 0.6
+			sprout.sprout_timer = randf_range(5.5, 7.5)
+		return
+
+# Marrella: harmless and quick; it flees, and slips sideways when cornered
+func process_skittish(delta: float):
+	var away = global_position - player.global_position
+	if flee_timer > 0:
+		flee_timer -= delta
+		velocity = wander_dir * speed
+	elif away.length() < 420.0:
+		velocity = away.normalized().rotated(sin(anim_timer * 5.0 + weave_phase) * 0.6) * speed
+	else:
+		wander_timer -= delta
+		if wander_timer <= 0:
+			pick_random_wander()
+		velocity = wander_dir * speed * 0.3
+	if move_and_slide() and get_last_slide_collision():
+		var n = get_last_slide_collision().get_normal()
+		wander_dir = n.rotated(PI / 2 * (1.0 if randf() < 0.5 else -1.0)).lerp(n, 0.3).normalized()
+		flee_timer = 0.45
+	face_sprite(velocity, delta, 12.0)
+
+# Isotelus: plods toward you; a hit makes it roll up into an armoured ball
+func process_enroll(delta: float):
+	if enroll_time > 0:
+		enroll_time -= delta
+		velocity = Vector2.ZERO
+		$Sprite2D.scale = $Sprite2D.scale.lerp(Vector2(0.8, 0.6) * base_scale, min(1.0, delta * 18.0))
+		$Sprite2D.modulate = base_tint * Color(0.72, 0.72, 0.85)
+		if enroll_time <= 0:
+			enroll_cooldown = 2.6
+		return
+	enroll_cooldown -= delta
+	$Sprite2D.scale = $Sprite2D.scale.lerp(Vector2.ONE * base_scale, min(1.0, delta * 10.0))
+	var dir = (player.global_position - global_position).normalized()
+	velocity = dir * speed
+	move_and_slide()
+	face_sprite(dir, delta, 3.0)
+
+func is_enrolled() -> bool:
+	return enemy_type == "enroll" and enroll_time > 0
+
+# Helenodora: keeps its distance, then squirts a fan of sticky slime
+func process_snarer(delta: float):
+	var to_p = player.global_position - global_position
+	var d = to_p.length()
+	if spray_state == "windup":
+		spray_timer -= delta
+		$Sprite2D.modulate = base_tint.lerp(Color(1.4, 2.0, 1.4), 0.5 + 0.5 * sin(anim_timer * 40.0))
+		face_sprite(to_p, delta, 12.0)
+		if spray_timer <= 0:
+			spray_slime(to_p.normalized())
+			spray_state = ""
+			spray_timer = randf_range(2.6, 3.4)
+		return
+	var dir: Vector2
+	if d > 330.0:
+		dir = to_p.normalized()
+	elif d < 220.0:
+		dir = -to_p.normalized()
+	else:
+		dir = to_p.normalized().rotated(PI / 2) * (0.4 if sin(anim_timer * 0.7 + weave_phase) > 0 else -0.4)
+	velocity = dir * speed
+	move_and_slide()
+	face_sprite(to_p if d < 330.0 else dir, delta, 6.0)
+	spray_timer -= delta
+	if spray_timer <= 0 and d < 440.0 and blind_timer <= 0:
+		spray_state = "windup"
+		spray_timer = 0.5
+
+func spray_slime(dir: Vector2):
+	SoundManager.play_sfx("shoot", 0.5, -4.0)
+	for i in 5:
+		var tear = tear_scene.instantiate()
+		tear.position = global_position + dir * 26.0
+		tear.direction = dir.rotated(deg_to_rad(-16.0 + i * 8.0 + randf_range(-2.0, 2.0)))
+		tear.is_enemy_tear = true
+		tear.is_snare = true
+		tear.damage = 0
+		tear.speed = randf_range(380.0, 440.0)
+		tear.lifetime = 0.75
+		get_parent().add_child(tear)
+
+# Euchambersia: circles you, then darts in for a venomous bite
+func process_orbiter(delta: float):
+	var to_p = player.global_position - global_position
+	var d = to_p.length()
+	match charge_state:
+		"windup":
+			charge_timer -= delta
+			$Sprite2D.modulate = base_tint.lerp(Color(2.0, 1.3, 1.3), 0.5 + 0.5 * sin(anim_timer * 40.0))
+			face_sprite(to_p, delta, 20.0)
+			if charge_timer <= 0:
+				charge_state = "dash"
+				charge_timer = 0.32
+				charge_dir = to_p.normalized()
+		"dash":
+			charge_timer -= delta
+			velocity = charge_dir * speed * 3.6
+			var hit = move_and_slide()
+			for i in get_slide_collision_count():
+				if get_slide_collision(i).get_collider() == player:
+					player.apply_slow(1.6, 0.6, "VENOM")
+			if hit or charge_timer <= 0:
+				charge_state = ""
+				charge_cooldown = randf_range(2.2, 3.2)
+				$Sprite2D.modulate = base_tint
+				if randf() < 0.5:
+					orbit_sign = -orbit_sign
+		_:
+			var radial = to_p.normalized() * clamp((d - 250.0) / 120.0, -1.0, 1.0)
+			var tangent = to_p.normalized().rotated(PI / 2 * orbit_sign)
+			velocity = (tangent + radial).normalized() * speed
+			if move_and_slide():
+				orbit_sign = -orbit_sign
+			face_sprite(velocity, delta, 10.0)
+			charge_cooldown -= delta
+			if charge_cooldown <= 0 and d < 480.0:
+				charge_state = "windup"
+				charge_timer = 0.35
+
 func set_burrowed(on: bool):
 	$Sprite2D.visible = not on
 	if light: light.visible = not on
@@ -509,6 +710,8 @@ func is_burrowed() -> bool:
 	return burrow_state in ["under", "rise"]
 
 func check_contact_damage():
+	if damage <= 0:
+		return
 	for i in get_slide_collision_count():
 		var collision = get_slide_collision(i)
 		var collider = collision.get_collider()
@@ -569,10 +772,12 @@ func fire_arc_tears(num_tears: int, arc_deg: float, center_angle: float):
 		get_parent().add_child(tear)
 
 func apply_stun(duration: float):
+	if is_enrolled():
+		return
 	stun_timer = max(stun_timer, duration * (0.2 if is_boss() else 1.0))
 
 func apply_knockback(force: Vector2, stun_duration: float = 0.4):
-	if is_burrowed():
+	if is_burrowed() or is_enrolled() or enemy_type == "colony":
 		return
 	if enemy_type == "tank":
 		knockback_velocity = force * 0.15
@@ -592,6 +797,15 @@ func take_damage_if_alive(amount: float):
 func take_damage(amount: float):
 	if is_burrowed():
 		return
+	if is_enrolled():
+		# Rolled up: the blow glances off the shell
+		if randf() < 0.5:
+			SoundManager.play_sfx("hit", 2.0, -8.0)
+		return
+	# Serrated Edges adaptation: some hits do double
+	if player and is_instance_valid(player) and player.get("crit_chance") and randf() < player.crit_chance:
+		amount *= 2.0
+		player.popup_text(global_position, "×2", Color(1.0, 0.8, 0.4))
 	if armour_blocks():
 		amount *= 0.25
 		if randf() < 0.5:
@@ -599,6 +813,9 @@ func take_damage(amount: float):
 	if enemy_type == "swarm":
 		scatter_swarm()
 	health = max(0.0, health - amount)
+	if enemy_type == "enroll" and health > 0 and enroll_cooldown <= 0:
+		enroll_time = 1.8
+		knockback_velocity = Vector2.ZERO
 	hit_flash_timer = 0.18
 	hit_feedback(amount)
 	

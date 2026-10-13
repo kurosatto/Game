@@ -69,6 +69,17 @@ var range_mult: float = 1.0
 var biomass_mult: float = 1.0
 var armour: int = 0
 var regen_on_clear: int = 0
+var autotomy: bool = false # shed the first hit after each cleared room
+var autotomy_ready: bool = false
+var iframe_bonus: float = 0.0 # extra untouchable time on dash or escape
+var crit_chance: float = 0.0 # Enemy.take_damage doubles this share of hits
+var symbionts: float = 0.0 # each stack heals half a heart per 12 biomass
+var symbiont_meter: float = 0.0
+var thorns: float = 0.0 # enemies pressing against you take this x damage
+var zap_power: float = 0.0
+# Snared by velvet-worm slime or slowed by venom (Enemy.gd)
+var slow_timer: float = 0.0
+var slow_mult: float = 1.0
 
 # Passive timer
 var regen_timer: float = 0.0
@@ -167,14 +178,18 @@ func _physics_process(delta: float):
         rooted_time -= delta
     if bite_chain_time > 0:
         bite_chain_time -= delta
-    # Spiny bodies hurt whatever presses against them
-    if current_weapon == "spines":
+    if slow_timer > 0:
+        slow_timer -= delta
+    # Spiny bodies (the spines weapon or the Defensive Spines adaptation)
+    # hurt whatever presses against them
+    if current_weapon == "spines" or thorns > 0.0:
         spine_aura_timer -= delta
         if spine_aura_timer <= 0.0:
             spine_aura_timer = 0.5
+            var prick = damage * ((0.4 if current_weapon == "spines" else 0.0) + 0.3 * thorns)
             for e in get_tree().get_nodes_in_group("enemies"):
                 if is_instance_valid(e) and e.global_position.distance_to(global_position) < body_radius(e, 30.0) + 55.0:
-                    e.take_damage(damage * 0.4)
+                    e.take_damage(prick)
 
     if invincibility_time > 0:
         invincibility_time -= delta
@@ -256,7 +271,8 @@ func _physics_process(delta: float):
         if dash_timer <= 0:
             is_dashing = false
     else:
-        velocity = Vector2.ZERO if rooted_time > 0 else move_dir.normalized() * speed + recoil_velocity
+        var slowed = slow_mult if slow_timer > 0 else 1.0
+        velocity = Vector2.ZERO if rooted_time > 0 else move_dir.normalized() * speed * slowed + recoil_velocity
         move_and_slide()
     recoil_velocity = recoil_velocity.move_toward(Vector2.ZERO, delta * 900.0)
 
@@ -400,7 +416,7 @@ func perform_bio_dash():
     dash_timer = dash_duration
     dash_cooldown = max_dash_cooldown
     
-    var iframe_dur = current_dash_perks.get("invulnerable_duration", 0.28)
+    var iframe_dur = current_dash_perks.get("invulnerable_duration", 0.28) + iframe_bonus
     invincibility_time = iframe_dur
     
     SoundManager.play_sfx("dash")
@@ -462,7 +478,7 @@ func perform_bio_dash():
 func perform_escape():
     var st: Dictionary = lineages.ESCAPE_STYLES[escape_style]
     dash_cooldown = max_dash_cooldown
-    invincibility_time = max(invincibility_time, st.invulnerable)
+    invincibility_time = max(invincibility_time, st.invulnerable + iframe_bonus)
     rooted_time = st.rooted
     SoundManager.play_sfx("dash", 0.7)
     var radius: float = st.get("radius", 0.0)
@@ -687,10 +703,10 @@ func perform_bio_discharge():
             if dist <= discharge_radius:
                 spawn_electric_spark_line(global_position, e.global_position)
                 if e.has_method("take_damage"):
-                    e.take_damage(damage * 1.8)
+                    e.take_damage(damage * 1.8 * (1.0 + zap_power))
                 if e.has_method("apply_knockback"):
                     var push_dir = (e.global_position - global_position).normalized()
-                    e.apply_knockback(push_dir * 500.0, 0.35)
+                    e.apply_knockback(push_dir * 500.0, 0.35 * (1.0 + 2.0 * zap_power))
 
 func spawn_electric_spark_line(from_pos: Vector2, to_pos: Vector2):
     var line = Line2D.new()
@@ -1068,6 +1084,14 @@ func emit_biomass():
 # BiomassOrb.gd calls this when an orb from a kill reaches the player
 func add_biomass(amount: float):
     biomass += amount * biomass_mult
+    # Gut symbionts: digestion pays back in health
+    if symbionts > 0.0:
+        symbiont_meter += amount * biomass_mult * symbionts
+        if symbiont_meter >= 12.0:
+            symbiont_meter -= 12.0
+            if health < max_health:
+                heal(1)
+                popup_text(global_position, "+½ ♥", Color(0.62, 0.93, 0.5))
     emit_biomass()
     try_offer_adaptation()
 
@@ -1097,6 +1121,8 @@ func grant_adaptation(id: String):
     if a.is_empty():
         return
     adaptations_taken[id] = adaptations_taken.get(id, 0) + 1
+    if a.mods.has("autotomy"):
+        autotomy_ready = true
     var hp = a.mods.get("hp", 0)
     if hp > 0:
         add_max_health(hp)
@@ -1135,6 +1161,12 @@ func recompute_stats():
     biomass_mult = 1.0 + m.get("biomass", 0.0)
     armour = int(m.get("armour", 0))
     regen_on_clear = int(m.get("regen", 0))
+    autotomy = m.get("autotomy", 0.0) > 0.0
+    iframe_bonus = m.get("iframes", 0.0)
+    crit_chance = m.get("crit", 0.0)
+    symbionts = m.get("symbiont", 0.0)
+    thorns = m.get("thorns", 0.0)
+    zap_power = m.get("zap_power", 0.0)
 
     current_tear_perks = form_stats.perks.duplicate()
     for perk in m.perk:
@@ -1149,6 +1181,8 @@ func recompute_stats():
 func on_room_cleared():
     if regen_on_clear > 0 and health < max_health:
         heal(regen_on_clear)
+    if autotomy:
+        autotomy_ready = true
 
 func add_dna(amount: int):
     dna_biomass += amount
@@ -1273,6 +1307,14 @@ func add_coin(amount: int):
 func take_damage(amount: int):
     if invincibility_time > 0 or is_dashing:
         return
+    # Autotomy: drop a limb or tail tip instead of taking the hit
+    if autotomy_ready:
+        autotomy_ready = false
+        invincibility_time = 1.0
+        SoundManager.play_sfx("hit", 0.7)
+        popup_text(global_position, "AUTOTOMY", Color(1.0, 0.8, 0.4))
+        HitFX.impact(get_parent(), global_position, Vector2.UP, Color(1.0, 0.8, 0.5), 1.2)
+        return
     
     var actual_amount = amount
     
@@ -1310,6 +1352,15 @@ func take_damage(amount: int):
     
     if health <= 0:
         die()
+
+# Slime or venom: slower movement for a while (mult 0.5 = half speed)
+func apply_slow(duration: float, mult: float, label: String = ""):
+    if invincibility_time > 0 or is_dashing:
+        return
+    if slow_timer <= 0 and label != "":
+        popup_text(global_position, label, Color(0.75, 1.0, 0.7))
+    slow_timer = max(slow_timer, duration)
+    slow_mult = mult
 
 func heal(amount: int):
     health = min(max_health, health + amount)
