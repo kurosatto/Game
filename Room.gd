@@ -493,18 +493,18 @@ func spawn_tactical_enemies(layout: Dictionary, floor_number: int):
         active_enemies.append(enemy)
         enemy.enemy_died.connect(_on_enemy_died.bind(enemy))
 
+# One real animal per era, each drawn and animated in code (bosses/)
+const BOSSES = {
+    1: "res://bosses/Stentor.gd",
+    2: "res://bosses/Anomalocaris.gd",
+    3: "res://bosses/Cameroceras.gd",
+    4: "res://bosses/Arthropleura.gd",
+    5: "res://bosses/Dimetrodon.gd",
+}
+
 func spawn_boss(floor_number: int):
-    var boss = enemy_scene.instantiate()
+    var boss = load(BOSSES.get(clampi(floor_number, 1, 5))).new()
     boss.position = Vector2(960, 540)
-
-    match floor_number:
-        1: boss.enemy_type = "boss_stentor"
-        2: boss.enemy_type = "boss_anomalocaris"
-        3: boss.enemy_type = "boss_cameroceras"
-        4: boss.enemy_type = "boss_arthropleura"
-        5: boss.enemy_type = "boss_apex_sovereign"
-        _: boss.enemy_type = "boss_apex_sovereign"
-
     boss.setup_enemy(floor_number)
     add_child(boss)
     active_enemies.append(boss)
