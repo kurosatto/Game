@@ -1,15 +1,12 @@
-"""Procedural ambient music and extra sound effects (numpy).
+"""Extra sound effects (numpy). The music is in generate_soundtrack.py.
 
 Writes:
-  assets/music/*.wav   seamless loops, one mood per stretch of the run
   assets/sfx/{dash,zap,evolve,boss_intro,room_clear}.wav
   assets/sfx/{hit,enemy_die}.wav (replacing generate_audio.py's versions)
 and fades the tails of shoot/player_hurt/explosion so they don't click.
 Only run main() once per fresh set of generate_audio.py files.
 
 Run from the project root:  python generate_music.py
-Godot then imports the WAVs; the music .import files use QOA compression
-and forward looping so the loops stay small in the APK.
 """
 import os
 import wave
@@ -18,9 +15,7 @@ import numpy as np
 from scipy.signal import lfilter
 
 SFX_RATE = 44100
-MUSIC_RATE = 22050
 rng = np.random.default_rng(7)
-MUSIC = True
 
 
 def write_wav(path, x, rate, peak=0.38):
@@ -194,86 +189,6 @@ def declick(path, seconds=0.008):
     print("  declicked", path)
 
 
-# ─────────────────────────────── music ───────────────────────────────
-
-def midi(n):
-    return 440.0 * 2 ** ((n - 69) / 12)
-
-
-def pad_voice(freq, seconds, rate, brightness=0.25):
-    t = t_axis(seconds, rate)
-    lfo = 1 + 0.002 * np.sin(2 * np.pi * 0.13 * t)
-    x = np.zeros(len(t))
-    for det in (-0.004, 0.0, 0.004):
-        ph = 2 * np.pi * freq * (1 + det) * lfo * t
-        x += np.sin(ph) + brightness * np.sin(2 * ph) + brightness * 0.4 * np.sin(3 * ph)
-    return x / 3
-
-
-def bell(freq, seconds, rate):
-    t = t_axis(seconds, rate)
-    return (np.sin(2 * np.pi * freq * t) + 0.35 * np.sin(2 * np.pi * freq * 2.0 * t) * np.exp(-t * 3)
-            + 0.15 * np.sin(2 * np.pi * freq * 3.01 * t) * np.exp(-t * 6)) * np.exp(-t * 1.6)
-
-
-def render_track(chords, bpm, scale, root_note, seconds, bubble_amount, pulse=False, arp_density=0.55, seed=1):
-    """Chords are lists of MIDI notes, one chord per bar of 4 beats."""
-    r = np.random.default_rng(seed)
-    rate = MUSIC_RATE
-    n = int(seconds * rate)
-    out = np.zeros(n + rate * 4)  # extra tail, folded back onto the start for a seamless loop
-    beat = 60.0 / bpm
-    bar = beat * 4
-    bars = int(round(seconds / bar))
-
-    for b in range(bars):
-        chord = chords[b % len(chords)]
-        s = int(b * bar * rate)
-        for note in chord:
-            v = pad_voice(midi(note), bar + 1.5, rate) * env(int((bar + 1.5) * rate), 1.2, 1.0, rate)
-            v[: int(bar * rate)] = pad_voice(midi(note), bar, rate) * np.minimum(1, np.arange(int(bar * rate)) / (1.2 * rate))
-            out[s:s + len(v)] += v * 0.16
-        # Sub drone on the chord root
-        tt = t_axis(bar, rate)
-        sub = np.sin(2 * np.pi * midi(chord[0] - 12) * tt) * 0.22
-        fade = np.minimum(1, np.minimum(np.arange(len(tt)), len(tt) - np.arange(len(tt))) / (0.4 * rate))
-        out[s:s + len(tt)] += sub * fade
-
-        # Sparse bell arpeggio from the scale
-        for step in range(8):
-            if r.random() < arp_density:
-                deg = r.choice(scale)
-                octave = r.choice([12, 24])
-                bs = s + int(step * beat / 2 * rate)
-                bl = bell(midi(root_note + deg + octave), 2.5, rate) * 0.09 * r.uniform(0.6, 1.0)
-                out[bs:bs + len(bl)] += bl[: len(out) - bs]
-
-        if pulse:
-            for k in range(4):
-                ks = s + int(k * beat * rate)
-                kt = t_axis(0.4, rate)
-                kick = np.sin(2 * np.pi * (48 + 60 * np.exp(-kt * 25)) * kt) * np.exp(-kt * 9) * (0.55 if k % 2 == 0 else 0.35)
-                out[ks:ks + len(kt)] += kick
-
-    # Bubbles: short rising sine chirps
-    for _ in range(int(seconds * bubble_amount)):
-        bs = int(r.uniform(0, seconds) * rate)
-        bt = t_axis(r.uniform(0.03, 0.08), rate)
-        f0 = r.uniform(500, 1400)
-        bub = np.sin(2 * np.pi * (f0 + f0 * 3 * bt / bt[-1]) * bt) * env(len(bt), 0.004, 0.02, rate) * 0.05
-        out[bs:bs + len(bub)] += bub
-
-    # Soft water noise bed
-    noise = lowpass(r.standard_normal(len(out)), 350, rate) * 0.10
-    out += noise * (0.8 + 0.2 * np.sin(2 * np.pi * np.arange(len(out)) / rate / 9.0))
-
-    out = reverb(out, rate, 0.62, 0.4)
-    loop = out[:n].copy()
-    tail = out[n:]
-    loop[: min(len(tail), n)] += tail[: min(len(tail), n)]
-    return loop
-
-
 def main():
     os.makedirs("assets/sfx", exist_ok=True)
     print("SFX")
@@ -287,32 +202,6 @@ def main():
     for name in ("shoot", "player_hurt", "explosion"):
         declick(f"assets/sfx/{name}.wav")
 
-    if not MUSIC:
-        return
-    print("Music")
-    minor_pent = [0, 3, 5, 7, 10]
-    dorian = [0, 2, 3, 5, 7, 9, 10]
-    phrygian = [0, 1, 3, 5, 7, 8, 10]
-    # Shallow tidepool: calm, open fifths and suspended chords (floors 1-2)
-    write_wav("assets/music/tidepool.wav", render_track(
-        [[50, 57, 62, 64], [48, 55, 60, 67], [46, 53, 58, 62], [48, 55, 62, 64]],
-        bpm=64, scale=minor_pent, root_note=62, seconds=60, bubble_amount=1.2, seed=11), MUSIC_RATE, 0.5)
-    # Open reef: brighter dorian colour (floors 3-4)
-    write_wav("assets/music/reef.wav", render_track(
-        [[45, 52, 57, 60, 64], [43, 50, 55, 62], [41, 48, 53, 60, 64], [43, 50, 57, 62]],
-        bpm=70, scale=dorian, root_note=57, seconds=55, bubble_amount=0.8, arp_density=0.65, seed=23), MUSIC_RATE, 0.5)
-    # Deep time: darker, slower (floor 5 and beyond)
-    write_wav("assets/music/abyss.wav", render_track(
-        [[40, 47, 52, 55], [41, 48, 53, 56], [38, 45, 50, 53], [40, 47, 53, 56]],
-        bpm=56, scale=phrygian, root_note=52, seconds=69, bubble_amount=0.5, arp_density=0.4, seed=37), MUSIC_RATE, 0.5)
-    # Boss: same palette with a heartbeat pulse
-    write_wav("assets/music/boss.wav", render_track(
-        [[38, 45, 50, 53], [39, 46, 51, 54], [38, 45, 50, 53], [36, 43, 48, 54]],
-        bpm=92, scale=phrygian, root_note=50, seconds=41.7, bubble_amount=0.3, pulse=True, arp_density=0.75, seed=41), MUSIC_RATE, 0.55)
-
 
 if __name__ == "__main__":
-    import sys
-    if "--sfx-only" in sys.argv:
-        MUSIC = False
     main()

@@ -11,6 +11,7 @@ extends Node2D
 var level_gen = preload("res://LevelGenerator.gd")
 var room_scene = preload("res://Room.tscn")
 var fauna = preload("res://data/Fauna.gd")
+var era_look = preload("res://data/EraLook.gd")
 
 var floor_number: int = 1
 var dungeon_rooms: Dictionary = {}
@@ -213,7 +214,7 @@ func is_room_visited(grid_pos: Vector2i) -> bool:
 
 func register_boss(boss_node: Node):
     SoundManager.play_sfx("boss_intro")
-    SoundManager.play_music("boss")
+    SoundManager.play_music(SoundManager.boss_music_for_floor(floor_number))
     boss_node.boss_health_changed.connect(hud.show_boss_health)
     boss_node.enemy_died.connect(hud.hide_boss_health)
     var boss_floor_color = get_boss_floor_color(floor_number)
@@ -222,16 +223,7 @@ func register_boss(boss_node: Node):
         tween.tween_property($CanvasModulate, "color", boss_floor_color, 0.6)
 
 func get_boss_floor_color(floor_num: int) -> Color:
-    var b = SettingsManager.brightness / 1.2
-    match floor_num:
-        1: return Color(0.70, 0.78, 0.98) * b  # Stentor: calming abyssal periwinkle
-        2: return Color(0.60, 0.88, 0.94) * b  # Anomalocaris: Cambrian turquoise
-        3: return Color(0.65, 0.92, 0.80) * b  # Cameroceras: Ordovician emerald seafoam
-        4: return Color(0.70, 0.90, 0.65) * b  # Arthropleura: Carboniferous lush moss
-        5: return Color(0.95, 0.75, 0.55) * b  # Dimetrodon: Permian sun-baked amber
-        6: return Color(0.98, 0.60, 0.55) * b  # Tyrannosaurus: Cretaceous volcanic glow
-        7: return Color(0.85, 0.70, 1.00) * b  # Apex Sovereign: Celestial extinction twilight
-        _: return Color(0.70, 0.80, 0.98) * b
+    return era_look.get_look(floor_num).boss_tint * (SettingsManager.brightness / 1.2)
 
 # -------------------------------------------------------------
 # Smooth 1080p Sliding Camera Room Transition with Anti-Loop Lock
@@ -408,21 +400,13 @@ func _on_player_creature_changed(c_name: String, _c_clade: String, _c_color: Col
 
 func get_room_theme_color(room_type: int) -> Color:
     var b = SettingsManager.brightness / 1.2
-    # Base floor tint
-    var floor_tint = Color.WHITE
-    match floor_number:
-        1: floor_tint = Color(0.95, 0.98, 1.05) # Ediacaran
-        2: floor_tint = Color(0.90, 1.05, 1.05) # Cambrian
-        3: floor_tint = Color(0.90, 1.08, 0.95) # Ordovician
-        4: floor_tint = Color(0.92, 1.05, 0.88) # Carboniferous
-        5: floor_tint = Color(1.08, 0.90, 1.08) # Apex Boundary
-        
+    # Each era has its own light (data/EraLook.gd); special rooms shade it
+    var era_tint: Color = era_look.get_look(floor_number).tint
     match room_type:
-        0: return Color(0.82, 0.90, 1.0) * b * floor_tint # Start
-        2: return Color(0.72, 0.95, 0.88) * b * floor_tint # Treasure
-        4: return Color(0.95, 0.88, 0.70) * b * floor_tint # Shop
+        2: return era_tint * Color(0.92, 1.05, 0.95) * b # Treasure
+        4: return era_tint * Color(1.05, 0.98, 0.85) * b # Shop
         3: return get_boss_floor_color(floor_number) # Boss
-        _: return Color(0.76, 0.86, 0.96) * b * floor_tint # Normal
+        _: return era_tint * b
 
 func update_ambient_lighting(target_type: int = -1):
     if not has_node("CanvasModulate"):

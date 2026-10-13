@@ -5,6 +5,9 @@ signal door_entered(direction)
 
 @export var direction: Vector2i = Vector2i.UP
 @export var is_locked: bool = false
+# Set by Room.gd: the era's door art (generate_room_art.py) and glow
+var era_dir: String = ""
+var open_light: Color = Color(0.0, 0.95, 1.0)
 
 var is_open: bool = false
 var trigger_cooldown: float = 0.6
@@ -53,7 +56,7 @@ func _process(delta: float):
 
 	# Gentle pulsating light on doors
 	if light and is_open:
-		light.energy = 1.2 + sin(Time.get_ticks_msec() * 0.005) * 0.3
+		light.energy = 0.55 + sin(Time.get_ticks_msec() * 0.005) * 0.15
 
 func open_door():
 	if is_locked:
@@ -68,7 +71,7 @@ func open_door():
 		var tw = create_tween()
 		tw.tween_property(sprite, "scale", Vector2.ONE, 0.35).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 		if light:
-			light.energy = 3.0
+			light.energy = 1.4
 
 func close_door():
 	is_open = false
@@ -90,26 +93,33 @@ func update_visuals():
 		return
 		
 	if is_locked:
-		$Sprite2D.texture = load("res://assets/door_locked.png")
+		$Sprite2D.texture = _door_texture("locked")
 		$Sprite2D.modulate = Color.WHITE
 		$StaticBody2D/CollisionShape2D.set_deferred("disabled", false)
 		if light:
 			light.color = Color(1.0, 0.75, 0.1)
 			light.energy = 1.0
 	elif is_open:
-		$Sprite2D.texture = load("res://assets/door.png")
+		$Sprite2D.texture = _door_texture("open")
 		$Sprite2D.modulate = Color(1.0, 1.0, 1.0, 1.0)
 		$StaticBody2D/CollisionShape2D.set_deferred("disabled", true)
 		if light:
-			light.color = Color(0.0, 0.95, 1.0)
-			light.energy = 1.5
+			light.color = open_light
+			light.energy = 0.6
 	else: # Closed
-		$Sprite2D.texture = load("res://assets/door_closed.png")
+		$Sprite2D.texture = _door_texture("closed")
 		$Sprite2D.modulate = Color.WHITE
 		$StaticBody2D/CollisionShape2D.set_deferred("disabled", false)
 		if light:
-			light.color = Color(0.1, 0.4, 0.6)
+			light.color = open_light.darkened(0.6)
 			light.energy = 0.35
+
+func _door_texture(state: String) -> Texture2D:
+	var path = era_dir + "door_" + state + ".png"
+	if era_dir != "" and ResourceLoader.exists(path):
+		return load(path)
+	return load({"open": "res://assets/door.png", "closed": "res://assets/door_closed.png",
+			"locked": "res://assets/door_locked.png"}[state])
 
 func blow_open():
 	if is_locked or not is_open:

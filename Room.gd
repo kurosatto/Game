@@ -33,6 +33,7 @@ var enemy_scene = preload("res://Enemy.tscn")
 var obstacle_scene = preload("res://Obstacle.tscn")
 var room_layouts = preload("res://RoomLayouts.gd")
 var fauna = preload("res://data/Fauna.gd")
+var era_look = preload("res://data/EraLook.gd")
 
 func setup_room(data, floor_number: int):
     room_data = data
@@ -193,13 +194,14 @@ func save_room_state():
                 })
 
 func spawn_fullscreen_background():
-    # Era room art (generate_room_art.py): 128px walls around a floor that
-    # tiles horizontally, so the room can be as wide as the screen
+    # Era room art (generate_room_art.py): a 128px rim around a floor that
+    # tiles horizontally, so the room can be as wide as the screen. The side
+    # patches take in 64px of floor too, where the rim's shadow falls.
     var bg = NinePatchRect.new()
     bg.name = "FullscreenBackground"
     bg.texture = load(era_dir() + "room.png")
-    bg.patch_margin_left = 128
-    bg.patch_margin_right = 128
+    bg.patch_margin_left = 192
+    bg.patch_margin_right = 192
     bg.patch_margin_top = 128
     bg.patch_margin_bottom = 128
     bg.axis_stretch_horizontal = NinePatchRect.AXIS_STRETCH_MODE_TILE_FIT
@@ -268,6 +270,8 @@ func spawn_door_at(pos: Vector2, d_dir: Vector2i, rot: float):
     door.position = pos
     door.rotation = rot
     door.direction = d_dir
+    door.era_dir = era_dir()
+    door.open_light = era_look.get_look(current_floor).door_light
     
     var neighbor_pos = room_data.connections[d_dir]
     var parent = get_parent()
@@ -284,8 +288,9 @@ func spawn_door_at(pos: Vector2, d_dir: Vector2i, rot: float):
     door.door_entered.connect(_on_door_entered)
 
 func spawn_ambient_particles():
-    var particle_color = Color(0.0, 0.75, 0.90, 0.28) # Soothing ocean cyan
-    var glow_color = Color(0.0, 0.65, 0.85, 0.12)
+    var look = era_look.get_look(current_floor)
+    var particle_color: Color = look.motes
+    var glow_color = Color(particle_color.r, particle_color.g, particle_color.b, 0.12)
     
     if room_data:
         match room_data.type:
@@ -295,12 +300,6 @@ func spawn_ambient_particles():
             4: # SHOP
                 particle_color = Color(0.95, 0.80, 0.25, 0.30) # Soft golden amber
                 glow_color = Color(0.85, 0.70, 0.20, 0.14)
-            3: # BOSS
-                particle_color = Color(0.55, 0.65, 0.95, 0.32) # Majestic celestial indigo
-                glow_color = Color(0.40, 0.50, 0.85, 0.14)
-            0: # START
-                particle_color = Color(0.25, 0.85, 1.0, 0.28)
-                glow_color = Color(0.15, 0.70, 0.9, 0.12)
 
     # Layer 1: Gentle bioluminescent plankton motes
     var particles = CPUParticles2D.new()
@@ -310,7 +309,8 @@ func spawn_ambient_particles():
     particles.preprocess = 4.0
     particles.emission_shape = CPUParticles2D.EMISSION_SHAPE_RECTANGLE
     particles.emission_rect_extents = Vector2(960 + side_margin, 540)
-    particles.gravity = Vector2(0, -6)
+    # Plankton drifts up, spores float about, ash settles
+    particles.gravity = {"plankton": Vector2(0, -6), "spores": Vector2(3, 1), "ash": Vector2(2, 8)}.get(look.mote_kind, Vector2(0, -6))
     particles.initial_velocity_min = 6.0
     particles.initial_velocity_max = 16.0
     particles.scale_amount_min = 1.5
@@ -336,8 +336,14 @@ func spawn_ambient_particles():
     particles2.z_index = -4
     add_child(particles2)
 
-    spawn_light_shafts(particle_color)
-    spawn_bubble_streams()
+    if look.shafts.a > 0:
+        spawn_light_shafts(look.shafts)
+    if look.bubbles:
+        spawn_bubble_streams()
+    if look.mote_kind == "ash":
+        spawn_embers()
+    spawn_floor_light(look)
+    spawn_passing_shadow(look)
 
 # Soft sunlight rays slanting down from the surface, gently swaying.
 # Additive polygons with vertex alpha: no shader, cheap on phones.
@@ -355,7 +361,7 @@ func spawn_light_shafts(tint: Color):
         shaft.polygon = PackedVector2Array([
             Vector2(x - top_w, 110), Vector2(x + top_w, 110),
             Vector2(x + slant + bottom_w, 980), Vector2(x + slant - bottom_w, 980)])
-        var c = Color(tint.r * 0.6 + 0.4, tint.g * 0.6 + 0.4, tint.b * 0.6 + 0.4, 0.07)
+        var c = tint
         var clear = Color(c.r, c.g, c.b, 0.0)
         shaft.vertex_colors = PackedColorArray([c, c, clear, clear])
         shaft.material = add_mat
@@ -391,6 +397,90 @@ func spawn_bubble_streams():
         b.color_ramp = ramp
         b.z_index = -5
         add_child(b)
+
+# Sparks drifting up from far-off eruptions (end-Permian Siberian Traps)
+func spawn_embers():
+    var ramp = Gradient.new()
+    ramp.set_color(0, Color(1.0, 0.6, 0.2, 0.0))
+    ramp.add_point(0.2, Color(1.0, 0.55, 0.2, 0.8))
+    ramp.set_color(1, Color(1.0, 0.3, 0.1, 0.0))
+    var e = CPUParticles2D.new()
+    e.position = Vector2(960, 1000)
+    e.amount = 14
+    e.lifetime = 7.0
+    e.preprocess = 7.0
+    e.emission_shape = CPUParticles2D.EMISSION_SHAPE_RECTANGLE
+    e.emission_rect_extents = Vector2(960 + side_margin, 40)
+    e.direction = Vector2(0.3, -1)
+    e.spread = 25.0
+    e.gravity = Vector2(4, -10)
+    e.initial_velocity_min = 30.0
+    e.initial_velocity_max = 70.0
+    e.scale_amount_min = 2.0
+    e.scale_amount_max = 3.5
+    e.color_ramp = ramp
+    e.z_index = -5
+    add_child(e)
+
+# Light moving over the floor (data/EraLook.gd FLOOR_LIGHT_SHADER)
+static var floor_light_shader: Shader = null
+
+func spawn_floor_light(look: Dictionary):
+    if floor_light_shader == null:
+        floor_light_shader = Shader.new()
+        floor_light_shader.code = era_look.FLOOR_LIGHT_SHADER
+    var rect = ColorRect.new()
+    rect.name = "FloorLight"
+    rect.position = Vector2(-side_margin, 0)
+    rect.size = Vector2(1920 + side_margin * 2, 1080)
+    rect.z_index = -7
+    rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    var mat = ShaderMaterial.new()
+    mat.shader = floor_light_shader
+    mat.set_shader_parameter("tint", look.light)
+    mat.set_shader_parameter("strength", look.light_power)
+    mat.set_shader_parameter("mode", look.light_mode)
+    mat.set_shader_parameter("rect_size", rect.size)
+    rect.material = mat
+    add_child(rect)
+
+# Now and then something big passes overhead and its shadow slides over the
+# floor: Anomalocaris, a nautiloid, Meganeura, or clouds
+func spawn_passing_shadow(look: Dictionary):
+    var path = era_dir() + "shadow.png"
+    if not ResourceLoader.exists(path):
+        return
+    var s = Sprite2D.new()
+    s.name = "PassingShadow"
+    s.texture = load(path)
+    s.z_index = -7
+    s.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF # moved by a tween every frame
+    s.modulate = Color(1, 1, 1, 0)
+    add_child(s)
+    var rng = RandomNumberGenerator.new()
+    rng.randomize()
+    _pass_shadow(s, look, rng, rng.randf_range(2.0, 8.0))
+
+func _pass_shadow(s: Sprite2D, look: Dictionary, rng: RandomNumberGenerator, wait: float):
+    if not is_instance_valid(s) or not s.is_inside_tree():
+        return
+    var reach = side_margin + 500.0
+    var a = Vector2(-reach, rng.randf_range(150, 930))
+    var b = Vector2(1920 + reach, rng.randf_range(150, 930))
+    if rng.randf() < 0.5:
+        var tmp = a
+        a = b
+        b = tmp
+    s.position = a
+    s.scale = Vector2.ONE * look.shadow_scale * rng.randf_range(0.85, 1.15)
+    s.rotation = (b - a).angle() + look.shadow_facing if look.shadow_turns else 0.0
+    s.modulate.a = 0.0
+    var dur = look.shadow_time * rng.randf_range(0.8, 1.25)
+    var tw = s.create_tween()
+    tw.tween_interval(wait)
+    tw.tween_callback(func(): s.modulate.a = look.shadow_alpha)
+    tw.tween_property(s, "position", b, dur)
+    tw.tween_callback(_pass_shadow.bind(s, look, rng, rng.randf_range(8.0, 20.0)))
 
 func spawn_layout_decals(layout: Dictionary):
     for decal in layout.get("decals", []):

@@ -21,7 +21,7 @@ func _ready():
 	get_tree().paused = false
 	Engine.time_scale = 1.0
 	set_anchors_preset(Control.PRESET_FULL_RECT)
-	SoundManager.play_music(SoundManager.music_for_floor(1))
+	SoundManager.play_music("title")
 	build_background()
 	build_menu()
 
@@ -37,6 +37,19 @@ func build_background():
 	room.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	room.modulate = Color(0.35, 0.5, 0.6, 1.0)
 	add_child(room)
+	# Sunlight rippling over the sea floor, as in the first era
+	var light = ColorRect.new()
+	light.set_anchors_preset(Control.PRESET_FULL_RECT)
+	light.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var shader = Shader.new()
+	shader.code = preload("res://data/EraLook.gd").FLOOR_LIGHT_SHADER
+	var mat = ShaderMaterial.new()
+	mat.shader = shader
+	mat.set_shader_parameter("tint", Color(0.55, 1.0, 0.85))
+	mat.set_shader_parameter("strength", 0.09)
+	mat.set_shader_parameter("rect_size", Vector2(1920, 1080))
+	light.material = mat
+	add_child(light)
 	# Discovered lineages drift past; the starting cell if nothing yet
 	var found: Array = codex.load_discovered()
 	if found.is_empty():
