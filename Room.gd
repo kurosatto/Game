@@ -32,6 +32,7 @@ var pedestal_scene = preload("res://ItemPedestal.tscn")
 var enemy_scene = preload("res://Enemy.tscn")
 var obstacle_scene = preload("res://Obstacle.tscn")
 var room_layouts = preload("res://RoomLayouts.gd")
+var fauna = preload("res://data/Fauna.gd")
 
 func setup_room(data, floor_number: int):
     room_data = data
@@ -450,13 +451,7 @@ func spawn_tactical_enemies(layout: Dictionary, floor_number: int):
         if pos.distance_to(player_pos) < 380.0:
             continue
             
-        var enemy = enemy_scene.instantiate()
-        enemy.position = pos
-        enemy.enemy_type = sp.get("type", "fly")
-        enemy.setup_enemy(floor_number)
-        add_child(enemy)
-        active_enemies.append(enemy)
-        enemy.enemy_died.connect(_on_enemy_died.bind(enemy))
+        spawn_enemy(pos, roll_enemy_type(sp.get("type", "fly"), floor_number), floor_number)
         
     # 2. If additional enemies needed, safely spawn in safe quadrant locations away from player and doors
     var safe_spawn_candidates = [
@@ -485,9 +480,22 @@ func spawn_tactical_enemies(layout: Dictionary, floor_number: int):
         if occupied:
             continue
             
+        spawn_enemy(cand_pos, roll_enemy_type("fly" if randf() < 0.55 else "pacer", floor_number), floor_number)
+
+# About a quarter of spawns become the era's third animal (data/Fauna.gd)
+func roll_enemy_type(base: String, floor_number: int) -> String:
+    var special = fauna.special_type(floor_number)
+    if special != "" and randf() < 0.28:
+        return special
+    return base
+
+func spawn_enemy(pos: Vector2, type: String, floor_number: int):
+    # Roachoids come as a pack of four
+    var count = 4 if type == "swarm" else 1
+    for i in count:
         var enemy = enemy_scene.instantiate()
-        enemy.position = cand_pos
-        enemy.enemy_type = "fly" if randf() < 0.55 else "pacer"
+        enemy.position = pos + (Vector2.RIGHT.rotated(TAU * i / count) * 50.0 if count > 1 else Vector2.ZERO)
+        enemy.enemy_type = type
         enemy.setup_enemy(floor_number)
         add_child(enemy)
         active_enemies.append(enemy)

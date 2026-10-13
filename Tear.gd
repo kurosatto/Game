@@ -180,6 +180,7 @@ func _physics_process(delta: float):
 @export var is_boomerang: bool = false
 @export var is_stun: bool = false
 @export var knockback_force: float = 0.0
+@export var is_blinding: bool = false # spitting venom: the enemy can't aim for a while
 var has_split: bool = false
 var initial_lifetime: float = 0.85
 
@@ -200,6 +201,8 @@ func _on_body_entered(body: Node):
             if knockback_force > 0 and body.has_method("apply_knockback"):
                 body.apply_knockback(velocity.normalized() * knockback_force, 0.3)
                 
+            if is_blinding and "blind_timer" in body:
+                body.blind_timer = 2.5
             if is_stun and body.has_method("apply_stun"):
                 body.apply_stun(1.2)
                 

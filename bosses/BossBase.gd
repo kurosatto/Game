@@ -33,6 +33,8 @@ var hit_flash: float = 0.0
 var stun_timer: float = 0.0
 var dead: bool = false
 var player_push: Vector2 = Vector2.ZERO
+# Read by the player's signature moves (sting venom build-up)
+var venom_stacks: int = 0
 # Extra hit circles along long bodies: [CollisionShape2D, ...]
 var hit_shapes: Array = []
 
@@ -201,6 +203,10 @@ func take_damage(amount: float):
 	boss_health_changed.emit(health, max_health, boss_title)
 	if health <= 0:
 		die()
+
+func take_damage_if_alive(amount: float):
+	if not dead and health > 0:
+		take_damage(amount)
 
 func damage_taken_mult() -> float:
 	return 1.0

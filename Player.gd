@@ -160,6 +160,16 @@ func _physics_process(delta: float):
         
     if rooted_time > 0:
         rooted_time -= delta
+    if bite_chain_time > 0:
+        bite_chain_time -= delta
+    # Spiny bodies hurt whatever presses against them
+    if current_weapon == "spines":
+        spine_aura_timer -= delta
+        if spine_aura_timer <= 0.0:
+            spine_aura_timer = 0.5
+            for e in get_tree().get_nodes_in_group("enemies"):
+                if is_instance_valid(e) and e.global_position.distance_to(global_position) < body_radius(e, 30.0) + 55.0:
+                    e.take_damage(damage * 0.4)
 
     if invincibility_time > 0:
         invincibility_time -= delta
@@ -757,7 +767,12 @@ func shoot_tear(dir: Vector2):
             for angle in [-0.15, 0.15]:
                 spawn_tear(dir.rotated(angle), false, true)
         _:
-            spawn_tear(dir, is_alpha)
+            if current_weapon == "spray":
+                # Bombardier-style spray comes out as a hot, spreading cone
+                for angle in [-0.2, 0.0, 0.2]:
+                    spawn_tear(dir.rotated(angle + randf_range(-0.05, 0.05)), is_alpha)
+            else:
+                spawn_tear(dir, is_alpha)
 
 func spawn_tear(dir: Vector2, alpha: bool = false, boomerang: bool = false):
     var tear = tear_scene.instantiate()
@@ -787,6 +802,17 @@ func spawn_tear(dir: Vector2, alpha: bool = false, boomerang: bool = false):
     tear.velocity = dir * tear.speed + velocity * 0.25
     tear.is_stun = tear.is_stun or w.get("stun", false)
     tear.is_caustic = tear.is_caustic or w.get("caustic", false)
+    # Ranged signatures: water jets shove, spitting venom blinds, cone snail
+    # harpoons pass through and paralyse
+    tear.damage *= w.get("shot_damage", 1.0)
+    match current_weapon:
+        "jet":
+            tear.knockback_force = max(tear.knockback_force, 240.0)
+        "spit":
+            tear.is_blinding = true
+        "harpoon":
+            tear.is_piercing = true
+            tear.is_stun = true
 
     if tear.has_node("Sprite2D"):
         tear.get_node("Sprite2D").modulate = Color(1.15, 1.15, 1.15)
@@ -815,19 +841,41 @@ func melee_attack(dir: Vector2):
     var venom: bool = w.get("venom", false) or current_tear_perks.get("caustic", false)
     var drain: bool = w.get("drain", false) or current_tear_perks.get("vampiric", false)
 
+    # Claws pounce and jaws lunge a little into the strike
+    var step = {"claw": 110.0, "bite": 40.0, "smash": 30.0}.get(current_weapon, 0.0)
+    if step > 0.0:
+        move_and_collide(dir * step)
+
     var victims: Array = []
     for e in get_tree().get_nodes_in_group("enemies"):
         if is_instance_valid(e) and e.has_method("take_damage") and in_melee_arc(e.global_position, body_radius(e, 30.0), dir, reach, half_arc):
             victims.append(e)
+    var special_hit := false
+    if current_weapon == "bite":
+        bite_chain = bite_chain + 1 if bite_chain_time > 0.0 else 1
+        bite_chain_time = 1.6
     for e in victims:
         if not is_instance_valid(e):
             continue
         var away = (e.global_position - global_position).normalized()
+        var mult = weapon_special(e, away, reach)
+        if mult < 0.0:
+            special_hit = true
+            continue # devoured or swallowed whole
+        if mult > 1.0:
+            special_hit = true
         if e.has_method("apply_knockback") and (knock != 0.0 or stun > 0.0):
-            e.apply_knockback(away * knock, max(stun, 0.15))
-        e.take_damage(dmg)
+            var k = knock * (1.8 if current_weapon == "lash" and mult > 1.0 else 1.0)
+            e.apply_knockback(away * k, max(stun, 0.15))
+        e.take_damage(dmg * mult)
         if venom:
             apply_venom(e, dmg * 0.25)
+        if current_weapon in ["arms", "tongue"] and is_instance_valid(e):
+            e.set("grabbed_time", 1.2)
+        if current_weapon == "rasp":
+            # The radula keeps grinding: two quick follow-up scrapes
+            for i in 2:
+                get_tree().create_timer(0.11 * (i + 1)).timeout.connect(e.take_damage_if_alive.bind(dmg * 0.3))
     for o in get_tree().get_nodes_in_group("obstacles"):
         if is_instance_valid(o) and o.has_method("take_damage") and in_melee_arc(o.global_position, 40.0, dir, reach, half_arc):
             o.take_damage(dmg)
@@ -854,7 +902,9 @@ func melee_attack(dir: Vector2):
             )
         var main = get_tree().get_first_node_in_group("main")
         if main and main.has_method("shake_camera"):
-            main.shake_camera(5.0 if w.damage >= 2.5 else 2.5)
+            main.shake_camera((9.0 if special_hit else 0.0) + (5.0 if w.damage >= 2.5 else 2.5))
+        if special_hit and main and main.has_method("hit_stop"):
+            main.hit_stop(0.06)
 
     var swing = melee_swing_script.new()
     swing.style = current_weapon
@@ -863,6 +913,80 @@ func melee_attack(dir: Vector2):
     swing.color = current_modulate
     swing.rotation = dir.angle()
     add_child(swing)
+
+# Each attack's signature move (Lineages.WEAPONS "special" describes them).
+# Returns the damage multiplier for this victim, or -1 when it was eaten whole.
+var bite_chain: int = 0
+var spine_aura_timer: float = 0.0
+var bite_chain_time: float = 0.0
+
+func weapon_special(e: Node, away: Vector2, reach: float) -> float:
+    var boss = e.has_method("is_boss") and e.is_boss()
+    var hp_frac = e.health / max(1.0, e.max_health)
+    match current_weapon:
+        "engulf":
+            # Phagocytosis: a weakened prey is wrapped up and digested whole
+            if not boss and hp_frac <= 0.35:
+                popup_text(e.global_position, "DEVOUR", Color(0.4, 1.0, 0.8))
+                add_biomass(1.0)
+                e.take_damage(e.health + 1.0)
+                return -1.0
+        "tongue":
+            # Frogs swallow small prey whole
+            if not boss and hp_frac <= 0.4:
+                popup_text(e.global_position, "GULP", Color(1.0, 0.55, 0.65))
+                heal(1)
+                e.take_damage(e.health + 1.0)
+                return -1.0
+            if e.get("grabbed_time") and e.grabbed_time > 0.0:
+                return 1.8
+        "arms":
+            if e.get("grabbed_time") and e.grabbed_time > 0.0:
+                popup_text(e.global_position, "GRIP", Color(1.0, 0.7, 0.95))
+                return 1.8
+        "bite":
+            if bite_chain >= 3:
+                popup_text(e.global_position, "CRUNCH", Color(1.0, 0.85, 0.4))
+                return 2.5
+        "pincer", "clamp":
+            # A second pinch on a stunned animal crushes it
+            if e.get("stun_timer") and e.stun_timer > 0.05:
+                popup_text(e.global_position, "CRUSH", Color(1.0, 0.6, 0.3))
+                return 2.0
+        "lash":
+            # The tip of a whip moves fastest: hits at the far end crack
+            if e.global_position.distance_to(global_position) > reach * 0.6:
+                popup_text(e.global_position, "CRACK", Color(0.8, 0.95, 1.0))
+                return 2.0
+        "sting":
+            # Venom builds up; the third sting floods the wound
+            e.set("venom_stacks", e.get("venom_stacks") + 1)
+            if e.venom_stacks >= 3:
+                e.venom_stacks = 0
+                popup_text(e.global_position, "VENOM", Color(0.6, 1.0, 0.3))
+                return 3.0
+        "smash":
+            popup_text(e.global_position, "SMASH", Color(1.0, 1.0, 1.0))
+            return 1.0
+    return 1.0
+
+# Short floating word over a special hit
+func popup_text(pos: Vector2, text: String, col: Color):
+    var l = Label.new()
+    l.text = text
+    l.add_theme_font_size_override("font_size", 34)
+    l.add_theme_color_override("font_color", col)
+    l.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.85))
+    l.add_theme_constant_override("outline_size", 8)
+    l.z_index = 20
+    l.self_modulate = Color(1.9, 1.9, 1.9) # stay readable under the room's dark tint
+    l.position = pos + Vector2(-50, -70)
+    get_parent().add_child(l)
+    var tw = l.create_tween()
+    tw.set_parallel(true)
+    tw.tween_property(l, "position:y", l.position.y - 50.0, 0.6)
+    tw.tween_property(l, "modulate:a", 0.0, 0.6).set_delay(0.25)
+    tw.chain().tween_callback(l.queue_free)
 
 func in_melee_arc(target: Vector2, radius: float, dir: Vector2, reach: float, half_arc: float) -> bool:
     var to = target - global_position
@@ -881,11 +1005,11 @@ func body_radius(node: Node2D, fallback: float) -> float:
 
 # Venom keeps hurting for a moment after the sting or bite
 func apply_venom(enemy: Node, per_tick: float):
+    if not enemy.has_method("take_damage_if_alive"):
+        return
     for i in 3:
-        get_tree().create_timer(0.45 * (i + 1)).timeout.connect(func():
-            if is_instance_valid(enemy) and enemy.get("health") != null and enemy.health > 0:
-                enemy.take_damage(per_tick)
-        )
+        # Bound to the enemy, so the timer is dropped if it dies first
+        get_tree().create_timer(0.45 * (i + 1)).timeout.connect(enemy.take_damage_if_alive.bind(per_tick))
 
 func melee_electric_arc(from_pos: Vector2, already_hit: Array):
     for e in get_tree().get_nodes_in_group("enemies"):
