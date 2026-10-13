@@ -273,7 +273,9 @@ func spawn_door_at(pos: Vector2, d_dir: Vector2i, rot: float):
     var neighbor_type = parent.get_room_type(neighbor_pos) if (parent and parent.has_method("get_room_type")) else -1
     var is_visited = parent.is_room_visited(neighbor_pos) if (parent and parent.has_method("is_room_visited")) else false
     
-    if (neighbor_type == 2 or neighbor_type == 4) and not is_visited:
+    # Only the treasure room needs a key (one is guaranteed per floor);
+    # the shop stays open so its key and items can always be bought
+    if neighbor_type == 2 and not is_visited:
         door.is_locked = true
         
     add_child(door)

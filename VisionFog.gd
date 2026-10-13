@@ -13,11 +13,18 @@ uniform float radius = 400.0;
 uniform float softness = 300.0;
 uniform float darkness = 0.85;
 uniform vec3 fog_color : source_color = vec3(0.0, 0.02, 0.05);
+// Doorways stay visible even to a nearly blind form, so exits can be found
+uniform vec2 doors[8];
+uniform int door_count = 0;
+uniform float door_radius = 150.0;
 
 void fragment() {
-	float d = distance(UV * rect_size, center);
-	float a = smoothstep(radius, radius + softness, d) * darkness;
-	COLOR = vec4(fog_color, a);
+	vec2 p = UV * rect_size;
+	float a = smoothstep(radius, radius + softness, distance(p, center));
+	for (int i = 0; i < door_count; i++) {
+		a = min(a, smoothstep(door_radius * 0.6, door_radius, distance(p, doors[i])));
+	}
+	COLOR = vec4(fog_color, a * darkness);
 }
 """
 
@@ -78,3 +85,16 @@ func _process(delta: float):
 	mat.set_shader_parameter("radius", radius)
 	mat.set_shader_parameter("softness", radius * 0.7)
 	mat.set_shader_parameter("darkness", darkness)
+	var door_pts := PackedVector2Array()
+	for door in get_tree().get_nodes_in_group("doors"):
+		if door_pts.size() >= 8:
+			break
+		if door.is_queued_for_deletion():
+			continue
+		# A point just inside the doorway, so the doorway and its key badge show
+		var inside = door.get_global_transform_with_canvas() * Vector2(0, 90)
+		door_pts.append(rect.get_global_transform_with_canvas().affine_inverse() * inside)
+	var padded = door_pts.duplicate()
+	padded.resize(8)
+	mat.set_shader_parameter("doors", padded)
+	mat.set_shader_parameter("door_count", door_pts.size())
