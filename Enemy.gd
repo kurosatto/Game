@@ -27,6 +27,7 @@ var boss_phase: int = 1  # Phase 2 triggers at 50% HP
 
 # Hit flash & stun/knockback
 var hit_flash_timer: float = 0.0
+const HitFX = preload("res://HitFX.gd")
 var knockback_velocity: Vector2 = Vector2.ZERO
 var stun_timer: float = 0.0
 # Weapon specials (Player.weapon_special): sting venom stacks, held by
@@ -78,6 +79,90 @@ func _ready():
 	add_to_group("enemies")
 	player = get_tree().get_first_node_in_group("player")
 	pick_random_wander()
+	setup_hit_feedback()
+
+# ═══════════════════════════════════════════════════════════
+# HIT FEEDBACK: white flash, a squash "punch", a little shove and a health bar
+# ═══════════════════════════════════════════════════════════
+# The sprite's shader turns it white and swells it for a moment on each hit.
+# Done in the shader so it works on top of whatever scale and tint the
+# behaviour code sets every frame.
+const HIT_SHADER = """
+shader_type canvas_item;
+uniform float flash = 0.0;
+uniform float punch = 0.0;
+void vertex() {
+	VERTEX *= 1.0 + punch;
+}
+void fragment() {
+	vec4 c = texture(TEXTURE, UV) * COLOR;
+	COLOR = vec4(mix(c.rgb, vec3(1.0), flash), c.a);
+}
+"""
+static var hit_shader: Shader
+var hit_material: ShaderMaterial
+var hit_fx_tween: Tween
+var health_bar: Node2D
+var shown_health: float = -1.0 # bar's trailing "chip" that drains after a hit
+var bar_timer: float = 0.0
+
+func setup_hit_feedback():
+	if hit_shader == null:
+		hit_shader = Shader.new()
+		hit_shader.code = HIT_SHADER
+	hit_material = ShaderMaterial.new()
+	hit_material.shader = hit_shader
+	$Sprite2D.material = hit_material
+	health_bar = Node2D.new()
+	health_bar.z_index = 4
+	health_bar.visible = false
+	health_bar.draw.connect(draw_health_bar)
+	add_child(health_bar)
+
+func hit_feedback(amount: float):
+	if hit_material == null:
+		return
+	if hit_fx_tween and hit_fx_tween.is_valid():
+		hit_fx_tween.kill()
+	var strength = clamp(amount / max(1.0, max_health) * 2.5, 0.12, 0.3)
+	hit_material.set_shader_parameter("flash", 0.85)
+	hit_material.set_shader_parameter("punch", strength)
+	hit_fx_tween = create_tween().set_parallel(true)
+	hit_fx_tween.tween_method(func(v): hit_material.set_shader_parameter("flash", v), 0.85, 0.0, 0.12)
+	hit_fx_tween.tween_method(func(v): hit_material.set_shader_parameter("punch", v), strength, 0.0, 0.16) \
+		.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	if shown_health < 0.0:
+		shown_health = health + amount
+	bar_timer = 1.6
+	health_bar.visible = true
+
+func update_health_bar(delta: float):
+	if health_bar == null or not health_bar.visible:
+		return
+	bar_timer -= delta
+	shown_health = move_toward(shown_health, health, delta * max_health * 1.5)
+	health_bar.modulate.a = 1.0 if bar_timer > 0.0 else 0.55
+	health_bar.visible = health > 0.0 and not is_burrowed()
+	health_bar.queue_redraw()
+
+func draw_health_bar():
+	var w = clamp($CollisionShape2D.shape.radius * 1.7, 34.0, 90.0)
+	var y = -$CollisionShape2D.shape.radius - 16.0
+	var r = Rect2(-w / 2.0, y, w, 7.0)
+	health_bar.draw_rect(r.grow(1.5), Color(0.03, 0.04, 0.08, 0.85))
+	var chip = clamp(shown_health / max_health, 0.0, 1.0)
+	var frac = clamp(health / max_health, 0.0, 1.0)
+	health_bar.draw_rect(Rect2(r.position, Vector2(w * chip, r.size.y)), Color(1.0, 0.95, 0.85))
+	var col = Color(0.35, 1.0, 0.45).lerp(Color(1.0, 0.3, 0.25), 1.0 - frac)
+	health_bar.draw_rect(Rect2(r.position, Vector2(w * frac, r.size.y)), col)
+
+# A small shove from an ordinary shot, without the stun a real knockback gives
+func apply_hit_push(force: Vector2):
+	if is_burrowed():
+		return
+	if enemy_type in ["tank", "armoured"]:
+		force *= 0.3
+	knockback_velocity = (knockback_velocity + force).limit_length(max(force.length(), 420.0))
 
 func setup_enemy(floor_number: int):
 	# Each enemy needs its own shape, or a boss radius leaks into every enemy
@@ -196,6 +281,7 @@ func _physics_process(delta: float):
 		hit_flash_timer -= delta
 	else:
 		$Sprite2D.modulate = base_tint
+	update_health_bar(delta)
 
 	if not player or not is_instance_valid(player):
 		return
@@ -514,11 +600,7 @@ func take_damage(amount: float):
 		scatter_swarm()
 	health = max(0.0, health - amount)
 	hit_flash_timer = 0.18
-	
-	# Bright white flash Tween
-	$Sprite2D.modulate = Color(3.0, 2.5, 2.5, 1.0)
-	var flash_tween = create_tween()
-	flash_tween.tween_property($Sprite2D, "modulate", base_tint, 0.20)
+	hit_feedback(amount)
 	
 	if is_boss():
 		boss_health_changed.emit(health, max_health, boss_title)
@@ -542,7 +624,11 @@ func die():
 	# A beat of freeze-frame sells the kill; longer for bosses
 	var main = get_tree().get_first_node_in_group("main")
 	if main and main.has_method("hit_stop"):
-		main.hit_stop(0.22 if is_boss() else 0.035)
+		main.hit_stop(0.22 if is_boss() else 0.045)
+	if main and main.has_method("shake_camera"):
+		main.shake_camera(4.0)
+	# Shockwave ring where it popped
+	HitFX.pop(get_parent(), global_position, species_burst_color().lerp(Color.WHITE, 0.4), 30.0, 170.0 * max(1.0, base_scale), 0.28)
 
 	enemy_died.emit()
 	queue_free()
