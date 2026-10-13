@@ -1233,6 +1233,155 @@ def sea_cucumber(c, t, s):
         c.line([(cx, s * 0.24), (cx + math.cos(a) * ln, s * 0.24 + math.sin(a) * ln)], (240, 220, 200, 255), 1)
 
 
+# ─────────────── modern tips (descendants of former dead ends) ───────────────
+
+def tinted(base, hue=0.0, sat=1.0, val=1.0, extra=None):
+    """Draws `base`, rotates its colours (outline and shadow untouched), then
+    `extra` adds the feature that tells the descendant apart."""
+    import colorsys
+
+    def draw(c, t, s):
+        base(c, t, s)
+        px = c.img.load()
+        w, h = c.img.size
+        for y in range(h):
+            for x in range(w):
+                r, g, b, a = px[x, y]
+                if a < 200 or max(r, g, b) < 60:
+                    continue
+                hh, ss, vv = colorsys.rgb_to_hsv(r / 255, g / 255, b / 255)
+                r2, g2, b2 = colorsys.hsv_to_rgb((hh + hue) % 1.0, min(1.0, ss * sat), min(1.0, vv * val))
+                px[x, y] = (int(r2 * 255), int(g2 * 255), int(b2 * 255), a)
+        c.d = ImageDraw.Draw(c.img)
+        if extra:
+            extra(c, t, s)
+    return draw
+
+
+def _cirri(c, t, s):
+    # Whorls of cirri along the stalk of a stalked sea lily
+    cx = s / 2
+    for i in (2, 5, 8):
+        y = s * 0.55 + i * s * 0.04
+        for side in (-1, 1):
+            c.d.line([(cx + side * 2, y), (cx + side * 6, y + 2 + wave(t, i) * 0.6)], fill=(240, 220, 160, 255))
+
+
+def _feather_star(body, arms):
+    def draw(c, t, s):
+        # Comatulid: no stalk, a ring of grasping cirri under the cup
+        cx = s / 2
+        for k in range(12):
+            a = k / 12 * TAU
+            c.d.line([(cx + math.cos(a) * s * 0.06, s / 2 + math.sin(a) * s * 0.06), (cx + math.cos(a) * s * 0.13, s / 2 + math.sin(a) * s * 0.13)], fill=shade(body, 0.7))
+        star(c, t, s, body, arms=arms, arm_len=0.38, arm_w=0.05, disc=0.07, branch=0, feathers=True, wiggle=0.35, bumps=False, groove=False)
+    return draw
+
+
+def _pouch(c, t, s):
+    # Male pouched lamprey: a big sac of skin under the throat
+    cx = s / 2
+    c.ellipse(cx, s * 0.22, s * 0.06, s * 0.05, (150, 170, 210, 255))
+
+
+def _gill_row(c, t, s):
+    # Pacific hagfish: several separate gill openings on each side
+    cx = s / 2
+    for k in range(6):
+        y = s * 0.32 + k * s * 0.03
+        for side in (-1, 1):
+            c.d.point((cx + side * s * 0.05, y), fill=(60, 30, 30, 255))
+
+
+def _crust(c, t, s):
+    # Crusty nautilus: a hairy, slimy coat over the shell
+    cx = s / 2
+    for k in range(22):
+        a = k * 2.4
+        r = s * (0.06 + (k % 5) * 0.035)
+        c.d.point((cx + math.cos(a) * r, s * 0.6 + math.sin(a) * r), fill=(110, 130, 80, 255))
+
+
+def moon_snail(c, t, s):
+    # Naticid: round, glossy globe shell and a huge foot spread around it;
+    # the proboscis drills a neat hole through a clam with acid and radula.
+    cx, shell = s / 2, (200, 180, 160, 255)
+    c.shadow(cx, s * 0.55, s * 0.3, s * 0.3)
+    spread = 1 + 0.05 * wave(t)
+    c.ellipse(cx, s * 0.52, s * 0.3 * spread, s * 0.33 * spread, (230, 190, 180, 255))
+    c.ellipse(cx, s * 0.56, s * 0.18, s * 0.18, shell)
+    pts = [(cx + math.cos(a / 6) * s * 0.17 * (1 - a / 60), s * 0.56 + math.sin(a / 6) * s * 0.17 * (1 - a / 60)) for a in range(40)]
+    c.d.line(pts, fill=shade(shell, 0.7))
+    c.d.point((cx, s * 0.56), fill=(90, 70, 60, 255))
+    reach = s * 0.05 * max(0.0, wave(t))
+    c.line([(cx, s * 0.22), (cx, s * 0.18 - reach)], (240, 150, 150, 255), 1)
+
+
+def land_snail(c, t, s):
+    # Stylommatophoran: coiled shell on the back, a soft foot, and two
+    # pairs of tentacles, the upper pair carrying the eyes.
+    cx, body = s / 2, (170, 150, 120, 255)
+    c.shadow(cx, s * 0.55, s * 0.18, s * 0.36)
+    stretch = wave(t) * 1.5
+    c.ellipse(cx, s * 0.5 - stretch / 2, s * 0.09, s * 0.36 + stretch, body)
+    for side in (-1, 1):
+        c.line([(cx + side * 2, s * 0.18), (cx + side * 6, s * 0.04 - stretch)], body, 1)
+        c.eye(cx + side * 6, s * 0.04 - stretch, (30, 30, 30, 255), 0)
+        c.line([(cx + side * 2, s * 0.2), (cx + side * 4, s * 0.14)], body, 1)
+    coiled_shell(c, cx, s * 0.58, s * 0.2, (190, 130, 60, 255), turns=3, stripes=True)
+
+
+def oyster(c, t, s):
+    # Oyster: thick, rough, irregular left valve cemented to rock, with
+    # layered frilly growth lines; the hinge end is narrower.
+    cx, shell = s / 2, (170, 165, 150, 255)
+    c.shadow(cx, s * 0.55, s * 0.24, s * 0.32)
+    gape = wave(t) * 0.5
+    pts = [(cx - s * 0.08, s * 0.2), (cx + s * 0.07, s * 0.22), (cx + s * 0.2, s * 0.42), (cx + s * 0.24, s * 0.64),
+           (cx + s * 0.13, s * 0.84), (cx - s * 0.06, s * 0.88), (cx - s * 0.22, s * 0.7), (cx - s * 0.2, s * 0.42)]
+    c.poly(pts, shell)
+    for k in range(1, 4):
+        f = 1 - k * 0.2
+        c.d.polygon([(cx + (x - cx) * f, s * 0.22 + (y - s * 0.22) * f) for x, y in pts], outline=shade(shell, 0.7 + k * 0.1 + gape * 0.02))
+    c.d.point((cx, s * 0.24), fill=(90, 80, 70, 255))
+
+
+def giant_clam(c, t, s):
+    # Giant clam: two heavy valves with big wavy folds, gaping upward to
+    # show a brightly coloured mantle full of algae it farms for food.
+    cx, shell = s / 2, (220, 215, 200, 255)
+    c.shadow(cx, s * 0.55, s * 0.32, s * 0.24)
+    c.ellipse(cx, s * 0.52, s * 0.32, s * 0.24, shell)
+    for k in range(5):
+        x = cx - s * 0.26 + k * s * 0.13
+        for side in (-1, 1):
+            c.d.arc((x - 4, s * 0.52 + side * s * 0.2 - 4, x + 4, s * 0.52 + side * s * 0.2 + 4), 0 if side < 0 else 180, 180 if side < 0 else 360, fill=shade(shell, 0.7))
+    open_ = s * (0.1 + 0.015 * wave(t))
+    c.ellipse(cx, s * 0.52, s * 0.27, open_, (40, 120, 200, 255))
+    for k in range(9):
+        c.d.point((cx - s * 0.22 + k * s * 0.055, s * 0.52 + (k % 2 * 2 - 1)), fill=(120, 240, 230, 255))
+    c.ellipse(cx, s * 0.52, 2, 1.5, (20, 40, 60, 255), outline=False)
+
+
+def shipworm(c, t, s):
+    # Shipworm: a worm-shaped clam. Two tiny ridged valves at the head
+    # work as a drill, the long soft body lines its tunnel with shell, and
+    # two feathery pallets at the tail plug the hole.
+    cx, body = s / 2, (230, 210, 190, 255)
+    c.shadow(cx, s * 0.55, s * 0.08, s * 0.42)
+    pts = [(cx + wave(t, i * 0.5) * i * 0.3, s * 0.2 + i * s * 0.055) for i in range(13)]
+    c.line(pts, body, 4)
+    tx, ty = pts[-1]
+    for side in (-1, 1):
+        c.line([(tx, ty), (tx + side * 4, ty + 5)], (200, 170, 120, 255), 1)
+    rock = wave(t) * 0.25
+    for side in (-1, 1):
+        a = side * (0.6 + rock)
+        c.ellipse(cx + side * 4, s * 0.16, 4, 5, (240, 235, 220, 255))
+        for k in range(3):
+            c.d.line([(cx + side * 2, s * 0.13 + k * 2), (cx + side * 7, s * 0.13 + k * 2 + math.sin(a))], fill=(180, 170, 150, 255))
+
+
 LINEAGES = {
     "ancestral_collar_cell": ancestral_collar_cell,
     "early_arthropod": early_arthropod,
@@ -1287,6 +1436,28 @@ LINEAGES = {
     "brittle_star": brittle_star,
     "sea_urchin": sea_urchin,
     "sea_cucumber": sea_cucumber,
+    "isocrinid_sea_lily": tinted(sea_lily, 0.12, 1.0, 1.05, _cirri),
+    "endoxocrinus": tinted(sea_lily, 0.2, 0.9, 1.1, _cirri),
+    "metacrinus": tinted(sea_lily, -0.08, 1.1, 0.95, _cirri),
+    "feather_star": _feather_star((220, 110, 160, 255), 10),
+    "rosy_feather_star": _feather_star((240, 130, 150, 255), 10),
+    "reef_feather_star": _feather_star((250, 190, 60, 255), 20),
+    "sea_lamprey": tinted(lamprey, 0.05, 1.3, 1.0),
+    "pouched_lamprey": tinted(lamprey, 0.55, 1.6, 1.15, _pouch),
+    "atlantic_hagfish": tinted(hagfish, 0.95, 0.6, 1.1),
+    "pacific_hagfish": tinted(hagfish, 0.06, 1.0, 0.85, _gill_row),
+    "palau_nautilus": tinted(nautilus, 0.95, 1.5, 1.0),
+    "crusty_nautilus": tinted(nautilus, 0.18, 1.4, 0.85, _crust),
+    "cone_snail": tinted(predatory_sea_snail, 0.9, 1.4, 1.0),
+    "moon_snail": moon_snail,
+    "nudibranch": tinted(sea_slug_line, -0.15, 1.2, 1.1),
+    "land_snail": land_snail,
+    "true_scallop": tinted(scallop, 0.05, 1.1, 1.05),
+    "oyster": oyster,
+    "giant_clam": giant_clam,
+    "shipworm": shipworm,
+    "atlantic_horseshoe_crab": tinted(horseshoe_crab, 0.0, 1.2, 1.05),
+    "mangrove_horseshoe_crab": tinted(horseshoe_crab, 0.3, 1.3, 0.8),
 }
 
 
