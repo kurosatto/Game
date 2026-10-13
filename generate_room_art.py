@@ -19,7 +19,7 @@ from PIL import Image, ImageDraw, ImageFilter
 
 W, H = 960, 540          # half-res room
 WALL = 64                # half-res wall thickness (128px in game)
-PERIOD = W - 2 * WALL    # floor tiles horizontally with this period
+PERIOD = W - 2 * WALL    # (old layout; see TILE below)
 
 ERAS = ["ediacaran", "cambrian", "ordovician", "carboniferous", "permian"]
 
@@ -89,254 +89,542 @@ def quantize(rgb, levels=20):
     return np.round(rgb / 255 * levels) / levels * 255
 
 
-# ───────────────────────────── era recipes ─────────────────────────────
+# ───────────────────────────── era looks ─────────────────────────────
+# One palette per era, shared by the floor, the rim of the room and the
+# doors, so every room reads as one painted place. Data/EraLook.gd holds
+# the matching in-game colours (light, motes, tint).
 
-ERA_STYLE = {
-    "ediacaran": {
-        "floor": [(0.0, (22, 52, 58)), (0.45, (46, 92, 88)), (0.7, (88, 128, 108)), (1.0, (150, 170, 130))],
-        "wall": [(0.0, (14, 30, 40)), (0.5, (40, 70, 70)), (1.0, (90, 120, 100))],
-        "caustic": (150, 230, 210), "rim": (90, 220, 200),
+SIDE = 96                 # half-res nine-patch side margin (192px in game)
+TILE = W - 2 * SIDE       # the floor between the side patches tiles with this period
+
+ERA_LOOK = {
+    "ediacaran": {   # quiet teal shallows, pink microbial mats
+        "floor": [(0.0, (44, 88, 92)), (0.5, (76, 124, 118)), (1.0, (118, 156, 138))],
+        "deep": (10, 28, 38), "outline": (12, 30, 36),
+        "rim": [(96, 132, 116), (78, 116, 112), (176, 132, 140)],
+        "accent": (222, 140, 152),
     },
-    "cambrian": {
-        "floor": [(0.0, (40, 60, 80)), (0.45, (92, 118, 128)), (0.75, (150, 160, 150)), (1.0, (210, 205, 170))],
-        "wall": [(0.0, (40, 30, 40)), (0.5, (120, 80, 70)), (1.0, (200, 150, 110))],
-        "caustic": (200, 240, 255), "rim": (255, 190, 140),
+    "cambrian": {    # sunlit sand under turquoise water, colourful sponges
+        "floor": [(0.0, (70, 110, 116)), (0.5, (128, 150, 136)), (1.0, (196, 188, 150))],
+        "deep": (18, 34, 54), "outline": (24, 26, 40),
+        "rim": [(190, 150, 108), (150, 96, 140), (212, 128, 84)],
+        "accent": (210, 236, 240),
     },
-    "ordovician": {
-        "floor": [(0.0, (18, 34, 66)), (0.45, (52, 82, 120)), (0.75, (98, 128, 160)), (1.0, (170, 190, 205))],
-        "wall": [(0.0, (16, 22, 40)), (0.5, (70, 84, 110)), (1.0, (150, 160, 175))],
-        "caustic": (170, 220, 255), "rim": (140, 200, 255),
+    "ordovician": {  # deep blue reef, pink and cream corals
+        "floor": [(0.0, (34, 62, 104)), (0.5, (70, 104, 142)), (1.0, (134, 162, 186))],
+        "deep": (10, 16, 42), "outline": (12, 14, 36),
+        "rim": [(214, 128, 158), (228, 206, 168), (148, 128, 204)],
+        "accent": (236, 150, 180),
     },
-    "carboniferous": {
-        "floor": [(0.0, (16, 26, 14)), (0.4, (40, 58, 28)), (0.7, (74, 84, 40)), (1.0, (120, 118, 60))],
-        "wall": [(0.0, (16, 14, 10)), (0.5, (64, 50, 34)), (1.0, (120, 98, 64))],
-        "caustic": (200, 230, 140), "rim": (170, 220, 90),
+    "carboniferous": {  # peat swamp under ferns, golden light
+        "floor": [(0.0, (30, 36, 22)), (0.5, (54, 60, 34)), (1.0, (88, 86, 50))],
+        "deep": (12, 18, 10), "outline": (14, 18, 10),
+        "rim": [(76, 128, 58), (112, 82, 54), (122, 158, 66)],
+        "accent": (110, 170, 60),
     },
-    "permian": {
-        "floor": [(0.0, (16, 12, 16)), (0.45, (46, 36, 40)), (0.75, (80, 62, 58)), (1.0, (130, 100, 86))],
-        "wall": [(0.0, (10, 8, 10)), (0.5, (40, 34, 36)), (1.0, (90, 76, 72))],
-        "caustic": (255, 150, 90), "rim": (255, 110, 50),
+    "permian": {     # red beds, ash and far-off volcanic glow
+        "floor": [(0.0, (84, 50, 44)), (0.5, (132, 86, 66)), (1.0, (178, 136, 102))],
+        "deep": (34, 14, 14), "outline": (34, 12, 12),
+        "rim": [(172, 92, 62), (110, 92, 90), (214, 150, 96)],
+        "accent": (240, 226, 196),
     },
 }
 
 
-def floor_details(era, img, rng):
-    """Era-specific marks painted onto the floor (half-res, PERIOD-wrapped)."""
-    d = ImageDraw.Draw(img, "RGBA")
+def shade_rgb(c, k):
+    """k < 1 darkens, k > 1 lightens toward white."""
+    if k < 1:
+        return tuple(int(v * k) for v in c[:3])
+    return tuple(int(v + (255 - v) * (k - 1)) for v in c[:3])
 
-    def wrap_draw(fn, x, y, *a):
-        # Draw at x and at x +/- PERIOD so details crossing the seam wrap
-        for dx in (-PERIOD, 0, PERIOD):
-            fn(x + dx, y, *a)
+
+def wrap_x(fn, x, *a):
+    """Draw at x and one tile either side, so the tiling floor has no seam."""
+    for dx in (-TILE, 0, TILE):
+        fn(x + dx, *a)
+
+
+def voronoi_edges(w, h, n, rng):
+    """Distance to the nearest cell edge of a horizontally wrapping Voronoi."""
+    pts = np.stack([rng.uniform(0, TILE, n), rng.uniform(0, h, n)], 1)
+    pts = np.concatenate([pts + [dx, 0] for dx in (-TILE, 0, TILE, 2 * TILE)]) + [SIDE, 0]
+    yy, xx = np.mgrid[0:h, 0:w]
+    out = np.zeros((h, w))
+    for y0 in range(0, h, 60):
+        sub = np.stack([xx[y0:y0 + 60], yy[y0:y0 + 60]], -1).reshape(-1, 1, 2)
+        d = np.sqrt(((sub - pts[None]) ** 2).sum(-1))
+        d.sort(axis=1)
+        out[y0:y0 + 60] = (d[:, 1] - d[:, 0]).reshape(-1, w)
+    return out
+
+
+def paint_floor(era, rng):
+    look = ERA_LOOK[era]
+    big = fbm(W, H, rng, 150, 4, TILE)
+    grain = fbm(W, H, rng, 5, 2, TILE)
+    v = big * 0.88 + grain * 0.12
+    rgb = palette_map(v, look["floor"])
+    yy, xx = np.mgrid[0:H, 0:W]
 
     if era == "ediacaran":
-        # Dickinsonia-like ribbed ovals and Charnia frond imprints on the mat
-        for _ in range(9):
-            x, y = rng.uniform(WALL, W - WALL), rng.uniform(WALL + 10, H - WALL - 10)
-            rx, ry = rng.uniform(10, 18), rng.uniform(7, 12)
+        # Wrinkled microbial mats ("elephant skin") in pink patches
+        patch = np.clip((fbm(W, H, rng, 90, 3, TILE) - 0.5) * 6, 0, 1)
+        wr = fbm(W, H, rng, 9, 2, TILE)
+        ridge = 1 - np.abs(wr * 2 - 1)
+        mat = np.array(look["accent"]) * (0.72 + 0.28 * ridge[..., None])
+        rgb = rgb * (1 - patch[..., None] * 0.55) + mat * patch[..., None] * 0.55
+    elif era == "cambrian":
+        # Ripple marks in the sand
+        warp = fbm(W, H, rng, 70, 2, TILE)
+        k = 2 * np.pi * round(TILE / 15) / TILE
+        rip = np.sin(xx * k + warp * 9 + yy * 0.05)
+        rgb *= (1 + 0.045 * rip)[..., None]
+    elif era == "ordovician":
+        # Soft carbonate mud with lighter shell-sand drifts
+        drift = np.clip((fbm(W, H, rng, 60, 3, TILE) - 0.55) * 5, 0, 1)
+        rgb = rgb * (1 - drift[..., None] * 0.3) + np.array((176, 196, 210)) * drift[..., None] * 0.3
+    elif era == "carboniferous":
+        # Dark peat with still puddles that catch the light
+        pud = fbm(W, H, rng, 80, 3, TILE)
+        water = np.clip((pud - 0.64) * 14, 0, 1)
+        edge = np.clip(1 - np.abs(pud - 0.64) * 60, 0, 1)
+        rgb = rgb * (1 - water[..., None]) + np.array((40, 70, 64)) * water[..., None]
+        rgb += np.array((150, 170, 90)) * (edge * 0.25)[..., None]
+        moss = np.clip((fbm(W, H, rng, 40, 3, TILE) - 0.58) * 6, 0, 1) * (1 - water)
+        rgb = rgb * (1 - moss[..., None] * 0.4) + np.array((96, 132, 48)) * moss[..., None] * 0.4
+    elif era == "permian":
+        # Sun-cracked red mud
+        e = voronoi_edges(W, H, 70, rng)
+        crack = np.clip(1 - e / 1.6, 0, 1)
+        curl = np.clip(1 - np.abs(e - 3.0) / 1.5, 0, 1)
+        rgb *= (1 - 0.55 * crack)[..., None]
+        rgb += np.array((60, 40, 26)) * (curl * 0.35)[..., None]
+        ash = np.clip((fbm(W, H, rng, 50, 3, TILE) - 0.55) * 4, 0, 1)
+        rgb = rgb * (1 - ash[..., None] * 0.35) + np.array((120, 112, 112)) * ash[..., None] * 0.35
+
+    # A little less saturated than the animals, so they stand out
+    lum = rgb.mean(axis=2, keepdims=True)
+    rgb = rgb * 0.85 + lum * 0.15
+    img = Image.fromarray(np.clip(rgb, 0, 255).astype(np.uint8))
+    floor_marks(era, img, rng)
+    return img
+
+
+def floor_marks(era, img, rng):
+    """A few hand-placed details per room: imprints, shells, tracks, litter."""
+    d = ImageDraw.Draw(img, "RGBA")
+    look = ERA_LOOK[era]
+    lo, hi = SIDE, W - SIDE
+    top, bot = WALL + 12, H - WALL - 12
+
+    def spot():
+        return rng.uniform(lo, hi), rng.uniform(top, bot)
+
+    if era == "ediacaran":
+        for _ in range(5):
+            x, y = spot()
+            rx, ry = rng.uniform(9, 15), rng.uniform(6, 10)
+
             def dick(x, y, rx=rx, ry=ry):
-                d.ellipse((x - rx, y - ry, x + rx, y + ry), outline=(30, 70, 66, 150))
+                d.ellipse((x - rx, y - ry, x + rx, y + ry), fill=(0, 0, 0, 22), outline=(20, 50, 50, 90))
                 for k in range(-int(rx) + 2, int(rx) - 1, 3):
                     h = ry * math.sqrt(max(0, 1 - (k / rx) ** 2))
-                    d.line((x + k, y - h + 1, x + k, y + h - 1), fill=(30, 70, 66, 90))
-                d.line((x - rx + 2, y, x + rx - 2, y), fill=(30, 70, 66, 140))
-            wrap_draw(dick, x, y)
-        for _ in range(6):
-            x, y = rng.uniform(WALL, W - WALL), rng.uniform(WALL + 20, H - WALL - 20)
-            ang = rng.uniform(0, math.pi)
+                    d.line((x + k, y - h + 1, x + k, y + h - 1), fill=(20, 50, 50, 70))
+                d.line((x - rx + 2, y, x + rx - 2, y), fill=(20, 50, 50, 90))
+            wrap_x(dick, x, y)
+        for _ in range(3):
+            x, y = spot()
+            ang = rng.uniform(0, math.tau)
+
             def frond(x, y, ang=ang):
-                L = 26
-                ex, ey = x + math.cos(ang) * L, y + math.sin(ang) * L
-                d.line((x, y, ex, ey), fill=(160, 190, 150, 110))
-                for k in range(1, 9):
-                    px, py = x + math.cos(ang) * L * k / 9, y + math.sin(ang) * L * k / 9
+                for k in range(12):
+                    px, py = x + math.cos(ang) * k * 2.2, y + math.sin(ang) * k * 2.2
+                    w = 6 * math.sin((k + 1) / 13 * math.pi)
                     for s in (-1, 1):
-                        d.line((px, py, px + math.cos(ang + s * 1.1) * 5, py + math.sin(ang + s * 1.1) * 5), fill=(160, 190, 150, 80))
-            wrap_draw(frond, x, y)
+                        a2 = ang + s * 1.2
+                        d.line((px, py, px + math.cos(a2) * w, py + math.sin(a2) * w), fill=(20, 50, 50, 70))
+            wrap_x(frond, x, y)
     elif era == "cambrian":
-        # Cruziana trilobite trackways and scattered small shells
-        for _ in range(5):
-            x, y = rng.uniform(WALL, W - WALL), rng.uniform(WALL + 20, H - WALL - 20)
-            ang = rng.uniform(0, math.pi * 2)
-            def track(x, y, ang=ang):
-                for k in range(14):
-                    px = x + math.cos(ang) * k * 4 + math.sin(k * 0.5) * 2
-                    py = y + math.sin(ang) * k * 4
-                    for s in (-1, 1):
-                        ox, oy = -math.sin(ang) * 3 * s, math.cos(ang) * 3 * s
-                        d.line((px + ox, py + oy, px + ox * 1.8 + math.cos(ang) * 2, py + oy * 1.8 + math.sin(ang) * 2), fill=(60, 70, 80, 120))
-            wrap_draw(track, x, y)
-        for _ in range(40):
-            x, y = rng.uniform(WALL, W - WALL), rng.uniform(WALL + 4, H - WALL - 4)
-            def shell(x, y):
-                d.ellipse((x - 2, y - 1, x + 2, y + 1), fill=(225, 215, 190, 170))
-            wrap_draw(shell, x, y)
-    elif era == "ordovician":
-        # Crinoid stem discs and straight orthocone shell fossils
-        for _ in range(60):
-            x, y = rng.uniform(WALL, W - WALL), rng.uniform(WALL + 4, H - WALL - 4)
-            def disc(x, y):
-                d.ellipse((x - 1.5, y - 1.5, x + 1.5, y + 1.5), fill=(200, 210, 220, 140))
-                d.point((x, y), fill=(80, 100, 130, 200))
-            wrap_draw(disc, x, y)
-        for _ in range(6):
-            x, y = rng.uniform(WALL, W - WALL), rng.uniform(WALL + 20, H - WALL - 20)
-            ang = rng.uniform(0, math.pi * 2)
-            def ortho(x, y, ang=ang):
-                L = rng.uniform(22, 34)
-                ex, ey = x + math.cos(ang) * L, y + math.sin(ang) * L
-                d.polygon([(x - math.sin(ang) * 4, y + math.cos(ang) * 4), (x + math.sin(ang) * 4, y - math.cos(ang) * 4), (ex, ey)], fill=(170, 180, 190, 120))
-                for k in range(1, 7):
-                    px, py = x + math.cos(ang) * L * k / 7, y + math.sin(ang) * L * k / 7
-                    w = 4 * (1 - k / 7)
-                    d.line((px - math.sin(ang) * w, py + math.cos(ang) * w, px + math.sin(ang) * w, py - math.cos(ang) * w), fill=(90, 100, 120, 140))
-            wrap_draw(ortho, x, y)
-    elif era == "carboniferous":
-        # Fern leaf litter and fallen lycopsid bark with diamond leaf scars
         for _ in range(4):
-            x, y = rng.uniform(WALL, W - WALL), rng.uniform(WALL + 30, H - WALL - 30)
-            ang = rng.uniform(-0.4, 0.4)
-            def bark(x, y, ang=ang):
-                L, wd = 70, 9
-                pts = [(x - math.sin(ang) * wd, y + math.cos(ang) * wd), (x + math.sin(ang) * wd, y - math.cos(ang) * wd)]
-                pts += [(pts[1][0] + math.cos(ang) * L, pts[1][1] + math.sin(ang) * L), (pts[0][0] + math.cos(ang) * L, pts[0][1] + math.sin(ang) * L)]
-                d.polygon(pts, fill=(70, 56, 36, 200))
-                for i in range(2, 34, 4):
-                    for j in (-4, 0, 4):
-                        cx = x + math.cos(ang) * i * 2 - math.sin(ang) * j + (2 if (i // 4) % 2 else 0)
-                        cy = y + math.sin(ang) * i * 2 + math.cos(ang) * j
-                        d.polygon([(cx, cy - 2), (cx + 1.5, cy), (cx, cy + 2), (cx - 1.5, cy)], outline=(40, 30, 20, 200))
-            wrap_draw(bark, x, y)
-        for _ in range(26):
-            x, y = rng.uniform(WALL, W - WALL), rng.uniform(WALL + 10, H - WALL - 10)
-            ang = rng.uniform(0, math.pi * 2)
-            col = (int(rng.uniform(70, 120)), int(rng.uniform(100, 140)), 40, 150)
-            def fern(x, y, ang=ang, col=col):
-                L = 16
-                d.line((x, y, x + math.cos(ang) * L, y + math.sin(ang) * L), fill=col)
-                for k in range(1, 8):
-                    px, py = x + math.cos(ang) * L * k / 8, y + math.sin(ang) * L * k / 8
-                    lw = 4 * (1 - k / 9)
+            # Trilobite trackways (Cruziana): paired chevrons along a curve
+            x, y = spot()
+            ang = rng.uniform(0, math.tau)
+            turn = rng.uniform(-0.04, 0.04)
+
+            def track(x, y, ang=ang, turn=turn):
+                a = ang
+                for k in range(16):
+                    nx, ny = math.cos(a), math.sin(a)
+                    px, py = -ny, nx
                     for s in (-1, 1):
-                        d.line((px, py, px + math.cos(ang + s * 1.3) * lw, py + math.sin(ang + s * 1.3) * lw), fill=col)
-            wrap_draw(fern, x, y)
-    elif era == "permian":
-        # Cooled lava crust split by glowing cracks, plus ash flecks
-        for _ in range(16):
-            x, y = rng.uniform(WALL, W - WALL), rng.uniform(WALL + 10, H - WALL - 10)
-            segs = int(rng.integers(4, 9))
-            pts = [(x, y)]
-            ang = rng.uniform(0, math.pi * 2)
-            for _ in range(segs):
-                ang += rng.uniform(-0.9, 0.9)
-                L = rng.uniform(6, 16)
-                pts.append((pts[-1][0] + math.cos(ang) * L, pts[-1][1] + math.sin(ang) * L))
-            def crack(x, y, pts=pts):
-                dx = x - pts[0][0]
-                sh = [(px + dx, py) for px, py in pts]
-                d.line(sh, fill=(255, 120, 40, 90), width=3)
-                d.line(sh, fill=(255, 200, 110, 220), width=1)
-            wrap_draw(crack, x, y)
-        for _ in range(200):
-            x, y = rng.uniform(WALL, W - WALL), rng.uniform(WALL, H - WALL)
-            def ash(x, y):
-                d.point((x, y), fill=(170, 160, 160, 110))
-            wrap_draw(ash, x, y)
-
-
-def wall_texture(era, rng):
-    """Half-res wall material, 64px thick, as an RGB array of the whole room."""
-    st = ERA_STYLE[era]
-    n = fbm(W, H, rng, 20, 3, PERIOD)
-    base = palette_map(n * 0.6 + 0.2, st["wall"])
-    img = Image.fromarray(base.astype(np.uint8))
-    d = ImageDraw.Draw(img, "RGBA")
-    lit, dark = (255, 255, 255, 50), (0, 0, 0, 90)
-    if era == "ediacaran":
-        # Stacked stromatolite domes
-        for y in range(0, H, 14):
-            for x in range(-8, W + 8, 18):
-                ox = x + (9 if (y // 14) % 2 else 0)
-                d.chord((ox - 10, y - 4, ox + 10, y + 14), 180, 360, fill=None, outline=(120, 160, 130, 160))
-                d.arc((ox - 6, y, ox + 6, y + 10), 180, 360, fill=(30, 60, 60, 160))
-    elif era == "cambrian":
-        # Archaeocyath reef: rows of porous cups
-        for y in range(4, H, 16):
-            for x in range(0, W, 14):
-                ox = x + (7 if (y // 16) % 2 else 0)
-                d.polygon([(ox - 6, y), (ox + 6, y), (ox + 3, y + 13), (ox - 3, y + 13)], fill=(170, 110, 90, 200), outline=(60, 35, 35, 220))
-                d.ellipse((ox - 4, y - 1, ox + 4, y + 2), fill=(70, 40, 40, 230))
-                for k in (-2, 0, 2):
-                    d.point((ox + k, y + 6), fill=(230, 190, 150, 200))
+                        bx, by = x + px * 3 * s, y + py * 3 * s
+                        d.line((bx, by, bx - nx * 2 + px * 2 * s, by - ny * 2 + py * 2 * s), fill=(60, 60, 50, 80))
+                    x, y = x + nx * 4, y + ny * 4
+                    a += turn
+            wrap_x(track, x, y)
+        for _ in range(26):
+            x, y = spot()
+            r = rng.uniform(1.2, 2.6)
+            wrap_x(lambda x, y, r=r: d.ellipse((x - r, y - r * 0.7, x + r, y + r * 0.7), fill=(236, 226, 196, 120)), x, y)
     elif era == "ordovician":
-        # Cut limestone blocks with crinoid stems embedded
-        for y in range(0, H, 16):
-            for x in range(0, W, 32):
-                ox = x + (16 if (y // 16) % 2 else 0)
-                d.rectangle((ox, y, ox + 31, y + 15), outline=(20, 26, 44, 200))
-                d.line((ox + 1, y + 1, ox + 30, y + 1), fill=lit)
-                if rng.random() < 0.3:
-                    for k in range(5):
-                        d.ellipse((ox + 6 + k * 3, y + 6, ox + 8 + k * 3, y + 9), fill=(190, 200, 215, 170))
+        for _ in range(14):
+            # Brachiopod valves: ribbed fans
+            x, y = spot()
+            r = rng.uniform(3, 5.5)
+            ang = rng.uniform(0, math.tau)
+
+            def brach(x, y, r=r, ang=ang):
+                d.pieslice((x - r, y - r, x + r, y + r), math.degrees(ang), math.degrees(ang) + 180,
+                           fill=(200, 210, 220, 110), outline=(40, 60, 90, 120))
+                for k in range(1, 6):
+                    a = ang + math.pi * k / 6
+                    d.line((x, y, x + math.cos(a) * r, y + math.sin(a) * r), fill=(60, 80, 110, 90))
+            wrap_x(brach, x, y)
+        for _ in range(20):
+            # Crinoid ossicles: little discs with a hole
+            x, y = spot()
+            wrap_x(lambda x, y: (d.ellipse((x - 2, y - 2, x + 2, y + 2), fill=(196, 206, 220, 110)),
+                                 d.point((x, y), fill=(40, 60, 90, 160))), x, y)
     elif era == "carboniferous":
-        # Lycopsid trunks (Lepidodendron) packed side by side, diamond scars
-        for x in range(-6, W + 6, 12):
-            d.rectangle((x, 0, x + 10, H), fill=(60 + (x % 24), 48, 30, 255), outline=(20, 16, 10, 255))
-            for y in range(0, H, 6):
-                cx = x + 5 + (2 if (y // 6) % 2 else -2)
-                d.polygon([(cx, y), (cx + 2, y + 3), (cx, y + 6), (cx - 2, y + 3)], outline=(30, 24, 14, 220), fill=(90, 74, 44, 255))
+        for _ in range(8):
+            # Fallen fern fronds
+            x, y = spot()
+            ang = rng.uniform(0, math.tau)
+            col = (72 + rng.integers(0, 30), 96 + rng.integers(0, 40), 40, 150)
+
+            def frond(x, y, ang=ang, col=col):
+                for k in range(14):
+                    px, py = x + math.cos(ang) * k * 2.4, y + math.sin(ang) * k * 2.4
+                    w = 5 * math.sin((k + 1) / 15 * math.pi)
+                    for s in (-1, 1):
+                        a2 = ang + s * 1.1
+                        d.line((px, py, px + math.cos(a2) * w, py + math.sin(a2) * w), fill=col)
+                d.line((x, y, x + math.cos(ang) * 33, y + math.sin(ang) * 33), fill=(50, 44, 24, 160))
+            wrap_x(frond, x, y)
     elif era == "permian":
-        # Basalt columns seen end-on (hexagons) with lava glow in the joints
-        r = 8
-        for row, y in enumerate(range(0, H + r, int(r * 1.5))):
-            for x in range(0, W + r * 2, int(r * 1.75)):
-                ox = x + (r * 0.87 if row % 2 else 0)
-                hexp = [(ox + r * math.cos(a), y + r * math.sin(a)) for a in [math.pi / 3 * k + math.pi / 6 for k in range(6)]]
-                d.polygon(hexp, fill=(int(40 + rng.integers(0, 20)), 34, 36, 255), outline=(255, 110, 40, 140))
-                d.line(hexp[3:6], fill=lit)
-    arr = np.array(img).astype(np.float64)
-    return arr
+        for _ in range(3):
+            # Weathered bone fragments
+            x, y = spot()
+            ang = rng.uniform(0, math.tau)
+            ln = rng.uniform(7, 12)
+
+            def bone(x, y, ang=ang, ln=ln):
+                dx, dy = math.cos(ang) * ln, math.sin(ang) * ln
+                d.line((x - dx, y - dy, x + dx, y + dy), fill=(214, 200, 170, 150), width=3)
+                for s in (-1, 1):
+                    d.ellipse((x + s * dx - 2.5, y + s * dy - 2.5, x + s * dx + 2.5, y + s * dy + 2.5), fill=(214, 200, 170, 150))
+            wrap_x(bone, x, y)
+
+
+# ───────────────────────────── room rim ─────────────────────────────
+# The walls are no longer bricks: each era is ringed by what grew or lay
+# there, drawn like the animals (dark outline, flat colours, lit top-left).
+
+def irregular(cx, cy, r, rng, squash=0.85, n=11, wobble=0.18):
+    pts = []
+    ph = rng.uniform(0, math.tau)
+    for k in range(n):
+        a = ph + k / n * math.tau
+        rr = r * (1 + rng.uniform(-wobble, wobble))
+        pts.append((cx + math.cos(a) * rr, cy + math.sin(a) * rr * squash))
+    return pts
+
+
+def scaled(pts, cx, cy, k, dx=0.0, dy=0.0):
+    return [(cx + (x - cx) * k + dx, cy + (y - cy) * k + dy) for x, y in pts]
+
+
+def toon_blob(d, pts, cx, cy, r, col, outline):
+    """Outlined shape with a shadowed rim, a lit body and a small highlight."""
+    d.polygon(pts, fill=outline + (255,), outline=outline + (255,), width=2)
+    d.polygon(scaled(pts, cx, cy, 0.92), fill=shade_rgb(col, 0.68) + (255,))
+    d.polygon(scaled(pts, cx, cy, 0.8, -r * 0.1, -r * 0.12), fill=col + (255,))
+    d.polygon(scaled(pts, cx, cy, 0.34, -r * 0.3, -r * 0.34), fill=shade_rgb(col, 1.22) + (255,))
+
+
+def rim_piece(era, d, cx, cy, r, rng, row):
+    look = ERA_LOOK[era]
+    ol = look["outline"]
+    main, second, accent = look["rim"]
+    dim = (0.62, 0.8, 1.0)[row]
+
+    def c(col):
+        return shade_rgb(col, dim)
+
+    roll = rng.random()
+    if era == "ediacaran":
+        # Stromatolite domes: layered, some with a pink mat on top
+        pts = irregular(cx, cy, r, rng, 0.82, 12, 0.08)
+        toon_blob(d, pts, cx, cy, r, c(main if roll < 0.6 else second), ol)
+        for k in (0.75, 0.52, 0.3):
+            d.arc((cx - r * k, cy - r * k * 0.8, cx + r * k, cy + r * k * 0.8), 200, 340,
+                  fill=shade_rgb(c(main), 0.6) + (200,), width=1)
+        if roll > 0.55:
+            d.ellipse((cx - r * 0.45, cy - r * 0.55, cx + r * 0.25, cy - r * 0.1), fill=c(accent) + (230,))
+    elif era == "cambrian":
+        if roll < 0.45:
+            pts = irregular(cx, cy, r, rng, 0.8, 9, 0.2)
+            toon_blob(d, pts, cx, cy, r, c(main), ol)
+        else:
+            # Sponge tubes seen from above: rings with dark oscula
+            col = second if roll < 0.75 else accent
+            for k in range(rng.integers(2, 4)):
+                tx, ty = cx + rng.uniform(-r * 0.5, r * 0.5), cy + rng.uniform(-r * 0.4, r * 0.4)
+                tr = r * rng.uniform(0.45, 0.65)
+                pts = irregular(tx, ty, tr, rng, 0.9, 10, 0.06)
+                toon_blob(d, pts, tx, ty, tr, c(col), ol)
+                d.ellipse((tx - tr * 0.42, ty - tr * 0.42, tx + tr * 0.42, ty + tr * 0.36), fill=ol + (255,))
+    elif era == "ordovician":
+        col = (main, second, accent)[int(roll * 3)]
+        pts = irregular(cx, cy, r, rng, 0.85, 12, 0.1)
+        toon_blob(d, pts, cx, cy, r, c(col), ol)
+        if col == second:
+            # Tabulate coral: honeycomb of corallites
+            for _ in range(int(r)):
+                a, rr = rng.uniform(0, math.tau), rng.uniform(0, r * 0.7)
+                px, py = cx + math.cos(a) * rr, cy + math.sin(a) * rr * 0.8
+                d.ellipse((px - 1.2, py - 1.2, px + 1.2, py + 1.2), fill=shade_rgb(c(col), 0.7) + (255,))
+        else:
+            # Brain-like meanders
+            for k in range(3):
+                yy = cy - r * 0.4 + k * r * 0.35
+                d.arc((cx - r * 0.6, yy - r * 0.2, cx + r * 0.6, yy + r * 0.2), 180 + k * 20, 360 - k * 15,
+                      fill=shade_rgb(c(col), 0.72) + (255,))
+    elif era == "carboniferous":
+        if roll < 0.2:
+            # Fallen lycopsid log with diamond leaf scars
+            ang = rng.uniform(-0.4, 0.4)
+            ln = r * 1.5
+            dx, dy = math.cos(ang) * ln, math.sin(ang) * ln
+            d.line((cx - dx, cy - dy, cx + dx, cy + dy), fill=ol + (255,), width=int(r * 1.1) + 3)
+            d.line((cx - dx, cy - dy, cx + dx, cy + dy), fill=c(second) + (255,), width=int(r * 1.1))
+            d.line((cx - dx, cy - dy - r * 0.25, cx + dx, cy + dy - r * 0.25), fill=shade_rgb(c(second), 1.2) + (255,), width=max(1, int(r * 0.3)))
+            for k in np.linspace(-0.85, 0.85, 7):
+                px, py = cx + dx * k, cy + dy * k
+                d.polygon([(px, py - 2), (px + 1.5, py), (px, py + 2), (px - 1.5, py)], fill=shade_rgb(c(second), 0.6) + (255,))
+        else:
+            # Fern clump: fronds fanning out from a crown
+            col = main if roll < 0.75 else accent
+            n = rng.integers(6, 9)
+            for k in range(n):
+                a = k / n * math.tau + rng.uniform(-0.2, 0.2)
+                ex, ey = cx + math.cos(a) * r * 1.15, cy + math.sin(a) * r * 0.95
+                d.line((cx, cy, ex, ey), fill=ol + (255,), width=4)
+            for k in range(n):
+                a = k / n * math.tau + rng.uniform(-0.2, 0.2)
+                ex, ey = cx + math.cos(a) * r * 1.1, cy + math.sin(a) * r * 0.9
+                for j in range(1, 8):
+                    px, py = cx + (ex - cx) * j / 8, cy + (ey - cy) * j / 8
+                    w = r * 0.32 * math.sin(j / 8 * math.pi)
+                    for s in (-1, 1):
+                        d.line((px, py, px + math.cos(a + s * 1.3) * w, py + math.sin(a + s * 1.3) * w),
+                               fill=c(col) + (255,), width=2)
+                d.line((cx, cy, ex, ey), fill=shade_rgb(c(col), 1.25) + (255,), width=1)
+            d.ellipse((cx - 3, cy - 3, cx + 3, cy + 3), fill=c(second) + (255,), outline=ol + (255,))
+    elif era == "permian":
+        col = main if roll < 0.7 else second
+        pts = irregular(cx, cy, r, rng, 0.78, 7, 0.22)
+        toon_blob(d, pts, cx, cy, r, c(col), ol)
+        # Bedding lines across the red sandstone
+        for k in (-0.25, 0.1):
+            d.line((cx - r * 0.6, cy + r * k, cx + r * 0.5, cy + r * k + r * 0.08), fill=shade_rgb(c(col), 0.75) + (255,))
+        if roll > 0.9:
+            d.line((cx - r * 0.3, cy - r * 0.2, cx + r * 0.1, cy + r * 0.25), fill=(255, 140, 60, 255), width=1)
+
+
+def paint_rim(era, rng):
+    """RGBA layer: the ring of rocks/reef/ferns along every wall."""
+    layer = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    d = ImageDraw.Draw(layer)
+    look = ERA_LOOK[era]
+    deep = look["deep"]
+    # Solid dark behind the pieces, so gaps read as deep crevices
+    d.rectangle((0, 0, W, WALL - 20), fill=deep + (255,))
+    d.rectangle((0, H - WALL + 20, W, H), fill=deep + (255,))
+    d.rectangle((0, 0, WALL - 20, H), fill=deep + (255,))
+    d.rectangle((W - WALL + 20, 0, W, H), fill=deep + (255,))
+
+    pieces = []
+    # Rows: back (dim, outer edge) to front (bright, inner edge)
+    rows = [(14, (14, 24)), (34, (12, 21)), (54, (8, 15))]
+    for row, (depth, (rmin, rmax)) in enumerate(rows):
+        # Top and bottom bands run across the tiling middle, so they wrap
+        x = SIDE + rng.uniform(0, 10)
+        while x < SIDE + TILE:
+            r = rng.uniform(rmin, rmax)
+            jitter = rng.uniform(-4, 4)
+            for band in (0, 1):
+                if row == 2 and rng.random() < 0.3:
+                    continue
+                y = depth + jitter if band == 0 else H - depth - jitter
+                if row == 2:
+                    y = min(y, WALL + 2 - r * 0.6) if band == 0 else max(y, H - WALL - 2 + r * 0.6)
+                seed = int(rng.integers(0, 1 << 30))
+                for dx in (-TILE, 0, TILE):
+                    if -rmax < x + dx < W + rmax:
+                        pieces.append((row, y, x + dx, r, seed))
+            x += r * rng.uniform(1.15, 1.45)
+        # Left and right bands, the full height
+        y = rng.uniform(0, 10)
+        while y < H:
+            r = rng.uniform(rmin, rmax)
+            jitter = rng.uniform(-4, 4)
+            for band in (0, 1):
+                if row == 2 and rng.random() < 0.3:
+                    continue
+                x2 = depth + jitter if band == 0 else W - depth - jitter
+                if row == 2:
+                    x2 = min(x2, WALL + 2 - r * 0.6) if band == 0 else max(x2, W - WALL - 2 + r * 0.6)
+                pieces.append((row, y, x2, r, int(rng.integers(0, 1 << 30))))
+            y += r * rng.uniform(1.1, 1.4)
+
+    for row, y, x, r, seed in sorted(pieces, key=lambda p: (p[0], p[1])):
+        rim_piece(era, d, x, y, r, np.random.default_rng(seed), row)
+    return layer
 
 
 def make_room(era, seed):
     rng = np.random.default_rng(seed)
-    st = ERA_STYLE[era]
-    # Floor: fbm through the era palette, plus fine grain
-    n = fbm(W, H, rng, 96, 5, PERIOD)
-    grain = fbm(W, H, rng, 6, 2, PERIOD)
-    floor = palette_map(n * 0.92 + grain * 0.08, st["floor"])
-    img = Image.fromarray(quantize(floor).astype(np.uint8))
-    floor_details(era, img, rng)
-    floor = np.array(img).astype(np.float64)
-    # Caustic light network, stronger near the room centre
-    yy, xx = np.mgrid[0:H, 0:W]
-    centre = 1 - np.clip(np.hypot((xx - W / 2) / (W * 0.65), (yy - H / 2) / (H * 0.7)), 0, 1)
-    cau = caustics(W, H, rng, PERIOD)
-    floor += np.array(st["caustic"]) * (cau * (0.06 + 0.12 * centre))[..., None]
-    # Walls: top/bottom bands across the whole width, sides at the edges
-    wall = wall_texture(era, rng)
-    mask = np.zeros((H, W))
-    mask[:WALL, :] = 1
-    mask[H - WALL:, :] = 1
-    mask[:, :WALL] = 1
-    mask[:, W - WALL:] = 1
-    out = floor * (1 - mask[..., None]) + wall * mask[..., None]
-    # Inner shadow where floor meets wall, and a lit rim on the wall edge
-    dist = np.minimum.reduce([yy - WALL, H - WALL - 1 - yy, xx - WALL, W - WALL - 1 - xx]).astype(np.float64)
-    shadow = np.clip(1 - dist / 22, 0, 1) * (dist >= 0)
-    out *= (1 - 0.55 * shadow[..., None])
-    rim = (dist >= -2) & (dist < 0)
-    out[rim] = out[rim] * 0.4 + np.array(st["rim"]) * 0.6
-    # Darken the outer half of the walls for depth
-    outer = np.clip((-dist - 2) / 50, 0, 1) * (dist < 0)
-    out *= (1 - 0.45 * outer[..., None])
-    # The game brightens rooms (CanvasModulate x brightness, plus glow), so
-    # the art is kept dark and slightly contrasty to land at the right level
-    out = (out / 255.0) ** 1.15 * 255.0 * 0.58
-    out = np.clip(out, 0, 255).astype(np.uint8)
-    room = Image.fromarray(out).resize((W * 2, H * 2), Image.NEAREST)
-    return room
+    look = ERA_LOOK[era]
+    floor = paint_floor(era, rng).convert("RGBA")
+    rim = paint_rim(era, rng)
+    # Soft shadow the rim casts onto the floor (down and to the right)
+    alpha = rim.getchannel("A")
+    sh = Image.new("L", (W, H), 0)
+    sh.paste(alpha, (3, 5))
+    sh = sh.filter(ImageFilter.GaussianBlur(7))
+    shade = Image.new("RGBA", (W, H), look["deep"] + (0,))
+    shade.putalpha(sh.point(lambda v: int(v * 0.7)))
+    out = Image.alpha_composite(floor, shade)
+    out = Image.alpha_composite(out, rim)
+    arr = np.array(out.convert("RGB")).astype(np.float64)
+    # The game lights rooms (CanvasModulate, glow), so keep the art a bit low
+    arr = (arr / 255.0) ** 1.08 * 255.0 * 0.72
+    return Image.fromarray(np.clip(arr, 0, 255).astype(np.uint8)).resize((W * 2, H * 2), Image.NEAREST)
 
+
+# ───────────────────────────── doors ─────────────────────────────
+# 64px half-res, up = out of the room. A gap in the rim with rocks either
+# side; closed doors are grown over, locked ones carry a golden shell seal.
+
+def door_frame(era, rng, state):
+    look = ERA_LOOK[era]
+    ol = look["outline"]
+    img = Image.new("RGBA", (64, 64), (0, 0, 0, 0))
+    d = ImageDraw.Draw(img)
+    floor_mid = look["floor"][1][1]
+    # Passage: lit floor at the room edge, deep in the middle, a glimmer beyond
+    for y in range(64):
+        t = y / 63
+        k = np.clip((t - 0.25) / 0.75, 0, 1)
+        col = np.array(look["deep"]) * (1 - k) + np.array(floor_mid) * k * 0.9
+        if state == "open" and y < 14:
+            col = col + np.array(shade_rgb(floor_mid, 1.3)) * (1 - y / 14) * 0.5
+        d.line((14, y, 50, y), fill=tuple(int(v) for v in col) + (255,))
+    if state != "open":
+        barrier(era, d, rng, look)
+    # Flanking pieces, back to front
+    for (x, y, r) in ((8, 14, 13), (56, 14, 13), (6, 38, 14), (58, 38, 14), (10, 58, 9), (54, 58, 9)):
+        rim_piece(era, d, x, y, r, np.random.default_rng(int(x * 31 + y)), 2 if y > 30 else 1)
+    if state == "locked":
+        seal(d)
+    return img.resize((128, 128), Image.NEAREST)
+
+
+def barrier(era, d, rng, look):
+    ol = look["outline"]
+    if era in ("ediacaran", "cambrian", "ordovician"):
+        # Living lattice across the gap: mat, glass sponge or bryozoan mesh
+        col = {"ediacaran": look["rim"][2], "cambrian": look["accent"], "ordovician": look["rim"][0]}[era]
+        d.rectangle((14, 16, 50, 52), fill=shade_rgb(col, 0.45) + (220,))
+        for k in range(-40, 60, 6):
+            d.line((14 + k, 16, 14 + k + 36, 52), fill=ol + (255,), width=3)
+            d.line((50 - k, 16, 50 - k - 36, 52), fill=ol + (255,), width=3)
+        for k in range(-40, 60, 6):
+            d.line((14 + k, 16, 14 + k + 36, 52), fill=col + (255,), width=1)
+            d.line((50 - k, 16, 50 - k - 36, 52), fill=col + (255,), width=1)
+        d.rectangle((0, 0, 13, 64), fill=(0, 0, 0, 0))
+        d.rectangle((51, 0, 64, 64), fill=(0, 0, 0, 0))
+    elif era == "carboniferous":
+        # Fern fronds grown across
+        for k, y in enumerate((20, 30, 40, 50)):
+            sgn = 1 if k % 2 else -1
+            x0, x1 = (12, 52) if sgn > 0 else (52, 12)
+            d.line((x0, y, x1, y + 3), fill=ol + (255,), width=4)
+            for j in range(1, 10):
+                px = x0 + (x1 - x0) * j / 10
+                py = y + 3 * j / 10
+                for s in (-1, 1):
+                    d.line((px, py, px - sgn * 3, py + s * 5), fill=look["rim"][0] + (255,), width=2)
+            d.line((x0, y, x1, y + 3), fill=shade_rgb(look["rim"][0], 1.25) + (255,), width=1)
+    else:
+        # Rockfall
+        for (x, y, r) in ((22, 24, 9), (40, 22, 10), (31, 36, 11), (20, 48, 9), (44, 46, 9)):
+            rim_piece(era, d, x, y, r, np.random.default_rng(x * 7 + y), 2)
+
+
+def seal(d):
+    """Golden nautiloid shell set into the barrier."""
+    gold, dark = (240, 196, 80), (90, 56, 10)
+    d.ellipse((20, 22, 44, 46), fill=dark + (255,))
+    d.ellipse((22, 24, 42, 44), fill=gold + (255,))
+    d.ellipse((24, 25, 34, 33), fill=(255, 236, 160, 255))
+    pts = [(32 + math.cos(a) * (9 - a * 0.7), 34 + math.sin(a) * (9 - a * 0.7)) for a in np.linspace(0, 11, 40)]
+    d.line(pts, fill=dark + (255,), width=1)
+
+
+# ───────────────────────── drifting shadows ─────────────────────────
+# Something big passing overhead, cast on the floor (Room.gd moves it).
+
+def silhouette(era, rng, size):
+    """Top-down outline of the era's big passer-by, head pointing up."""
+    a = Image.new("L", (size, size), 0)
+    dd = ImageDraw.Draw(a)
+    c = size / 2
+    if era == "cambrian":
+        # Anomalocaris: flap-lined body, frontal appendages, tail fan
+        for k in range(11):
+            y = c - 44 + k * 7
+            w = 26 - abs(k - 3) * 1.6
+            dd.ellipse((c - w, y - 4, c + w, y + 5), fill=255)
+            dd.ellipse((c - 10, y - 5, c + 10, y + 6), fill=255)
+        dd.ellipse((c - 12, c - 58, c + 12, c - 36), fill=255)
+        for s in (-1, 1):
+            pts = [(c + s * 6, c - 54), (c + s * 16, c - 70), (c + s * 12, c - 80), (c + s * 4, c - 76)]
+            dd.line(pts, fill=255, width=5)
+            for side in (-1, 1):
+                dd.polygon([(c, c + 30), (c + side * 22, c + 52), (c + side * 8, c + 56)], fill=255)
+    elif era == "ordovician":
+        # Orthocone nautiloid: long straight shell, tentacles forward
+        dd.polygon([(c - 13, c - 40), (c + 13, c - 40), (c + 3, c + 70), (c - 3, c + 70)], fill=255)
+        dd.ellipse((c - 13, c - 50, c + 13, c - 30), fill=255)
+        for k in range(8):
+            ang = -math.pi / 2 + (k - 3.5) * 0.12
+            dd.line((c, c - 44, c + math.cos(ang) * 34, c - 44 + math.sin(ang) * 30), fill=255, width=3)
+    elif era == "carboniferous":
+        # Meganeura: griffinfly with two pairs of long wings
+        dd.line((c, c - 30, c, c + 60), fill=255, width=6)
+        dd.ellipse((c - 9, c - 44, c + 9, c - 26), fill=255)
+        dd.ellipse((c - 7, c - 30, c + 7, c - 4), fill=255)
+        for s in (-1, 1):
+            dd.ellipse((c + s * 4 - (64 if s < 0 else 0), c - 26, c + s * 4 + (64 if s > 0 else 0), c - 12), fill=255)
+            dd.ellipse((c + s * 4 - (58 if s < 0 else 0), c - 8, c + s * 4 + (58 if s > 0 else 0), c + 6), fill=255)
+    else:
+        # Clouds (Permian sky) or a drifting raft of plankton (Ediacaran)
+        for _ in range(9):
+            x, y = rng.uniform(c - 40, c + 40), rng.uniform(c - 25, c + 25)
+            r = rng.uniform(16, 30)
+            dd.ellipse((x - r, y - r * 0.7, x + r, y + r * 0.7), fill=255)
+    return a
+
+
+def make_shadow(era, rng):
+    size = 180
+    a = silhouette(era, rng, size)
+    a = a.filter(ImageFilter.GaussianBlur(5))
+    out = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+    out.putalpha(a)
+    return out
 
 # ───────────────────────────── obstacles ─────────────────────────────
 
@@ -563,6 +851,9 @@ def main():
         rng = np.random.default_rng(200 + i)
         for slot, fn in SLOTS.items():
             fn(era, rng).resize((128, 128), Image.NEAREST).save(os.path.join(out, slot + ".png"))
+        for state in ("open", "closed", "locked"):
+            door_frame(era, np.random.default_rng(300 + i), state).save(os.path.join(out, "door_%s.png" % state))
+        make_shadow(era, np.random.default_rng(400 + i)).save(os.path.join(out, "shadow.png"))
         print("  wrote", out)
 
 

@@ -25,9 +25,9 @@ const SOUND_VOLUMES: Dictionary = {
     "room_clear":   -6.0,   # Last enemy in a room died
 }
 
-# Looping background tracks (generate_music.py), by name
-const MUSIC_TRACKS := ["tidepool", "reef", "abyss", "boss"]
-const MUSIC_VOLUME_DB := -10.0
+# Looping soundtrack (generate_soundtrack.py): one theme, re-voiced per era
+const ERA_TRACKS := ["ediacaran", "cambrian", "ordovician", "carboniferous", "permian"]
+const MUSIC_VOLUME_DB := -8.0
 const MUSIC_FADE := 1.6
 
 var music_streams: Dictionary = {}
@@ -66,10 +66,16 @@ func load_sounds():
         var path = "res://assets/sfx/" + s_name + ".wav"
         if FileAccess.file_exists(path):
             sound_streams[s_name] = load(path)
-    for track in MUSIC_TRACKS:
-        var path = "res://assets/music/" + track + ".wav"
+    var names: Array = ["title"]
+    for era in ERA_TRACKS:
+        names.append(era)
+        names.append("boss_" + era)
+    for track in names:
+        var path = "res://assets/music/" + track + ".ogg"
         if ResourceLoader.exists(path):
-            music_streams[track] = load(path)
+            var stream = load(path)
+            stream.loop = true
+            music_streams[track] = stream
 
 # Crossfade to a looping track; asking for the one already playing does nothing
 func play_music(track: String):
@@ -88,13 +94,12 @@ func play_music(track: String):
         tw.tween_property(old_player, "volume_db", -60.0, MUSIC_FADE)
         tw.chain().tween_callback(old_player.stop)
 
-# Calm track for each stretch of the run
+# Each era has its own arrangement of the theme
 func music_for_floor(floor_num: int) -> String:
-    if floor_num <= 2:
-        return "tidepool"
-    if floor_num <= 4:
-        return "reef"
-    return "abyss"
+    return ERA_TRACKS[clampi(floor_num - 1, 0, ERA_TRACKS.size() - 1)]
+
+func boss_music_for_floor(floor_num: int) -> String:
+    return "boss_" + music_for_floor(floor_num)
 
 func play_sfx(s_name: String, pitch_scale: float = 1.0, volume_db: float = 0.0):
     if not sound_streams.has(s_name):
