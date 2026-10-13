@@ -75,8 +75,8 @@ const TREE = {
         "light_color": Color(1.0, 0.45, 0.6),
         "scale": Vector2(1.1, 1.1),
         "speed": 330.0,
-        "damage": 5.0,
-        "fire_delay": 0.20,
+        "damage": 5.7,
+        "fire_delay": 0.18,
         "shot_speed": 730.0,
         "max_health_add": 2,
         "attack_type": "5way",
@@ -98,8 +98,8 @@ const TREE = {
         "light_color": Color(0.0, 1.0, 0.85),
         "scale": Vector2(1.1, 1.1),
         "speed": 340.0,
-        "damage": 3.8,
-        "fire_delay": 0.24,
+        "damage": 4.2,
+        "fire_delay": 0.22,
         "shot_speed": 730.0,
         "max_health_add": 2,
         "attack_type": "triple",
@@ -190,8 +190,8 @@ const TREE = {
         "light_color": Color(1.0, 0.6, 0.3),
         "scale": Vector2(1.35, 1.35),
         "speed": 280.0,
-        "damage": 6.6,
-        "fire_delay": 0.27,
+        "damage": 8.0,
+        "fire_delay": 0.24,
         "shot_speed": 680.0,
         "max_health_add": 6,
         "attack_type": "triple",
@@ -213,8 +213,8 @@ const TREE = {
         "light_color": Color(1.0, 0.35, 0.5),
         "scale": Vector2(1.1, 1.1),
         "speed": 360.0,
-        "damage": 5.8,
-        "fire_delay": 0.20,
+        "damage": 6.3,
+        "fire_delay": 0.19,
         "shot_speed": 730.0,
         "max_health_add": 4,
         "attack_type": "5way",
@@ -259,8 +259,8 @@ const TREE = {
         "light_color": Color(1.0, 0.85, 0.3),
         "scale": Vector2(1.35, 1.3),
         "speed": 300.0,
-        "damage": 5.0,
-        "fire_delay": 0.28,
+        "damage": 5.8,
+        "fire_delay": 0.25,
         "shot_speed": 720.0,
         "max_health_add": 4,
         "attack_type": "single",
@@ -282,8 +282,8 @@ const TREE = {
         "light_color": Color(0.8, 0.8, 1.0),
         "scale": Vector2(1.35, 1.35),
         "speed": 300.0,
-        "damage": 6.6,
-        "fire_delay": 0.27,
+        "damage": 7.6,
+        "fire_delay": 0.24,
         "shot_speed": 680.0,
         "max_health_add": 6,
         "attack_type": "single",
@@ -466,8 +466,8 @@ const TREE = {
         "light_color": Color(1.0, 0.4, 0.25),
         "scale": Vector2(1.25, 1.25),
         "speed": 330.0,
-        "damage": 5.4,
-        "fire_delay": 0.19,
+        "damage": 6.1,
+        "fire_delay": 0.18,
         "shot_speed": 760.0,
         "max_health_add": 4,
         "attack_type": "5way",
@@ -489,8 +489,8 @@ const TREE = {
         "light_color": Color(0.65, 0.35, 1.0),
         "scale": Vector2(1.35, 1.3),
         "speed": 300.0,
-        "damage": 8.2,
-        "fire_delay": 0.22,
+        "damage": 9.7,
+        "fire_delay": 0.20,
         "shot_speed": 720.0,
         "max_health_add": 6,
         "attack_type": "5way",
@@ -558,8 +558,8 @@ const TREE = {
         "light_color": Color(1.0, 0.85, 0.3),
         "scale": Vector2(1.35, 1.3),
         "speed": 320.0,
-        "damage": 4.1,
-        "fire_delay": 0.26,
+        "damage": 4.6,
+        "fire_delay": 0.24,
         "shot_speed": 900.0,
         "max_health_add": 4,
         "attack_type": "needle",
@@ -581,8 +581,8 @@ const TREE = {
         "light_color": Color(1.0, 0.45, 0.9),
         "scale": Vector2(1.1, 1.1),
         "speed": 330.0,
-        "damage": 6.6,
-        "fire_delay": 0.20,
+        "damage": 7.5,
+        "fire_delay": 0.18,
         "shot_speed": 730.0,
         "max_health_add": 4,
         "attack_type": "triple",
@@ -627,8 +627,8 @@ const TREE = {
         "light_color": Color(0.45, 0.9, 1.0),
         "scale": Vector2(1.35, 1.35),
         "speed": 280.0,
-        "damage": 8.3,
-        "fire_delay": 0.27,
+        "damage": 10.0,
+        "fire_delay": 0.24,
         "shot_speed": 680.0,
         "max_health_add": 10,
         "attack_type": "single",
@@ -903,8 +903,8 @@ const TREE = {
         "light_color": Color(1.0, 0.35, 0.2),
         "scale": Vector2(1.35, 1.35),
         "speed": 320.0,
-        "damage": 7.2,
-        "fire_delay": 0.15,
+        "damage": 8.2,
+        "fire_delay": 0.14,
         "shot_speed": 800.0,
         "max_health_add": 4,
         "attack_type": "7way",
@@ -949,8 +949,8 @@ const TREE = {
         "light_color": Color(0.6, 0.3, 1.0),
         "scale": Vector2(1.35, 1.35),
         "speed": 290.0,
-        "damage": 11.0,
-        "fire_delay": 0.20,
+        "damage": 13.0,
+        "fire_delay": 0.18,
         "shot_speed": 820.0,
         "max_health_add": 4,
         "attack_type": "shrapnel",
@@ -972,8 +972,8 @@ const TREE = {
         "light_color": Color(1.0, 0.7, 0.4),
         "scale": Vector2(1.4, 1.4),
         "speed": 270.0,
-        "damage": 10.4,
-        "fire_delay": 0.21,
+        "damage": 12.9,
+        "fire_delay": 0.18,
         "shot_speed": 760.0,
         "max_health_add": 8,
         "attack_type": "single",
@@ -1364,6 +1364,47 @@ const WEAPONS = {
     "smash": {"melee": true, "label": "smash with a cavitation echo", "reach": 130.0, "arc": 0.8, "damage": 3.0, "cooldown": 2.0, "knockback": 500.0, "stun": 0.8, "cavitation": true},
 }
 
+# Escape moves for forms that cannot really dart away (a clam has no fins).
+# They replace the dash on the same button: [style, name, why]. Every other
+# form dashes. Styles (Player.gd perform_escape):
+#   withdraw: stay put, untouchable for a second, shove nearby enemies off
+#   bristle:  stay put briefly, stab everything around with raised spines
+#   tubules:  throw out sticky threads that glue nearby enemies in place
+#   ink:      leave a cloud that hurts and hides you, and keep crawling
+const ESCAPES = {
+    "early_mollusc": ["withdraw", "Pull into the shell", "the shell is a mollusc's first defence"],
+    "early_echinoderm": ["bristle", "Raise the spines", "calcite spines stand up when touched"],
+    "sea_lily": ["withdraw", "Curl the arms", "sea lilies roll their feathery arms into a tight ball"],
+    "free_moving_echinoderm": ["withdraw", "Clamp to the rock", "hundreds of suction tube feet hold on tight"],
+    "sea_snail": ["withdraw", "Pull into the shell", "a snail seals itself behind its operculum, a trapdoor on the foot"],
+    "bivalve": ["withdraw", "Clamp shut", "strong muscles slam the two shells together"],
+    "sea_star_line": ["withdraw", "Clamp to the rock", "tube feet grip so hard a wave cannot lift it"],
+    "spiny_echinozoan": ["bristle", "Raise the spines", "spines on ball joints swing toward a threat"],
+    "predatory_sea_snail": ["withdraw", "Seal the shell", "the operculum closes the shell like a door"],
+    "sea_slug_line": ["ink", "Ink cloud", "sea hares squirt purple ink that confuses predators"],
+    "burrowing_clam": ["withdraw", "Dig in", "a muscular foot pulls the clam down into the sand"],
+    "sea_star": ["withdraw", "Clamp to the rock", "tube feet grip so hard a wave cannot lift it"],
+    "sea_urchin": ["bristle", "Raise the spines", "spines on ball joints swing toward a threat"],
+    "sea_cucumber": ["tubules", "Sticky tubules", "some sea cucumbers shoot out sticky threads that tangle attackers"],
+}
+
+# Button label and timing for each escape style. invulnerable and rooted in
+# seconds; cooldown replaces the dash recharge.
+const ESCAPE_STYLES = {
+    "withdraw": {"label": "HIDE", "invulnerable": 1.0, "rooted": 1.0, "cooldown": 2.0, "radius": 120.0, "knockback": 450.0},
+    "bristle": {"label": "SPINE", "invulnerable": 0.6, "rooted": 0.6, "cooldown": 1.6, "radius": 140.0, "knockback": 350.0, "damage": 2.0},
+    "tubules": {"label": "STICK", "invulnerable": 0.5, "rooted": 0.5, "cooldown": 2.4, "radius": 180.0, "stun": 2.0, "damage": 0.5},
+    "ink": {"label": "INK", "invulnerable": 0.8, "rooted": 0.0, "cooldown": 2.0},
+}
+
+# Escape for a form: style ("dart" for a normal dash), name and why
+static func get_escape(data: Dictionary) -> Array:
+    return ESCAPES.get(data.get("id", ""), ["dart", "Dash", "darts away"])
+
+static func escape_label(data: Dictionary) -> String:
+    var style = get_escape(data)[0]
+    return ESCAPE_STYLES[style].label if ESCAPE_STYLES.has(style) else "DASH"
+
 static func weapon_stats(weapon: String) -> Dictionary:
     return WEAPONS.get(weapon, WEAPONS["vesicle"])
 
@@ -1434,8 +1475,11 @@ static func describe_perks(data: Dictionary) -> String:
     for key in data.dash_perks:
         if dash_text.has(key):
             lines.append(dash_text[key])
+    var escape = get_escape(data)
+    if escape[0] != "dart":
+        lines.append("No dash: %s instead" % escape[1].to_lower())
     if data.dash_perks.has("slam_damage"):
-        lines.append("Dash slams for %d damage" % int(data.dash_perks.slam_damage))
+        lines.append("%s hits for %d damage" % ["Dash" if escape[0] == "dart" else escape[1], int(data.dash_perks.slam_damage)])
     var passive_text = {
         "regen": "Regrows health over time", "flight": "Flies over obstacles",
         "retaliatory_spines": "Fires spines when hit", "double_iframes": "Longer invulnerability after hits",

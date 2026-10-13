@@ -194,6 +194,10 @@ func _on_canvas_draw():
         canvas.draw_circle(bc, BUTTON_RADIUS, Color(col.r, col.g, col.b, alpha))
         canvas.draw_arc(bc, BUTTON_RADIUS, 0.0, TAU, 48, Color(col.r, col.g, col.b, 0.8), 3.0)
         var label: String = b.label
+        if b.action == "dash":
+            var player = get_tree().get_first_node_in_group("player")
+            if player and player.has_method("dash_label"):
+                label = player.dash_label()
         var tw = font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
         canvas.draw_string(font, bc + Vector2(-tw / 2.0, fs * 0.35), label, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(1, 1, 1, 0.9))
 

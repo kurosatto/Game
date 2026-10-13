@@ -58,6 +58,8 @@ var shot_counter: int = 0
 
 # Bio-Hydro Dash
 var is_dashing: bool = false
+var escape_style: String = "dart" # Lineages.ESCAPES: forms that can't dash
+var rooted_time: float = 0.0 # holding still during a withdraw/bristle escape
 var dash_timer: float = 0.0
 var dash_duration: float = 0.22
 var dash_speed: float = 900.0
@@ -130,6 +132,9 @@ func _physics_process(delta: float):
         discharge_cooldown = max(0.0, discharge_cooldown - delta)
         discharge_updated.emit(discharge_cooldown, max_discharge_cooldown)
         
+    if rooted_time > 0:
+        rooted_time -= delta
+
     if invincibility_time > 0:
         invincibility_time -= delta
         $Sprite2D.visible = sin(invincibility_time * 32.0) > 0.0
@@ -210,11 +215,16 @@ func _physics_process(delta: float):
         if dash_timer <= 0:
             is_dashing = false
     else:
-        velocity = move_dir.normalized() * speed
+        velocity = Vector2.ZERO if rooted_time > 0 else move_dir.normalized() * speed
         move_and_slide()
 
     # Dynamic Swimming Squash & Stretch + Multi-Frame Cilia Animation
-    if move_dir != Vector2.ZERO:
+    if rooted_time > 0:
+        # Hunkered down during an escape: drawn small and still (withdraw)
+        # or puffed up (bristle, tubules)
+        var hunker = 0.72 if escape_style == "withdraw" else 1.2
+        $Sprite2D.scale = $Sprite2D.scale.lerp(Vector2(hunker, hunker), min(1.0, delta * 20.0))
+    elif move_dir != Vector2.ZERO:
         swim_time += delta * 11.0
         var stretch_x = 1.0 + sin(swim_time) * 0.15
         var stretch_y = 1.0 - sin(swim_time) * 0.15
@@ -331,6 +341,9 @@ func _draw():
                 draw_line(p1, p2, cilia_col, 2.0, true)
 
 func perform_bio_dash():
+    if escape_style != "dart":
+        perform_escape()
+        return
     is_dashing = true
     dash_timer = dash_duration
     dash_cooldown = max_dash_cooldown
@@ -388,6 +401,64 @@ func perform_bio_dash():
 
     $Sprite2D.scale = Vector2(1.45, 0.65)
     $Sprite2D.rotation = dash_direction.angle() + heading_offset
+
+# The dash button for forms that can't dart (see Lineages.ESCAPES): a clam
+# clamps shut, an urchin raises its spines, a sea cucumber throws sticky
+# threads, a sea hare inks.
+func perform_escape():
+    var st: Dictionary = lineages.ESCAPE_STYLES[escape_style]
+    dash_cooldown = max_dash_cooldown
+    invincibility_time = max(invincibility_time, st.invulnerable)
+    rooted_time = st.rooted
+    SoundManager.play_sfx("dash", 0.7)
+    var radius: float = st.get("radius", 0.0)
+    var hit: float = damage * st.get("damage", 0.0) + current_dash_perks.get("slam_damage", 0.0)
+    for e in get_tree().get_nodes_in_group("enemies"):
+        if not is_instance_valid(e) or global_position.distance_to(e.global_position) > radius:
+            continue
+        if hit > 0 and e.has_method("take_damage"):
+            e.take_damage(hit)
+        if not is_instance_valid(e):
+            continue
+        if st.has("knockback") and e.has_method("apply_knockback"):
+            e.apply_knockback((e.global_position - global_position).normalized() * st.knockback, 0.3)
+        if st.has("stun") and e.has_method("apply_stun"):
+            e.apply_stun(st.stun)
+    match escape_style:
+        "withdraw":
+            spawn_escape_ring(radius, current_modulate)
+        "bristle":
+            spawn_escape_ring(radius, Color(1.0, 0.85, 0.6))
+        "tubules":
+            spawn_dash_web_snare()
+            spawn_escape_ring(radius, Color(1.0, 1.0, 0.9))
+        "ink":
+            spawn_dash_smoke_cloud()
+            $Sprite2D.modulate.a = 0.35
+            var tw = create_tween()
+            tw.tween_interval(1.2)
+            tw.tween_property($Sprite2D, "modulate:a", 1.0, 0.3)
+
+# What the dash button says for this form (DASH, HIDE, SPINE, STICK, INK)
+func dash_label() -> String:
+    return lineages.ESCAPE_STYLES[escape_style].label if escape_style != "dart" else "DASH"
+
+func spawn_escape_ring(radius: float, col: Color):
+    var ring = Line2D.new()
+    ring.width = 4.0
+    ring.default_color = col
+    var pts = PackedVector2Array()
+    for i in range(25):
+        var a = (float(i) / 24.0) * TAU
+        pts.append(Vector2(cos(a), sin(a)) * 12.0)
+    ring.points = pts
+    ring.position = global_position
+    get_parent().add_child(ring)
+    var tw = ring.create_tween()
+    tw.set_parallel(true)
+    tw.tween_property(ring, "scale", Vector2.ONE * (radius / 12.0), 0.25)
+    tw.tween_property(ring, "modulate:a", 0.0, 0.25)
+    tw.chain().tween_callback(ring.queue_free)
 
 func spawn_dash_smoke_cloud():
     var cloud = Area2D.new()
@@ -881,7 +952,12 @@ func apply_form(data: Dictionary):
     damage = data.damage
     fire_delay = data.fire_delay
     shot_speed = data.shot_speed
-    max_dash_cooldown = dash_cooldown_for_speed(speed)
+    escape_style = lineages.get_escape(data)[0]
+    rooted_time = 0.0
+    if escape_style == "dart":
+        max_dash_cooldown = dash_cooldown_for_speed(speed)
+    else:
+        max_dash_cooldown = lineages.ESCAPE_STYLES[escape_style].cooldown
 
     # Flight collision mask
     if current_passive == "flight":

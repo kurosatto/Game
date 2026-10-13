@@ -6,7 +6,9 @@
 # Each form gets four factors relative to the starting cell, and a score:
 #   attack  = damage per second x spread x reach (melee arcs, shot range)
 #   toughness = health so far on this path x damage reduction, i-frames, regen
-#   move    = speed, plus the faster dash recharge slow forms get (Player.gd)
+#   move    = speed, plus the faster dash recharge slow forms get (Player.gd);
+#             forms with an escape move instead (Lineages.ESCAPES) count it
+#             as extra toughness and attack
 #   senses  = sight rating plus half the other sense
 #   score   = attack^1 x toughness^0.8 x move^1 x senses^0.3
 # Forms at the same evolution step should score close to each other; the
@@ -37,6 +39,10 @@ SENSES = {k: int(v) for k, v in re.findall(r'"(\w+)": \[(\d+),', section("const 
 WEAPONS = {}
 for name, body in re.findall(r'"(\w+)": \{("melee".*?)\},?\n', section("const WEAPONS =", "static func weapon_stats")):
     WEAPONS[name] = body
+
+ESCAPES = dict(re.findall(r'"(\w+)": \["(\w+)"', section("const ESCAPES =", "const ESCAPE_STYLES")))
+# Forms without a dash: how much each escape is worth (toughness, attack)
+ESCAPE_VALUE = {"withdraw": (1.25, 1.0), "bristle": (1.1, 1.1), "tubules": (1.15, 1.05), "ink": (1.15, 1.05)}
 
 FORMS = {}
 for path, body in re.findall(r'\n    "([\d,]*)": \{(.*?)\n    \}', section("const TREE =", "const VISION ="), re.S):
@@ -101,6 +107,9 @@ def toughness(path, body):
 
 def move(body):
     speed = num(body, "speed")
+    if text(body, "id") in ESCAPES:
+        # No dash; the escape is counted in toughness and attack instead
+        return speed / (BASE_SPEED + 0.5 * 200.0 / dash_cooldown(BASE_SPEED))
     # Each dash covers about 200 px; a faster recharge buys back distance
     dash_px = 200.0 / dash_cooldown(speed)
     return (speed + 0.5 * dash_px) / (BASE_SPEED + 0.5 * 200.0 / dash_cooldown(BASE_SPEED))
@@ -115,6 +124,10 @@ rows = []
 for path, body in FORMS.items():
     a = attack(body) / ref[0]
     t = toughness(path, body) / ref[1]
+    if text(body, "id") in ESCAPES:
+        tv, av = ESCAPE_VALUE[ESCAPES[text(body, "id")]]
+        t *= tv
+        a *= av
     m = move(body)
     s = senses(body)
     score = a * t ** 0.8 * m * s ** 0.3
