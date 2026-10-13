@@ -228,7 +228,7 @@ func get_boss_floor_color(floor_num: int) -> Color:
         2: return Color(0.60, 0.88, 0.94) * b  # Anomalocaris: Cambrian turquoise
         3: return Color(0.65, 0.92, 0.80) * b  # Cameroceras: Ordovician emerald seafoam
         4: return Color(0.70, 0.90, 0.65) * b  # Arthropleura: Carboniferous lush moss
-        5: return Color(0.95, 0.75, 0.55) * b  # Postosuchus: Triassic desert amber
+        5: return Color(0.95, 0.75, 0.55) * b  # Dimetrodon: Permian sun-baked amber
         6: return Color(0.98, 0.60, 0.55) * b  # Tyrannosaurus: Cretaceous volcanic glow
         7: return Color(0.85, 0.70, 1.00) * b  # Apex Sovereign: Celestial extinction twilight
         _: return Color(0.70, 0.80, 0.98) * b
