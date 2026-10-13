@@ -410,7 +410,9 @@ func show_evolution_modal(floor_num: int, current_path: Array = []):
             "color": form.get("color", Color(0.0, 1.0, 0.85)),
         }, 1)
     else:
-        subheader.text = "Pick which real descendant group your lineage becomes:"
+        # Every card is a direct branch of the current form (Lineages.TREE is
+        # keyed by the path of picks), so the run stays on one family tree
+        subheader.text = "Your %s lineage splits. Pick which branch of it you become:" % form.get("name", "ancestral").to_lower().capitalize()
         for i in range(child_paths.size()):
             var child = lineages.get_form(child_paths[i])
             var desc = child.fact + "\n\nLiving today: " + child.living_example + "\n" + child.clade_path
