@@ -8,16 +8,27 @@ signal door_entered(direction)
 
 var is_open: bool = false
 var trigger_cooldown: float = 0.6
+var hint_cooldown: float = 0.0
+var key_badge: Node2D = null
 
 @onready var light = $PointLight2D
 
 func _ready():
 	add_to_group("doors")
+	_build_key_badge()
 	# Deferred: reacting can add/remove physics nodes, which Godot forbids mid physics step
 	body_entered.connect(_on_body_entered, CONNECT_DEFERRED)
 	update_visuals()
 
 func _process(delta: float):
+	if hint_cooldown > 0:
+		hint_cooldown -= delta
+	elif not is_open and not is_locked:
+		# Bumping a shut door: say why it is shut
+		for body in get_overlapping_bodies():
+			if body.is_in_group("player"):
+				_show_hint("DOOR SHUT", "Defeat every creature in this room to open the doors")
+				break
 	if trigger_cooldown > 0:
 		trigger_cooldown -= delta
 	elif is_open or is_locked:
@@ -29,6 +40,17 @@ func _process(delta: float):
 				_on_body_entered(body)
 				break
 		
+	if key_badge:
+		key_badge.visible = is_locked
+		if is_locked:
+			# Bob just inside the doorway, upright whatever wall it is on
+			key_badge.global_rotation = 0.0
+			# Local +y points into the room for every door rotation
+			key_badge.position = Vector2(0, 150 + sin(Time.get_ticks_msec() * 0.004) * 6)
+			var has_key = _player_keys() > 0
+			key_badge.get_node("Label").text = "USE KEY" if has_key else "NEED KEY"
+			key_badge.modulate = Color(0.6, 1.0, 0.6) if has_key else Color.WHITE
+
 	# Gentle pulsating light on doors
 	if light and is_open:
 		light.energy = 1.2 + sin(Time.get_ticks_msec() * 0.005) * 0.3
@@ -104,9 +126,7 @@ func _on_body_entered(body: Node):
 		
 	if body.is_in_group("player"):
 		if is_locked and body.keys <= 0:
-			var main = get_tree().get_first_node_in_group("main")
-			if main and main.has_method("display_item_banner"):
-				main.display_item_banner("LOCKED", "Find a key to open this door")
+			_show_hint("LOCKED", "Find the key in another room, or buy one in the shop")
 			trigger_cooldown = 2.0
 			return
 		if is_locked:
@@ -118,3 +138,38 @@ func _on_body_entered(body: Node):
 		elif is_open:
 			trigger_cooldown = 1.0
 			door_entered.emit(direction)
+
+func _show_hint(title: String, desc: String):
+	if hint_cooldown > 0:
+		return
+	hint_cooldown = 3.0
+	var main = get_tree().get_first_node_in_group("main")
+	if main and main.has_method("display_item_banner"):
+		main.display_item_banner(title, desc)
+
+func _player_keys() -> int:
+	var p = get_tree().get_first_node_in_group("player")
+	return p.keys if p else 0
+
+# Key icon and caption over locked doors, so it is clear what opens them
+func _build_key_badge():
+	key_badge = Node2D.new()
+	key_badge.z_index = 5
+	key_badge.visible = false
+	var icon = Sprite2D.new()
+	icon.texture = load("res://assets/pickup_key.png")
+	var tex_size = icon.texture.get_size()
+	icon.scale = Vector2.ONE * (56.0 / max(tex_size.x, tex_size.y))
+	key_badge.add_child(icon)
+	var label = Label.new()
+	label.name = "Label"
+	label.text = "NEED KEY"
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.size = Vector2(160, 30)
+	label.position = Vector2(-80, 20)
+	label.add_theme_font_size_override("font_size", 20)
+	label.add_theme_color_override("font_color", Color(1.0, 0.85, 0.3))
+	label.add_theme_color_override("font_outline_color", Color.BLACK)
+	label.add_theme_constant_override("outline_size", 6)
+	key_badge.add_child(label)
+	add_child(key_badge)
