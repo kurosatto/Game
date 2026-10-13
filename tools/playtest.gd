@@ -29,9 +29,21 @@ func _process(_delta: float) -> bool:
 func report(msg: String):
 	print("PLAYTEST: ", msg)
 
+var adaptations_picked := 0
+
 func wait(n: int):
 	for i in n:
 		await process_frame
+		pick_adaptation()
+
+# Take a random offered adaptation whenever the biomass bar fills
+func pick_adaptation():
+	var hud = main.hud
+	if hud.is_adaptation_up():
+		var a = hud.adaptation_options.pick_random()
+		hud._on_adaptation_clicked(a.id)
+		adaptations_picked += 1
+		report("adaptation %d: %s (damage %.1f, fire %.2f, speed %.0f, hp %d)" % [adaptations_picked, a.id, main.player.damage, main.player.fire_delay, main.player.speed, main.player.max_health])
 
 func keep_player_alive():
 	var p = main.player
@@ -87,6 +99,7 @@ func step_to(target: Vector2i) -> bool:
 		main.player.global_position = door.global_position
 		for i in 120:
 			await process_frame
+			pick_adaptation()
 			if main.current_room_pos == target and not main.is_transitioning:
 				return true
 		main.player.global_position = main.current_room_node.global_position + Vector2(960, 540)
@@ -104,7 +117,7 @@ func run():
 		for pos in rooms:
 			if rooms[pos].type == 3:
 				boss_pos = pos
-		report("floor %d: %d rooms" % [floor_num, rooms.size()])
+		report("floor %d: %d rooms, %d adaptations so far" % [floor_num, rooms.size(), adaptations_picked])
 
 		# Visit every room, then the boss
 		var order: Array = rooms.keys().filter(func(p): return p != boss_pos)
@@ -122,7 +135,7 @@ func run():
 		await kill_enemies()
 		await wait(60)
 		var hud = main.hud
-		if hud.evolution_modal and hud.evolution_modal.visible:
+		if hud.evolution_modal and hud.evolution_modal.visible and not hud.is_adaptation_up():
 			hud._on_evolution_choice_clicked(floor_num, randi() % 2)
 			await wait(30)
 		if hud.victory_screen.visible:
@@ -139,6 +152,7 @@ func run():
 		main.player.global_position = trapdoors[0].global_position
 		for i in 300:
 			await process_frame
+			pick_adaptation()
 			if main.floor_number > floor_num or hud.victory_screen.visible:
 				break
 		if hud.victory_screen.visible:

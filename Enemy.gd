@@ -47,6 +47,7 @@ var lunge_dir: Vector2 = Vector2.ZERO
 # Preloads
 var tear_scene = preload("res://Tear.tscn")
 var fauna = preload("res://data/Fauna.gd")
+var biomass_orb_script = preload("res://BiomassOrb.gd")
 
 @onready var light = $PointLight2D
 
@@ -990,8 +991,15 @@ func take_damage(amount: float):
 	if health <= 0:
 		die()
 
+var dead: bool = false
+
 func die():
+	if dead:
+		return
+	dead = true
 	SoundManager.play_sfx("enemy_die", 0.6 if is_boss() else 1.0)
+	if not is_boss():
+		drop_biomass()
 
 	# Spawn colorful death burst particles
 	spawn_death_particles()
@@ -1003,6 +1011,16 @@ func die():
 
 	enemy_died.emit()
 	queue_free()
+
+# Eaten prey feeds the adaptation bar: chasers are worth 1, shooters 2
+func drop_biomass():
+	var worth = 2.0 if enemy_type == "pacer" else 1.0
+	var count = 5 if enemy_type == "pacer" else 3
+	for i in count:
+		var orb = biomass_orb_script.new()
+		orb.value = worth / count
+		orb.position = position
+		get_parent().add_child(orb)
 
 # Average colour of the species sheet's first frame, cached per texture
 static var _burst_colors: Dictionary = {}

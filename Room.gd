@@ -578,6 +578,9 @@ func spawn_random_pickup(pos: Vector2):
 func clear_room():
     room_data.cleared = true
     SoundManager.play_sfx("room_clear")
+    var player_node = get_tree().get_first_node_in_group("player")
+    if player_node and player_node.has_method("on_room_cleared"):
+        player_node.on_room_cleared()
     
     for d_dir in door_nodes:
         door_nodes[d_dir].open_door()

@@ -69,11 +69,24 @@ func _initialize():
 	fog.set_vision(10, true)
 	await snap("1e_vision_dragonfly")
 	fog.set_vision(main.player.vision, true)
+	# Biomass orbs bursting from a kill
+	var prey = load("res://Enemy.tscn").instantiate()
+	prey.enemy_type = "pacer"
+	prey.position = main.player.position + Vector2(260, -60)
+	main.current_room_node.add_child(prey)
+	prey.setup_enemy(1)
+	await process_frame
+	prey.take_damage(9999.0)
+	for i in 14: await process_frame
+	await snap("1g_biomass")
 	main.hud.flash_hurt()
 	await snap("1b_hurt")
 	main.hud.show_evolution_modal(1, main.player.evolution_choices)
 	await snap("2_evolution")
 	main.hud._on_evolution_choice_clicked(1, 0)
+	main.hud.show_adaptation_modal(main.player.adaptations.roll({}), {"muscle": 1})
+	await snap("2b_adaptation")
+	main.hud._on_adaptation_clicked(main.hud.adaptation_options[0].id)
 	main.hud.toggle_settings()
 	await snap("3_settings")
 	main.hud.toggle_settings()
