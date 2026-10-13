@@ -57,7 +57,7 @@ func set_sense(rating: int, kind: String):
 # rating: 1 (blind) to 10 (best eyes alive)
 func set_vision(rating: int, instant: bool = false):
 	var r = clamp(rating, 1, 10)
-	target_radius = 200.0 + r * 110.0      # 310 px for a cell, 1300 px for a dragonfly
+	target_radius = 300.0 + r * 100.0      # 400 px for a cell, 1300 px for a dragonfly
 	target_darkness = 0.97 - r * 0.06      # 0.91 for a cell, 0.37 for a dragonfly
 	if instant:
 		radius = target_radius
