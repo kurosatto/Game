@@ -881,6 +881,7 @@ func apply_form(data: Dictionary):
     damage = data.damage
     fire_delay = data.fire_delay
     shot_speed = data.shot_speed
+    max_dash_cooldown = dash_cooldown_for_speed(speed)
 
     # Flight collision mask
     if current_passive == "flight":
@@ -889,6 +890,12 @@ func apply_form(data: Dictionary):
         set_collision_mask_value(3, true)
 
     update_creature_visuals()
+
+# Slow forms (sea lilies, clams, sea cucumbers) recharge their dash sooner and
+# fast swimmers later, so a slow body can still dart out of trouble.
+# 0.54 s at 270 speed, 0.9 s at 440, 1.03 s from 505 up.
+static func dash_cooldown_for_speed(spd: float) -> float:
+    return 0.9 * clamp(spd / 440.0, 0.6, 1.15)
 
 func update_creature_visuals():
     if default_texture == null:
