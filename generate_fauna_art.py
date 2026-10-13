@@ -484,6 +484,139 @@ def diictodon(c, t, s):
               body_w=s * 0.15, tail_len=s * 0.04, leg_len=s * 0.1, tusks=True)
 
 
+# ─────────────── fourth animal per era (more behaviours) ───────────────
+
+def fractofusus(c, t, s):
+    # Spindle-shaped rangeomorph lying flat: a midline with rows of fractal
+    # frondlets branching off both sides, each frondlet branching again
+    body = (215, 190, 150, 255)
+    cx, cy = s / 2, s / 2
+    c.shadow(cx, cy + 3, s * 0.2, s * 0.44)
+    half_len, half_w = s * 0.43, s * 0.19
+    outline = []
+    for k in range(32):
+        a = k / 32 * 2 * math.pi
+        outline.append((cx + math.cos(a) * half_w * abs(math.cos(a)) ** 0.3, cy + math.sin(a) * half_len))
+    c.poly(outline, shade(body, 0.85))
+    sway = math.sin(t * 2 * math.pi) * 0.6
+    n = 9
+    for i in range(n):
+        y = cy - half_len * 0.85 + i * (half_len * 1.7) / (n - 1)
+        w = half_w * math.sqrt(max(0.0, 1 - ((y - cy) / half_len) ** 2))
+        for side in (-1, 1):
+            # Each frondlet: a leaf shape with smaller branches
+            tip = (cx + side * w * 0.95, y - 3 + sway)
+            c.d.polygon([(cx, y - 2), tip, (cx, y + 3)], fill=shade(body, 1.0 + 0.1 * (i % 2)))
+            for j in range(1, 4):
+                f = j / 4
+                bx, by = cx + side * w * f * 0.9, y - 1 + (tip[1] - y) * f
+                c.d.line([(bx, by), (bx + side * 2, by - 3)], fill=shade(body, 0.7))
+    c.d.line([(cx, cy - half_len + 2), (cx, cy + half_len - 2)], fill=shade(body, 0.6), width=1)
+    # Holdfast-free tips, a little paler
+    c.dot(cx, cy - half_len + 2, shade(body, 1.2), 1)
+    c.dot(cx, cy + half_len - 2, shade(body, 1.2), 1)
+
+
+def marrella(c, t, s):
+    # Small "lace crab": head shield with two pairs of long swept-back spines,
+    # long antennae, a row of feathery limbs along a slim body
+    body = (210, 150, 170, 255)
+    cx = s / 2
+    c.shadow(cx, s * 0.6, s * 0.16, s * 0.3)
+    beat = t * 2 * math.pi
+    for i in range(10):
+        y = s * 0.44 + i * s * 0.035
+        step = math.sin(beat * 2 + i * 0.8) * 2
+        for side in (-1, 1):
+            c.d.line([(cx + side * 2, y), (cx + side * (s * 0.16 + step), y + 2)], fill=(240, 200, 210, 255))
+    c.ellipse(cx, s * 0.6, s * 0.06, s * 0.2, body)
+    for i in range(6):
+        y = s * 0.47 + i * s * 0.05
+        c.d.line([(cx - 2, y), (cx + 2, y)], fill=shade(body, 0.7))
+    # Two pairs of long head spines sweeping back past the body
+    for side in (-1, 1):
+        c.line([(cx + side * 3, s * 0.36), (cx + side * s * 0.3, s * 0.5), (cx + side * s * 0.36, s * 0.78)], (230, 190, 120, 255), 1)
+        c.line([(cx + side * 2, s * 0.38), (cx + side * s * 0.18, s * 0.58), (cx + side * s * 0.2, s * 0.85)], (200, 170, 120, 255), 1)
+    c.ellipse(cx, s * 0.36, s * 0.08, s * 0.06, shade(body, 1.15))
+    sw = math.sin(beat * 2) * 2
+    c.d.line([(cx - 2, s * 0.32), (cx - 10 - sw, s * 0.06)], fill=(250, 220, 230, 255))
+    c.d.line([(cx + 2, s * 0.32), (cx + 10 + sw, s * 0.06)], fill=(250, 220, 230, 255))
+
+
+def isotelus(c, t, s):
+    # Big smooth asaphid trilobite seen from above: one broad oval split into
+    # a rounded cephalon, 8 thoracic segments and a large smooth pygidium,
+    # with a raised axial lobe down the middle and crescent eyes
+    body = (150, 135, 110, 255)
+    cx = s / 2
+    top, bottom = s * 0.12, s * 0.92
+    cy, ry, rx = (top + bottom) / 2, (bottom - top) / 2, s * 0.33
+    c.shadow(cx, cy + 3, rx * 1.05, ry)
+    for i in range(8):
+        y = s * 0.42 + i * s * 0.04
+        step = math.sin(t * 2 * math.pi + i * 1.1) * 2
+        for side in (-1, 1):
+            c.d.line([(cx + side * rx * 0.9, y), (cx + side * (rx + s * 0.07), y + step)], fill=(200, 140, 110, 255))
+    c.ellipse(cx, cy, rx, ry, body)
+
+    def half_width(y):
+        return rx * math.sqrt(max(0.0, 1 - ((y - cy) / ry) ** 2))
+
+    # Cephalon border and glabella
+    ceph = s * 0.38
+    c.d.line([(cx - half_width(ceph), ceph), (cx + half_width(ceph), ceph)], fill=shade(body, 0.6))
+    c.ellipse(cx, s * 0.27, s * 0.09, s * 0.1, shade(body, 1.2), outline=False)
+    # Thoracic segments, slightly curved back at the edges
+    for i in range(1, 9):
+        y = ceph + i * s * 0.042
+        w = half_width(y)
+        c.d.line([(cx - w + 1, y + 2), (cx - s * 0.08, y), (cx + s * 0.08, y), (cx + w - 1, y + 2)], fill=shade(body, 0.68))
+    # Axial lobe down the thorax and pygidium
+    c.ellipse(cx, s * 0.6, s * 0.075, s * 0.22, shade(body, 1.15), outline=False)
+    c.d.arc((cx - half_width(s * 0.74) * 0.8, s * 0.7, cx + half_width(s * 0.74) * 0.8, s * 0.95), 200, 340, fill=shade(body, 0.75))
+    for side in (-1, 1):
+        c.d.arc((cx + side * s * 0.17 - 4, s * 0.24, cx + side * s * 0.17 + 4, s * 0.32), 180, 360, fill=OUTLINE, width=2)
+        c.eye(cx + side * s * 0.17, s * 0.29, (230, 210, 140, 255), 1)
+
+
+def helenodora(c, t, s):
+    # Velvet worm: soft annulated body, stubby lobopod legs, a pair of
+    # antennae and the slime papillae either side of the mouth
+    body = (110, 95, 120, 255)
+    cx = s / 2
+    c.shadow(cx, s * 0.58, s * 0.13, s * 0.4)
+    n = 12
+    phase = t * 2 * math.pi
+    pts = []
+    for i in range(n + 1):
+        f = i / n
+        y = s * 0.2 + f * s * 0.68
+        pts.append((cx + math.sin(phase + f * 4.0) * s * 0.05 * f, y))
+    for i, (x, y) in enumerate(pts[1:-1]):
+        step = math.sin(phase * 2 + i * 1.3) * 2
+        for side in (-1, 1):
+            c.line([(x + side * s * 0.08, y), (x + side * (s * 0.14), y + step)], shade(body, 0.85), 2)
+    for i, (x, y) in enumerate(pts):
+        w = s * 0.09 * (1.0 - 0.35 * abs(i / n - 0.4))
+        c.ellipse(x, y, w, s * 0.04, shade(body, 1.0 if i % 2 else 1.1))
+    for (x, y) in pts[1:-1]:
+        c.dot(x - 2, y, shade(body, 1.4), 0)
+        c.dot(x + 2, y, shade(body, 1.4), 0)
+    hx, hy = pts[0]
+    for side in (-1, 1):
+        sw = math.sin(phase * 2 + side) * 2
+        c.line([(hx + side * 2, hy - 2), (hx + side * (7 + sw), hy - s * 0.15)], shade(body, 1.2), 1)
+        c.dot(hx + side * 5, hy + 1, (200, 240, 190, 255), 1)
+    c.eye(hx - 3, hy - 1, (220, 220, 200, 255), 0)
+    c.eye(hx + 3, hy - 1, (220, 220, 200, 255), 0)
+
+
+def euchambersia(c, t, s):
+    # Small, short-snouted therocephalian with long canines
+    quadruped(c, t, s, (140, 120, 95, 255), head_len=s * 0.2, head_w=s * 0.12, body_len=s * 0.36,
+              body_w=s * 0.13, tail_len=s * 0.16, leg_len=s * 0.12, fangs=True, stripes=True)
+
+
 # Fly-type sheets use 88px frames, pacer-type 104px, matching the originals
 SPECIES = {
     "spriggina": (88, spriggina),
@@ -501,6 +634,11 @@ SPECIES = {
     "orthoceras": (104, orthoceras),
     "archimylacris": (72, archimylacris),
     "diictodon": (96, diictodon),
+    "fractofusus": (112, fractofusus),
+    "marrella": (72, marrella),
+    "isotelus": (112, isotelus),
+    "helenodora": (88, helenodora),
+    "euchambersia": (88, euchambersia),
 }
 
 

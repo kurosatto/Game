@@ -29,14 +29,14 @@ func _initialize():
 	var tc = main.get_node("TouchControls"); tc.visible = true
 	main.hud.use_touch_texts()
 	await snap("1_room")
-	# Every era animal side by side, frozen, in the current room
+	# Every era animal side by side (one column per era), frozen, in the current room
 	var row := 0
 	for floor_num in range(1, 6):
 		var col := 0
-		for kind in ["fly", "pacer"]:
+		for kind in ["fly", "pacer"] + preload("res://data/Fauna.gd").special_types(floor_num):
 			var e = load("res://Enemy.tscn").instantiate()
 			e.enemy_type = kind
-			e.position = Vector2(420 + floor_num * 220, 330 + col * 260)
+			e.position = Vector2(420 + floor_num * 220, 230 + col * 190)
 			e.process_mode = Node.PROCESS_MODE_DISABLED
 			main.current_room_node.add_child(e)
 			e.setup_enemy(floor_num)
@@ -84,7 +84,8 @@ func _initialize():
 	main.hud.show_evolution_modal(1, main.player.evolution_choices)
 	await snap("2_evolution")
 	main.hud._on_evolution_choice_clicked(1, 0)
-	main.hud.show_adaptation_modal(main.player.adaptations.roll({}), {"muscle": 1})
+	var ad = main.player.adaptations
+	main.hud.show_adaptation_modal([ad.get_adaptation("autotomy"), ad.get_adaptation("serrated"), ad.get_adaptation("electrocytes")], {"serrated": 1})
 	await snap("2b_adaptation")
 	main.hud._on_adaptation_clicked(main.hud.adaptation_options[0].id)
 	main.hud.toggle_settings()

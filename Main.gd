@@ -174,7 +174,7 @@ func generate_floor():
     
     load_room(current_room_pos)
     hud.update_minimap(dungeon_rooms, current_room_pos)
-    hud.show_item_banner("WILDLIFE OF THIS ERA", fauna.describe_floor(floor_number), true)
+    hud.show_item_banner("WILDLIFE OF THIS ERA", fauna.describe_floor(floor_number, true), true)
     if floor_number >= 3:
         complete_challenge("ordovician")
 

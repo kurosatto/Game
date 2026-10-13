@@ -345,8 +345,8 @@ func hide_boss_health():
 
 # near_top keeps the banner clear of the room centre, where the player spawns
 func show_item_banner(title: String, desc: String, near_top: bool = false):
-    item_banner.offset_top = -440.0 if near_top else -80.0
-    item_banner.offset_bottom = -280.0 if near_top else 80.0
+    item_banner.offset_top = -435.0 if near_top else -80.0
+    item_banner.offset_bottom = -215.0 if near_top else 80.0
     item_banner.visible = true
     item_title.text = title
     item_desc.text = desc

@@ -5,6 +5,7 @@ extends Area2D
 @export var damage: float = 3.5
 @export var lifetime: float = 0.85
 @export var is_enemy_tear: bool = false
+@export var is_snare: bool = false # velvet-worm slime: slows instead of hurting
 # Player weapon this projectile belongs to (data/Lineages.gd WEAPONS), e.g. "vesicle"
 @export var projectile_kind: String = ""
 
@@ -36,6 +37,12 @@ func _ready():
             $PointLight2D.color = Color(1.0, 0.15, 0.3)
         if has_node("TrailParticles"):
             $TrailParticles.color = Color(1.0, 0.2, 0.3, 0.6)
+        if is_snare:
+            $Sprite2D.modulate = Color(0.85, 1.0, 0.75)
+            if has_node("PointLight2D"):
+                $PointLight2D.color = Color(0.6, 1.0, 0.5)
+            if has_node("TrailParticles"):
+                $TrailParticles.color = Color(0.8, 1.0, 0.7, 0.6)
     else:
         collision_layer = 8
         collision_mask = 2 + 4
@@ -201,7 +208,10 @@ func _on_body_entered(body: Node):
     if not is_instance_valid(body) or is_queued_for_deletion():
         return
     if is_enemy_tear:
-        if body.is_in_group("player") and body.has_method("take_damage"):
+        if body.is_in_group("player") and is_snare:
+            body.apply_slow(2.0, 0.5, "SNARED")
+            destroy_tear()
+        elif body.is_in_group("player") and body.has_method("take_damage"):
             body.take_damage(damage)
             destroy_tear()
         elif body.is_in_group("obstacles") or body.is_in_group("walls"):

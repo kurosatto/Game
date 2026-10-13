@@ -5,7 +5,11 @@
 # applies them on top of the current form.
 # "mods" keys: damage, fire, speed, range, dash_cd, zap_cd, zap_radius,
 # biomass (fractions added together), hp (max health), vision, sense,
-# regen (half hearts healed on room clear), knockback, armour, perk.
+# regen (half hearts healed on room clear), knockback, armour, perk,
+# autotomy (shed the first hit after each cleared room), iframes (seconds
+# added to dash/escape), crit (share of hits doing double), symbiont (heal
+# half a heart per 12 biomass), thorns (contact damage x your damage),
+# zap_power (ZAP damage and stun).
 # "once": can only be taken one time.
 extends RefCounted
 
@@ -49,6 +53,24 @@ const LIST = [
 	{"id": "armour", "name": "Mineralised Armour",
 		"fact": "Plates of calcium carbonate or phosphate protected trilobites, early fish and molluscs alike.",
 		"effect": "Big hits do 1 less damage", "mods": {"armour": 1}, "once": true},
+	{"id": "autotomy", "name": "Autotomy",
+		"fact": "Lizards drop their tails, crabs their claws and brittle stars their arms, leaving a predator holding a twitching decoy.",
+		"effect": "Shed the first hit after each room you clear", "mods": {"autotomy": 1}, "once": true},
+	{"id": "mauthner", "name": "Giant Escape Neurons",
+		"fact": "Fish Mauthner cells and the squid giant axon fire an escape in a few thousandths of a second.",
+		"effect": "Dash or escape keeps you untouchable 0.15 s longer", "mods": {"iframes": 0.15}},
+	{"id": "serrated", "name": "Serrated Edges",
+		"fact": "Saw-edged teeth grip and tear as they slice; Dimetrodon is the first land animal known to have had them.",
+		"effect": "15% of hits do double damage", "mods": {"crit": 0.15}},
+	{"id": "symbionts", "name": "Gut Symbionts",
+		"fact": "Gut bacteria digest what their host cannot; termites and cows would starve without theirs.",
+		"effect": "Heal half a heart for every 12 biomass you eat", "mods": {"symbiont": 1.0}},
+	{"id": "thorns", "name": "Defensive Spines",
+		"fact": "Spines evolved again and again, on sea urchins, pufferfish and hedgehogs, to punish anything that bites.",
+		"effect": "Enemies touching you are pricked twice a second", "mods": {"thorns": 1.0}},
+	{"id": "electrocytes", "name": "Electric Organ",
+		"fact": "Stacks of electrocytes, modified muscle cells, evolved at least six separate times in fish.",
+		"effect": "ZAP hits 40% harder and stuns longer", "mods": {"zap_power": 0.4}},
 ]
 
 # Biomass needed for the next adaptation; level counts adaptations taken
