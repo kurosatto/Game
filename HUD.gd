@@ -540,6 +540,17 @@ func _on_evolution_choice_clicked(floor_num: int, choice_idx: int):
 var intro_card: Control = null
 var intro_ready_time: int = 0
 
+# The dash row of the era card; forms that can't dash name their escape
+func dash_row(form: Dictionary, touch: bool) -> Array:
+    var escape = lineages.get_escape(form)
+    if escape[0] == "dart":
+        if touch:
+            return ["DASH", "Tap DASH to dart away, untouchable for a moment"]
+        return ["DASH", "Space / Shift / right-click to dart away, untouchable for a moment"]
+    var label = lineages.escape_label(form)
+    var how = ("Tap " + label) if touch else "Space / Shift / right-click"
+    return [label, "%s: %s, %s" % [how, escape[1].to_lower(), escape[2]]]
+
 # One card per floor: the era on the left, how to play on the right
 func show_era_card(floor_num: int, form: Dictionary):
     var touch = TouchControls.should_show()
@@ -549,7 +560,7 @@ func show_era_card(floor_num: int, form: Dictionary):
         rows = [
             ["MOVE", "Drag the left side of the screen"],
             ["AIM & FIRE", "Drag the right side; you fire while you hold it"],
-            ["DASH", "Tap DASH to dart away, untouchable for a moment"],
+            dash_row(form, true),
             ["ZAP", "Tap ZAP for an electric burst around you (recharges)"],
             ["PAUSE", "⏸ PAUSE, top right"],
         ]
@@ -557,7 +568,7 @@ func show_era_card(floor_num: int, form: Dictionary):
         rows = [
             ["MOVE", "W A S D or the arrow keys"],
             ["AIM & FIRE", "I J K L, or hold the left mouse button"],
-            ["DASH", "Space / Shift / right-click to dart away, untouchable for a moment"],
+            dash_row(form, false),
             ["ZAP", "E / Q / middle-click for an electric burst around you (recharges)"],
             ["PAUSE", "Esc"],
         ]
