@@ -81,6 +81,11 @@ var aim_hold: float = 0.0
 
 # Tear counter for burst cadences
 var shot_counter: int = 0
+# Shot feel: a short shove backwards and a squash that lasts a few frames
+var recoil_velocity: Vector2 = Vector2.ZERO
+var shot_kick: float = 0.0
+const HitFX = preload("res://HitFX.gd")
+const TearScript = preload("res://Tear.gd")
 
 # Bio-Hydro Dash
 var is_dashing: bool = false
@@ -251,8 +256,9 @@ func _physics_process(delta: float):
         if dash_timer <= 0:
             is_dashing = false
     else:
-        velocity = Vector2.ZERO if rooted_time > 0 else move_dir.normalized() * speed
+        velocity = Vector2.ZERO if rooted_time > 0 else move_dir.normalized() * speed + recoil_velocity
         move_and_slide()
+    recoil_velocity = recoil_velocity.move_toward(Vector2.ZERO, delta * 900.0)
 
     # Dynamic Swimming Squash & Stretch + Multi-Frame Cilia Animation
     if rooted_time > 0:
@@ -271,6 +277,10 @@ func _physics_process(delta: float):
         var pulse = 1.0 + sin(swim_time) * 0.06
         $Sprite2D.scale = Vector2(pulse, pulse)
         $Sprite2D.frame = int(fmod(swim_time, 4.0))
+    # Recoil squash on top of the swim animation, so it is seen for more than a frame
+    if shot_kick > 0.0:
+        $Sprite2D.scale *= Vector2(1.0 + 0.22 * shot_kick, 1.0 - 0.18 * shot_kick)
+        shot_kick = max(0.0, shot_kick - delta / 0.12)
 
     # Face the aim while attacking, otherwise the way we swim
     if aim_hold > 0:
@@ -748,7 +758,10 @@ func shoot_tear(dir: Vector2):
         return
     shoot_cooldown = fire_delay
     SoundManager.play_sfx("shoot", 1.05 + randf_range(-0.08, 0.08))
-    $Sprite2D.scale = Vector2(1.25, 0.8)
+    shot_kick = 1.0
+    recoil_velocity = -dir * 110.0
+    var glow: Color = TearScript.PROJECTILE_GLOW.get(current_weapon, Color(0.0, 0.95, 1.0))
+    HitFX.muzzle(get_parent(), global_position + dir * muzzle_distance(), glow)
     
     shot_counter += 1
     var is_alpha = (shot_counter % 3 == 0) and (current_attack_type == "needle")
@@ -774,9 +787,15 @@ func shoot_tear(dir: Vector2):
             else:
                 spawn_tear(dir, is_alpha)
 
+# Shots leave from the front of the body rather than its middle
+func muzzle_distance() -> float:
+    return 24.0
+
 func spawn_tear(dir: Vector2, alpha: bool = false, boomerang: bool = false):
     var tear = tear_scene.instantiate()
-    tear.position = global_position
+    # A touch of spread keeps streams of shots from looking like one rigid line
+    dir = dir.rotated(randf_range(-0.035, 0.035))
+    tear.position = global_position + dir * muzzle_distance()
     tear.damage = damage * (2.0 if alpha else 1.0)
     tear.lifetime = range_lifetime * (1.3 if alpha else 1.0)
     tear.speed = shot_speed * (1.3 if alpha else 1.0)
@@ -828,7 +847,7 @@ func melee_attack(dir: Vector2):
     var w = lineages.weapon_stats(current_weapon)
     shoot_cooldown = fire_delay * w.cooldown
     SoundManager.play_sfx("dash", 1.6 + randf_range(-0.1, 0.1))
-    $Sprite2D.scale = Vector2(0.85, 1.25)
+    shot_kick = 1.0
 
     var reach: float = w.reach * range_mult
     var half_arc: float = min(PI, w.arc * 0.5 + melee_arc_bonus)
@@ -867,6 +886,9 @@ func melee_attack(dir: Vector2):
         if e.has_method("apply_knockback") and (knock != 0.0 or stun > 0.0):
             var k = knock * (1.8 if current_weapon == "lash" and mult > 1.0 else 1.0)
             e.apply_knockback(away * k, max(stun, 0.15))
+        elif e.has_method("apply_hit_push"):
+            e.apply_hit_push(away * 260.0)
+        HitFX.impact(get_parent(), e.global_position - away * body_radius(e, 30.0) * 0.6, away, current_modulate, 1.2)
         e.take_damage(dmg * mult)
         if venom:
             apply_venom(e, dmg * 0.25)
@@ -903,8 +925,9 @@ func melee_attack(dir: Vector2):
         var main = get_tree().get_first_node_in_group("main")
         if main and main.has_method("shake_camera"):
             main.shake_camera((9.0 if special_hit else 0.0) + (5.0 if w.damage >= 2.5 else 2.5))
-        if special_hit and main and main.has_method("hit_stop"):
-            main.hit_stop(0.06)
+        # A tiny freeze on every connecting strike gives melee its crunch
+        if main and main.has_method("hit_stop"):
+            main.hit_stop(0.06 if special_hit else 0.03)
 
     var swing = melee_swing_script.new()
     swing.style = current_weapon

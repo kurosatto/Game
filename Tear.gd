@@ -19,6 +19,10 @@ const POINTED = ["jet", "spit", "harpoon", "silk", "spray"]
 
 var direction: Vector2 = Vector2.ZERO
 var velocity: Vector2 = Vector2.ZERO
+# Size the shot was fired at (splits are smaller); spawn pop and end fade scale it
+var base_scale: Vector2 = Vector2.ONE
+var age: float = 0.0
+const HitFX = preload("res://HitFX.gd")
 
 func _ready():
     add_to_group("tears")
@@ -57,6 +61,7 @@ func _ready():
 
     if velocity == Vector2.ZERO:
         velocity = direction.normalized() * speed
+    base_scale = scale
     
     # Deferred: reacting can add/remove physics nodes, which Godot forbids mid physics step
     body_entered.connect(_on_body_entered, CONNECT_DEFERRED)
@@ -160,9 +165,17 @@ func _physics_process(delta: float):
                 var to_p = (p_node.global_position - global_position).normalized()
                 velocity = velocity.lerp(to_p * speed * 1.3, delta * 9.0)
 
+    # Shots pop out a little big, settle, and shrink away at the end of their
+    # range instead of vanishing
+    age += delta
+    var s = 1.0
+    if age < 0.08:
+        s = lerp(1.45, 1.0, age / 0.08)
     if lifetime < 0.15:
-        scale = Vector2.ONE * (lifetime / 0.15)
-        
+        s *= max(0.0, lifetime / 0.15)
+    scale = base_scale * s
+
+
     lifetime -= delta
     if lifetime <= 0:
         if is_explosive:
@@ -195,11 +208,20 @@ func _on_body_entered(body: Node):
             destroy_tear()
     else:
         if body.is_in_group("enemies") and body.has_method("take_damage"):
-            SoundManager.play_sfx("hit", 1.0)
+            SoundManager.play_sfx("hit", randf_range(0.92, 1.18))
+            var flight = velocity.normalized()
+            var punch = clamp(damage / 3.5, 0.7, 1.8)
+            HitFX.impact(get_parent(), global_position, flight, shot_color(), punch)
             body.take_damage(damage)
-            
+
             if knockback_force > 0 and body.has_method("apply_knockback"):
-                body.apply_knockback(velocity.normalized() * knockback_force, 0.3)
+                body.apply_knockback(flight * knockback_force, 0.3)
+            elif body.has_method("apply_hit_push"):
+                # Every shot shoves a little, so hits read as solid
+                body.apply_hit_push(flight * 230.0 * punch)
+            var main = get_tree().get_first_node_in_group("main")
+            if main and main.has_method("shake_camera"):
+                main.shake_camera(1.2 * punch)
                 
             if is_blinding and "blind_timer" in body:
                 body.blind_timer = 2.5
@@ -312,7 +334,7 @@ func trigger_mitosis_split():
     for angle in [-0.65, 0.65]:
         var split_tear = duplicate()
         split_tear.has_split = true
-        split_tear.scale = scale * 0.7
+        split_tear.scale = base_scale * 0.7
         split_tear.damage = damage * 0.55
         split_tear.lifetime = 0.4
         split_tear.direction = direction.rotated(angle)
@@ -350,7 +372,7 @@ func trigger_shrapnel_burst():
         var shrap = duplicate()
         shrap.has_split = true
         shrap.is_shrapnel = false
-        shrap.scale = scale * 0.55
+        shrap.scale = base_scale * 0.55
         shrap.damage = max(1.5, damage * 0.45)
         shrap.lifetime = 0.35
         shrap.direction = Vector2(cos(a), sin(a))
@@ -358,7 +380,14 @@ func trigger_shrapnel_burst():
         shrap.position = global_position
         get_parent().add_child(shrap)
 
+func shot_color() -> Color:
+    if is_enemy_tear:
+        return Color(1.0, 0.25, 0.35)
+    return PROJECTILE_GLOW.get(projectile_kind, Color(0.0, 0.95, 1.0))
+
 func destroy_tear():
+    if is_queued_for_deletion():
+        return
     spawn_splash_particles()
     queue_free()
 
