@@ -29,6 +29,7 @@ const ERA_INFO = {
 
 # Evolution choices come from data/Lineages.gd (the accurate tree of life)
 var lineages = preload("res://data/Lineages.gd")
+const UI = preload("res://data/UIStyle.gd")
 var codex = preload("res://data/Codex.gd")
 
 var evolution_modal: Control = null
@@ -81,6 +82,8 @@ func _ready():
     victory_screen.visible = false
     settings_modal.visible = false
     clear_hearts()
+    boss_bar.add_theme_stylebox_override("fill", UI.bar_box(UI.CORAL))
+    $MinimapContainer.add_theme_stylebox_override("panel", StyleBoxEmpty.new())
     
     if minimap_ctrl:
         minimap_ctrl.draw.connect(_on_minimap_draw)
@@ -254,12 +257,12 @@ func update_discharge_cooldown(current_cd: float, max_cd: float):
     if current_cd <= 0.0:
         ability_bar.value = 1.0
         ability_label.text = "⚡ ZAP: READY" if TouchControls.should_show() else "⚡ [E / MMB] DISCHARGE: READY"
-        ability_label.add_theme_color_override("font_color", Color(0.0, 1.0, 0.9, 1.0))
+        ability_label.add_theme_color_override("font_color", UI.AQUA)
     else:
         var ratio = 1.0 - (current_cd / max(0.001, max_cd))
         ability_bar.value = ratio
         ability_label.text = ("⚡ ZAP RECHARGING (%.1fs)" if TouchControls.should_show() else "⚡ [E] RECHARGING (%.1fs)") % current_cd
-        ability_label.add_theme_color_override("font_color", Color(0.4, 0.75, 0.85, 0.85))
+        ability_label.add_theme_color_override("font_color", UI.MUTED)
 
 var current_creature_name: String = "PRIMORDIAL PROTOZOA"
 
@@ -288,8 +291,8 @@ func _on_minimap_draw():
     var gap = Vector2(4, 4)
     var step = cell_size + gap
     
-    minimap_ctrl.draw_rect(Rect2(Vector2.ZERO, minimap_ctrl.size), Color(0.04, 0.08, 0.14, 0.75), true)
-    minimap_ctrl.draw_rect(Rect2(Vector2.ZERO, minimap_ctrl.size), Color(0.0, 0.7, 0.9, 0.5), false, 2.0)
+    var ci = minimap_ctrl.get_canvas_item()
+    UI.panel(UI.MEMBRANE, 18, 0.78, 0.0).draw(ci, Rect2(Vector2.ZERO, minimap_ctrl.size))
     
     for pos in dungeon_rooms:
         var r_data = dungeon_rooms[pos]
@@ -310,24 +313,23 @@ func _on_minimap_draw():
         var draw_pos = center_screen + Vector2(offset_grid.x * step.x, offset_grid.y * step.y) - (cell_size / 2.0)
         var rect = Rect2(draw_pos, cell_size)
         
-        var room_col = Color(0.15, 0.25, 0.35, 0.7)
+        var room_col = Color(0.2, 0.3, 0.25, 0.65)
         if is_visited:
-            room_col = Color(0.25, 0.45, 0.65, 0.9)
-            
-        minimap_ctrl.draw_rect(rect, room_col, true)
+            room_col = Color(0.42, 0.6, 0.42, 0.95)
+        var blob = UI.bar_box(room_col)
+        blob.set_corner_radius_all(6)
+        if is_current:
+            blob.bg_color = UI.CREAM
+        blob.draw(ci, rect)
         
         if is_visited or is_adjacent:
             if r_data.type == 3: # BOSS
-                minimap_ctrl.draw_circle(draw_pos + cell_size/2.0, 4.5, Color(1.0, 0.2, 0.3, 1.0))
+                minimap_ctrl.draw_circle(draw_pos + cell_size/2.0, 4.5, UI.CORAL)
             elif r_data.type == 2: # TREASURE / MUTATION
-                minimap_ctrl.draw_circle(draw_pos + cell_size/2.0, 4.0, Color(0.0, 1.0, 0.8, 1.0))
+                minimap_ctrl.draw_circle(draw_pos + cell_size/2.0, 4.0, UI.SUN)
             elif r_data.type == 4: # SHOP / SHRINE
-                minimap_ctrl.draw_circle(draw_pos + cell_size/2.0, 4.0, Color(1.0, 0.85, 0.2, 1.0))
+                minimap_ctrl.draw_circle(draw_pos + cell_size/2.0, 4.0, UI.LEAF)
                 
-        if is_current:
-            minimap_ctrl.draw_rect(rect, Color(0.0, 1.0, 1.0, 1.0), false, 2.5)
-        else:
-            minimap_ctrl.draw_rect(rect, Color(0.1, 0.2, 0.3, 0.8), false, 1.0)
 
 func show_boss_health(current: float, max_value: float, boss_title: String = ""):
     boss_container.visible = true
@@ -443,7 +445,7 @@ func _create_evolution_modal():
     var bg = ColorRect.new()
     bg.name = "Backdrop"
     bg.set_anchors_preset(Control.PRESET_FULL_RECT)
-    bg.color = Color(0.02, 0.04, 0.08, 0.95)
+    bg.color = Color(0.02, 0.05, 0.04, 0.96)
     evolution_modal.add_child(bg)
     
     var center_box = VBoxContainer.new()
@@ -459,7 +461,7 @@ func _create_evolution_modal():
     header.text = "🧬 EPOCH TRANSCENDED: GEOLOGICAL EVOLUTION"
     header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
     header.add_theme_font_size_override("font_size", 40)
-    header.add_theme_color_override("font_color", Color(0.0, 1.0, 0.85))
+    header.add_theme_color_override("font_color", UI.SUN)
     center_box.add_child(header)
     
     var subheader = Label.new()
@@ -467,7 +469,7 @@ func _create_evolution_modal():
     subheader.text = "Select your taxonomic branch to permanently alter your organism's lineage:"
     subheader.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
     subheader.add_theme_font_size_override("font_size", 22)
-    subheader.add_theme_color_override("font_color", Color(0.7, 0.88, 1.0))
+    subheader.add_theme_color_override("font_color", UI.CREAM)
     center_box.add_child(subheader)
     
     var cards_row = HBoxContainer.new()
@@ -483,20 +485,7 @@ func _build_choice_card(parent: HBoxContainer, floor_num: int, choice_idx: int, 
     card.custom_minimum_size = Vector2(min(680.0, (1640.0 - gap * (total - 1)) / total), height)
     parent.add_theme_constant_override("separation", gap)
     
-    var style = StyleBoxFlat.new()
-    style.bg_color = Color(0.05, 0.09, 0.15, 0.96)
-    style.border_width_left = 3
-    style.border_width_top = 3
-    style.border_width_right = 3
-    style.border_width_bottom = 3
-    style.border_color = data["color"]
-    style.corner_radius_top_left = 12
-    style.corner_radius_top_right = 12
-    style.corner_radius_bottom_right = 12
-    style.corner_radius_bottom_left = 12
-    style.shadow_color = data["color"] * Color(1, 1, 1, 0.25)
-    style.shadow_size = 20
-    card.add_theme_stylebox_override("panel", style)
+    card.add_theme_stylebox_override("panel", UI.panel(data["color"], 32, 0.96, 0.0))
     
     var margin = MarginContainer.new()
     margin.add_theme_constant_override("margin_left", 36)
@@ -513,21 +502,21 @@ func _build_choice_card(parent: HBoxContainer, floor_num: int, choice_idx: int, 
     clade_lbl.text = data["clade"].to_upper()
     clade_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
     clade_lbl.add_theme_font_size_override("font_size", 16)
-    clade_lbl.add_theme_color_override("font_color", data["color"] * Color(1, 1, 1, 0.8))
+    clade_lbl.add_theme_color_override("font_color", data["color"].lerp(UI.CREAM, 0.25))
     vbox.add_child(clade_lbl)
     
     var title_lbl = Label.new()
     title_lbl.text = data["title"]
     title_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
     title_lbl.add_theme_font_size_override("font_size", 28)
-    title_lbl.add_theme_color_override("font_color", Color.WHITE)
+    title_lbl.add_theme_color_override("font_color", UI.SUN)
     vbox.add_child(title_lbl)
     
     var desc_lbl = Label.new()
     desc_lbl.text = data["desc"]
     desc_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
     desc_lbl.add_theme_font_size_override("font_size", 17)
-    desc_lbl.add_theme_color_override("font_color", Color(0.75, 0.85, 0.95))
+    desc_lbl.add_theme_color_override("font_color", UI.CREAM)
     vbox.add_child(desc_lbl)
     
     var sep = HSeparator.new()
@@ -537,7 +526,7 @@ func _build_choice_card(parent: HBoxContainer, floor_num: int, choice_idx: int, 
     perks_lbl.text = data["perks"]
     perks_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
     perks_lbl.add_theme_font_size_override("font_size", 19)
-    perks_lbl.add_theme_color_override("font_color", Color(0.2, 1.0, 0.75))
+    perks_lbl.add_theme_color_override("font_color", UI.LEAF)
     vbox.add_child(perks_lbl)
     
     var spacer = Control.new()
@@ -548,6 +537,8 @@ func _build_choice_card(parent: HBoxContainer, floor_num: int, choice_idx: int, 
     btn.text = button_text
     btn.custom_minimum_size = Vector2(0, 56)
     btn.add_theme_font_size_override("font_size", 22)
+    for state in ["normal", "hover", "pressed", "disabled"]:
+        btn.add_theme_stylebox_override(state, UI.button_box(state, data["color"]))
     if on_pick.is_valid():
         btn.pressed.connect(on_pick)
     else:
@@ -583,20 +574,14 @@ func _create_pause_info():
     box.offset_right = 0.0
     box.offset_top = -440.0
     box.offset_bottom = 440.0
-    var style = StyleBoxFlat.new()
-    style.bg_color = Color(0.04, 0.08, 0.13, 0.96)
-    style.border_color = Color(0.0, 0.8, 0.75, 0.6)
-    style.set_border_width_all(2)
-    style.set_corner_radius_all(10)
-    style.set_content_margin_all(28)
-    box.add_theme_stylebox_override("panel", style)
+    box.add_theme_stylebox_override("panel", UI.panel(UI.MEMBRANE, 28, 0.96, 30.0))
     settings_modal.add_child(box)
     pause_info = RichTextLabel.new()
     pause_info.bbcode_enabled = true
     pause_info.scroll_active = true
     pause_info.add_theme_font_size_override("normal_font_size", 20)
     pause_info.add_theme_font_size_override("bold_font_size", 24)
-    pause_info.add_theme_color_override("default_color", Color(0.78, 0.88, 0.96))
+    pause_info.add_theme_color_override("default_color", UI.CREAM)
     box.add_child(pause_info)
 
 func show_pause_info():
@@ -607,14 +592,14 @@ func show_pause_info():
     var t = ""
     var era = ERA_INFO.get(current_floor, {})
     if not era.is_empty():
-        t += "[b][color=#33ffd9]%s[/color][/b]  %s\n%s\n" % [era.name, era.dates, era.fact]
+        t += "[b][color=#ffcc66]%s[/color][/b]  %s\n%s\n" % [era.name, era.dates, era.fact]
         var animals = preload("res://data/Fauna.gd").describe_floor(current_floor)
         if animals != "":
-            t += "[color=#9fb4c8]%s[/color]\n" % animals
+            t += "[color=#bdccb3]%s[/color]\n" % animals
     if main and player and main.has_method("current_form"):
         var form = main.current_form()
         if not form.is_empty():
-            t += "\n[b][color=#33ffd9]YOU ARE: %s[/color][/b]\n" % form.name
+            t += "\n[b][color=#ffcc66]YOU ARE: %s[/color][/b]\n" % form.name
             t += "%s\n%s\n" % [form.get("clade_path", form.clade), form.fact]
             t += "Living today: %s\n" % form.living_example
             t += "Attack: %s (%s)\n" % [player.current_weapon_name, lineages.weapon_stats(player.current_weapon).label]
@@ -624,7 +609,7 @@ func show_pause_info():
             t += "%s\n" % lineages.describe_senses(form)
             t += "Damage %.1f · Speed %d · Health %d/%d\n" % [player.damage, int(player.speed), player.health, player.max_health]
         if not player.adaptations_taken.is_empty():
-            t += "\n[b][color=#73ff99]ADAPTATIONS[/color][/b]\n"
+            t += "\n[b][color=#9eed80]ADAPTATIONS[/color][/b]\n"
             for id in player.adaptations_taken:
                 var a = player.adaptations.get_adaptation(id)
                 var n = player.adaptations_taken[id]
@@ -660,7 +645,7 @@ func show_adaptation_modal(options: Array, taken: Dictionary = {}):
             "clade": "Adaptation" + (" (have %d)" % times if times > 0 else ""),
             "desc": a.fact,
             "perks": a.effect,
-            "color": Color(0.45, 1.0, 0.6),
+            "color": UI.LEAF,
         }, options.size(), _on_adaptation_clicked.bind(a.id), 400.0, "🧬 ADAPT")
         btn.disabled = true
         buttons.append(btn)
@@ -736,14 +721,14 @@ func show_era_card(floor_num: int, form: Dictionary):
     left.size_flags_horizontal = Control.SIZE_EXPAND_FILL
     left.size_flags_stretch_ratio = 0.85
     cols.add_child(left)
-    left.add_child(_card_label("ERA %d OF 5" % floor_num, 18, Color(0.75, 0.85, 0.95)))
-    left.add_child(_card_label(era.get("name", ""), 36, Color(1.0, 0.85, 0.3)))
-    left.add_child(_card_label(era.get("dates", ""), 22, Color(0.2, 1.0, 0.75)))
-    left.add_child(_card_label(era.get("fact", ""), 22, Color.WHITE))
+    left.add_child(_card_label("ERA %d OF 5" % floor_num, 18, UI.MUTED))
+    left.add_child(_card_label(era.get("name", ""), 36, UI.SUN))
+    left.add_child(_card_label(era.get("dates", ""), 22, UI.LEAF))
+    left.add_child(_card_label(era.get("fact", ""), 22, UI.CREAM))
     left.add_child(HSeparator.new())
     var who = ("YOU ARE THE " if floor_num == 1 else "YOU ARE NOW ") + form.get("name", current_creature_name)
     left.add_child(_card_label(who, 24, color))
-    left.add_child(_card_label("Your attack: %s, %s." % [form.get("weapon_name", "Engulf (phagocytosis)").to_lower(), _weapon_hint(weapon)], 19, Color(0.75, 0.85, 0.95)))
+    left.add_child(_card_label("Your attack: %s, %s." % [form.get("weapon_name", "Engulf (phagocytosis)").to_lower(), _weapon_hint(weapon)], 19, UI.MUTED))
 
     cols.add_child(VSeparator.new())
 
@@ -751,9 +736,9 @@ func show_era_card(floor_num: int, form: Dictionary):
     right.add_theme_constant_override("separation", 12)
     right.size_flags_horizontal = Control.SIZE_EXPAND_FILL
     cols.add_child(right)
-    right.add_child(_card_label("HOW TO PLAY", 24, Color(0.2, 1.0, 0.75)))
+    right.add_child(_card_label("HOW TO PLAY", 24, UI.LEAF))
     _add_rows(right, rows)
-    right.add_child(_card_label("Clear each room, beat the era's boss, then pick what your lineage evolves into.", 19, Color(0.75, 0.85, 0.95)))
+    right.add_child(_card_label("Clear each room, beat the era's boss, then pick what your lineage evolves into.", 19, UI.MUTED))
 
     _close_card(vbox, "start" if floor_num == 1 else "continue")
 
@@ -770,14 +755,14 @@ func _show_card(title: String, sub: String, rows: Array, footer: String, color: 
     title_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
     vbox.add_child(title_lbl)
     if sub != "":
-        var sub_lbl = _card_label(sub, 19, Color(0.75, 0.85, 0.95))
+        var sub_lbl = _card_label(sub, 19, UI.MUTED)
         sub_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
         vbox.add_child(sub_lbl)
     vbox.add_child(HSeparator.new())
     _add_rows(vbox, rows)
     if footer != "":
         vbox.add_child(HSeparator.new())
-        vbox.add_child(_card_label(footer, 19, Color(0.75, 0.85, 0.95)))
+        vbox.add_child(_card_label(footer, 19, UI.MUTED))
     _close_card(vbox, verb)
 
 # Builds the dimmed backdrop and bordered panel; returns the panel's column
@@ -793,7 +778,7 @@ func _open_card(color: Color, width: float) -> VBoxContainer:
 
     var bg = ColorRect.new()
     bg.set_anchors_preset(Control.PRESET_FULL_RECT)
-    bg.color = Color(0.02, 0.04, 0.08, 0.82)
+    bg.color = Color(0.02, 0.05, 0.04, 0.8)
     bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
     intro_card.add_child(bg)
 
@@ -805,15 +790,7 @@ func _open_card(color: Color, width: float) -> VBoxContainer:
     var panel = PanelContainer.new()
     panel.custom_minimum_size = Vector2(width, 0)
     panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
-    var style = StyleBoxFlat.new()
-    style.bg_color = Color(0.05, 0.09, 0.15, 0.97)
-    style.set_border_width_all(3)
-    style.border_color = color
-    style.set_corner_radius_all(12)
-    style.shadow_color = color * Color(1, 1, 1, 0.25)
-    style.shadow_size = 20
-    style.set_content_margin_all(36)
-    panel.add_theme_stylebox_override("panel", style)
+    panel.add_theme_stylebox_override("panel", UI.panel(color, 34, 0.97, 38.0))
     center.add_child(panel)
 
     var vbox = VBoxContainer.new()
@@ -828,15 +805,15 @@ func _add_rows(parent: Container, rows: Array):
     grid.add_theme_constant_override("v_separation", 10)
     parent.add_child(grid)
     for r in rows:
-        var key = _card_label(r[0], 22, Color(0.2, 1.0, 0.75))
+        var key = _card_label(r[0], 22, UI.LEAF)
         key.autowrap_mode = TextServer.AUTOWRAP_OFF
         grid.add_child(key)
-        var val = _card_label(r[1], 22, Color.WHITE)
+        var val = _card_label(r[1], 22, UI.CREAM)
         val.size_flags_horizontal = Control.SIZE_EXPAND_FILL
         grid.add_child(val)
 
 func _close_card(vbox: VBoxContainer, verb: String):
-    var hint = _card_label(("Tap anywhere to " if TouchControls.should_show() else "Press any key or click to ") + verb, 20, Color(1.0, 0.85, 0.3))
+    var hint = _card_label(("Tap anywhere to " if TouchControls.should_show() else "Press any key or click to ") + verb, 20, UI.SUN)
     hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
     vbox.add_child(hint)
     var tw = hint.create_tween().set_loops()
