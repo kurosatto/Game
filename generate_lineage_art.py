@@ -524,8 +524,8 @@ def myriapod(c, t, s):
         antenna(c, cx + side * 2, s * 0.11, side, s * 0.1, t)
 
 
-def pancrustacean(c, t, s):
-    # Crustacean body plan: TWO pairs of antennae (antennules + antennae),
+def malacostracan(c, t, s):
+    # Malacostracan (shrimp-like) body plan: TWO pairs of antennae (antennules + antennae),
     # stalked eyes, carapace, 5 walking leg pairs, abdomen and tail fan.
     cx, body = s / 2, (200, 120, 90, 255)
     c.shadow(cx, s * 0.56, s * 0.17, s * 0.4)
@@ -543,6 +543,58 @@ def pancrustacean(c, t, s):
         c.eye(cx + side * 5, s * 0.19, (40, 40, 40, 255), 0)
         antenna(c, cx + side * 1, s * 0.22, side, s * 0.1, t, (250, 200, 160, 255), 0.1)
         antenna(c, cx + side * 2, s * 0.23, side, s * 0.22, t, (250, 200, 160, 255), 0.6)
+
+
+def hexapod(c, t, s):
+    # Early wingless hexapod (silverfish-like): head with ONE pair of long
+    # antennae, 3 thorax segments each with one pair of legs (6 legs),
+    # 11-segment tapering abdomen ending in three tail filaments.
+    cx, body = s / 2, (200, 175, 110, 255)
+    c.shadow(cx, s * 0.55, s * 0.14, s * 0.38)
+    for i in range(3):
+        y = s * 0.33 + i * s * 0.07
+        for side in (-1, 1):
+            legs_pair(c, cx + side * s * 0.07, y, side, s * 0.15, shade(body, 0.8), t, i * 2.1 + (side > 0) * math.pi, 2, 1, rake=(i - 1) * 5)
+    trunk = arthropod_trunk(c, cx, s * 0.45, 9, s * 0.04, s * 0.09, s * 0.03, body, t, sway=1.5)
+    tx, ty, _ = trunk[-1]
+    for ang in (-0.35, 0.0, 0.35):
+        c.d.line([(tx, ty), (tx + math.sin(ang + wave(t) * 0.1) * s * 0.18, ty + s * 0.16)], fill=shade(body, 1.2))
+    for i in range(3):
+        c.ellipse(cx, s * 0.33 + i * s * 0.07, s * 0.1, s * 0.04, shade(body, 1.0 if i % 2 else 0.9))
+    c.ellipse(cx, s * 0.24, s * 0.07, s * 0.05, shade(body, 1.1))
+    eye_pair(c, cx, s * 0.23, 4, (60, 40, 20, 255))
+    for side in (-1, 1):
+        antenna(c, cx + side * 2, s * 0.2, side, s * 0.2, t, (230, 210, 150, 255), 0.3)
+
+
+def decapod(c, t, s):
+    # Lobster-like decapod: stalked eyes, two pairs of antennae (long
+    # second pair), first leg pair as big claws (crusher bigger than
+    # cutter), 4 more walking leg pairs (10 legs), 6-segment abdomen, tail fan.
+    cx, body = s / 2, (190, 60, 45, 255)
+    c.shadow(cx, s * 0.56, s * 0.2, s * 0.4)
+    for i in range(4):
+        y = s * 0.38 + i * s * 0.04
+        for side in (-1, 1):
+            legs_pair(c, cx + side * s * 0.08, y, side, s * 0.13, shade(body, 0.85), t, i * 1.3 + (side > 0) * math.pi, 2)
+    arthropod_trunk(c, cx, s * 0.55, 6, s * 0.05, s * 0.09, s * 0.06, body, t, sway=1.0)
+    for ang in (-0.5, -0.17, 0.17, 0.5):
+        c.poly([(cx, s * 0.82), (cx + math.sin(ang) * s * 0.12, s * 0.95), (cx + math.sin(ang) * s * 0.06, s * 0.96)], shade(body, 1.15))
+    c.ellipse(cx, s * 0.4, s * 0.11, s * 0.15, body)
+    c.d.line([(cx, s * 0.28), (cx, s * 0.52)], fill=shade(body, 1.3))
+    pinch = max(0.0, math.sin(t * TAU)) * 0.4
+    for side, big in ((-1, 1.25), (1, 0.95)):
+        ax, ay = cx + side * s * 0.09, s * 0.3
+        ex, ey = cx + side * s * 0.2, s * 0.2
+        c.line([(ax, ay), (ex, ey)], shade(body, 0.9), 2)
+        c.ellipse(ex, ey - s * 0.06 * big, s * 0.05 * big, s * 0.08 * big, shade(body, 1.1))
+        c.line([(ex - side * s * 0.02, ey - s * 0.13 * big), (ex - side * s * (0.02 + 0.03 * pinch), ey - s * 0.2 * big)], shade(body, 1.2), 1)
+        c.line([(ex + side * s * 0.02, ey - s * 0.13 * big), (ex + side * s * (0.02 + 0.03 * pinch), ey - s * 0.2 * big)], shade(body, 1.2), 1)
+    for side in (-1, 1):
+        c.d.line([(cx + side * 3, s * 0.26), (cx + side * 5, s * 0.22)], fill=OUTLINE)
+        c.eye(cx + side * 5, s * 0.22, (40, 40, 40, 255), 0)
+        antenna(c, cx + side * 1, s * 0.25, side, s * 0.08, t, (250, 180, 140, 255), 0.1)
+        antenna(c, cx + side * 2, s * 0.26, side, s * 0.3, t, (250, 180, 140, 255), 0.7)
 
 
 # ──────────────────────────── tier 5 ────────────────────────────────
@@ -1189,7 +1241,8 @@ LINEAGES = {
     "arachnid": arachnid,
     "horseshoe_crab": horseshoe_crab,
     "myriapod": myriapod,
-    "pancrustacean": pancrustacean,
+    "malacostracan": malacostracan,
+    "hexapod": hexapod,
     "scorpion": scorpion,
     "spider": spider,
     "centipede": centipede,
@@ -1197,6 +1250,7 @@ LINEAGES = {
     "dragonfly_line": dragonfly_line,
     "beetle": beetle,
     "mantis_shrimp_line": mantis_shrimp_line,
+    "decapod": decapod,
     "pikaia_chordate": pikaia_chordate,
     "early_echinoderm": early_echinoderm,
     "early_mollusc": early_mollusc,

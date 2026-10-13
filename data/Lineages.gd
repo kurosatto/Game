@@ -711,12 +711,12 @@ const TREE = {
         "accessory": "carapace"
     },
     "3,1,1": {
-        "id": "pancrustacean",
-        "name": "PANCRUSTACEAN",
-        "clade": "Pancrustacea — Crustaceans and Insects",
-        "clade_path": "Mandibulata > Pancrustacea",
-        "living_example": "crabs, shrimp, barnacles and every insect",
-        "fact": "Insects evolved from within the crustacean group, so crustaceans alone are not a natural group.",
+        "id": "malacostracan",
+        "name": "MALACOSTRACAN",
+        "clade": "Malacostraca — Shrimp, Crabs and Their Kin",
+        "clade_path": "Mandibulata > Pancrustacea > Malacostraca",
+        "living_example": "shrimp, crabs, lobsters, krill, woodlice and mantis shrimp",
+        "fact": "Almost every malacostracan has the same body plan: 8 thorax segments and 6 abdominal segments ending in a tail fan.",
         "color": Color(0.2, 1.35, 1.2),
         "light_color": Color(0.0, 1.0, 0.9),
         "scale": Vector2(1.15, 1.1),
@@ -729,6 +729,29 @@ const TREE = {
         "weapon": "pincer",
         "weapon_name": "Claws",
         "tear_perks": {"piercing": true},
+        "dash_perks": {},
+        "passive": "none",
+        "accessory": "carapace"
+    },
+    "3,1,2": {
+        "id": "hexapod",
+        "name": "HEXAPOD",
+        "clade": "Hexapoda — Six Legs on Land",
+        "clade_path": "Mandibulata > Pancrustacea > Hexapoda",
+        "living_example": "insects, springtails and silverfish",
+        "fact": "Insects are crustaceans that moved onto land: their closest living relatives are blind cave crustaceans called remipedes.",
+        "color": Color(1.2, 0.95, 0.35),
+        "light_color": Color(1.0, 0.8, 0.3),
+        "scale": Vector2(1.1, 1.1),
+        "speed": 500.0,
+        "damage": 6.1,
+        "fire_delay": 0.2,
+        "shot_speed": 900.0,
+        "max_health_add": 0,
+        "attack_type": "single",
+        "weapon": "bite",
+        "weapon_name": "Mandibles",
+        "tear_perks": {},
         "dash_perks": {},
         "passive": "none",
         "accessory": "carapace"
@@ -1125,6 +1148,52 @@ const TREE = {
         "accessory": "carapace"
     },
     "3,1,1,0": {
+        "id": "mantis_shrimp_line",
+        "name": "MANTIS SHRIMP LINE",
+        "clade": "Hoplocarida — Mantis Shrimp",
+        "clade_path": "Pancrustacea > Malacostraca > Hoplocarida",
+        "living_example": "the peacock mantis shrimp",
+        "fact": "A mantis shrimp's club strikes so fast the water boils into collapsing bubbles that flash with light.",
+        "color": Color(1.35, 0.15, 0.75),
+        "light_color": Color(1.0, 0.1, 0.6),
+        "scale": Vector2(1.3, 1.3),
+        "speed": 500.0,
+        "damage": 10.7,
+        "fire_delay": 0.29,
+        "shot_speed": 880.0,
+        "max_health_add": 4,
+        "attack_type": "explosive",
+        "weapon": "smash",
+        "weapon_name": "Club smash",
+        "tear_perks": {"explosive": true, "stun": true, "knockback": 800.0},
+        "dash_perks": {"cavitation_burst": true},
+        "passive": "none",
+        "accessory": "clubs"
+    },
+    "3,1,1,1": {
+        "id": "decapod",
+        "name": "DECAPOD",
+        "clade": "Decapoda — Ten Legs, Big Claws",
+        "clade_path": "Pancrustacea > Malacostraca > Decapoda",
+        "living_example": "lobsters, crabs, crayfish and true shrimp",
+        "fact": "Decapods walk on ten legs. In lobsters and crabs the first pair became the claws, often one crusher and one cutter.",
+        "color": Color(1.35, 0.3, 0.2),
+        "light_color": Color(1.0, 0.25, 0.15),
+        "scale": Vector2(1.3, 1.25),
+        "speed": 420.0,
+        "damage": 10.8,
+        "fire_delay": 0.27,
+        "shot_speed": 860.0,
+        "max_health_add": 4,
+        "attack_type": "triple",
+        "weapon": "pincer",
+        "weapon_name": "Crusher claws",
+        "tear_perks": {"piercing": true, "stun": true},
+        "dash_perks": {"slam_damage": 6.0},
+        "passive": "none",
+        "accessory": "carapace"
+    },
+    "3,1,2,0": {
         "id": "dragonfly_line",
         "name": "DRAGONFLY LINE",
         "clade": "Odonatoptera — Dragonflies and Their Kin",
@@ -1147,7 +1216,7 @@ const TREE = {
         "passive": "flight",
         "accessory": "wings"
     },
-    "3,1,1,1": {
+    "3,1,2,1": {
         "id": "beetle",
         "name": "BEETLE",
         "clade": "Coleoptera — Beetles",
@@ -1169,29 +1238,6 @@ const TREE = {
         "dash_perks": {"slam_damage": 8.0},
         "passive": "none",
         "accessory": "carapace"
-    },
-    "3,1,1,2": {
-        "id": "mantis_shrimp_line",
-        "name": "MANTIS SHRIMP LINE",
-        "clade": "Hoplocarida — Mantis Shrimp",
-        "clade_path": "Pancrustacea > Malacostraca > Hoplocarida",
-        "living_example": "the peacock mantis shrimp",
-        "fact": "A mantis shrimp's club strikes so fast the water boils into collapsing bubbles that flash with light.",
-        "color": Color(1.35, 0.15, 0.75),
-        "light_color": Color(1.0, 0.1, 0.6),
-        "scale": Vector2(1.3, 1.3),
-        "speed": 500.0,
-        "damage": 10.7,
-        "fire_delay": 0.29,
-        "shot_speed": 880.0,
-        "max_health_add": 4,
-        "attack_type": "explosive",
-        "weapon": "smash",
-        "weapon_name": "Club smash",
-        "tear_perks": {"explosive": true, "stun": true, "knockback": 800.0},
-        "dash_perks": {"cavitation_burst": true},
-        "passive": "none",
-        "accessory": "clubs"
     }
 }
 
@@ -1230,7 +1276,8 @@ const VISION = {
     "horseshoe_crab": [5, "large compound eyes that brighten at night"],
     "arachnid": [5, "several simple eyes, some very sharp"],
     "myriapod": [3, "clusters of simple eyes, some are blind"],
-    "pancrustacean": [7, "fast, colour-sensitive compound eyes"],
+    "malacostracan": [7, "stalked compound eyes that swivel"],
+    "hexapod": [5, "simple compound eyes, early insects lived in leaf litter"],
     "synapsid": [8, "mammal eyes, sharp and good in dim light"],
     "lissamphibian": [6, "big eyes tuned to see at dusk"],
     "sauropsid": [9, "reptile and bird eyes, with four-colour vision"],
@@ -1251,6 +1298,7 @@ const VISION = {
     "dragonfly_line": [10, "about 30,000 facets covering almost all around"],
     "beetle": [6, "compound eyes, some see in near darkness"],
     "mantis_shrimp_line": [10, "12 to 16 kinds of colour receptors and polarised light"],
+    "decapod": [6, "compound eyes on stalks, good at night"],
 }
 
 const VISION_WORDS = ["", "Blind", "Very poor", "Poor", "Dim", "Fair", "Good", "Sharp", "Keen", "Superb", "Superb"]
@@ -1299,7 +1347,8 @@ const SENSES = {
     "horseshoe_crab": [5, "Chemical sense", "tastes the water with its legs"],
     "arachnid": [7, "Vibration", "slit organs in the legs feel footsteps"],
     "myriapod": [6, "Touch", "long antennae feel the way in the dark"],
-    "pancrustacean": [7, "Smell", "antennae smell food and mates"],
+    "malacostracan": [7, "Smell", "two pairs of antennae smell food and mates"],
+    "hexapod": [7, "Smell", "antennae covered in scent pores"],
     "synapsid": [9, "Smell", "mammals live by their noses, a mole hunts almost by smell alone"],
     "lissamphibian": [5, "Smell", "smells through the nose and the roof of the mouth"],
     "sauropsid": [6, "Smell", "a forked tongue tastes the air in stereo"],
@@ -1320,6 +1369,7 @@ const SENSES = {
     "dragonfly_line": [3, "Touch", "tiny antennae, sight does almost everything"],
     "beetle": [7, "Smell", "some beetles smell a forest fire 50 km away"],
     "mantis_shrimp_line": [6, "Smell", "antennules sniff out burrows and rivals"],
+    "decapod": [8, "Smell", "lobsters smell prey with hairs on their antennules"],
 }
 
 const SENSE_WORDS = ["", "Faint", "Weak", "Weak", "Fair", "Fair", "Good", "Good", "Strong", "Strong", "Superb"]
