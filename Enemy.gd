@@ -29,6 +29,11 @@ var boss_phase: int = 1  # Phase 2 triggers at 50% HP
 var hit_flash_timer: float = 0.0
 var knockback_velocity: Vector2 = Vector2.ZERO
 var stun_timer: float = 0.0
+# Weapon specials (Player.weapon_special): sting venom stacks, held by
+# arms or a tongue, blinded by spit so it can't aim
+var venom_stacks: int = 0
+var grabbed_time: float = 0.0
+var blind_timer: float = 0.0
 
 # Era look for regular enemies (data/Fauna.gd)
 var base_tint: Color = Color.WHITE
@@ -43,6 +48,24 @@ var lunge_state: String = ""
 var lunge_timer: float = 0.0
 var lunge_cooldown: float = 0.0
 var lunge_dir: Vector2 = Vector2.ZERO
+
+# Third-animal behaviours (see data/Fauna.gd)
+const SPECIAL_STATS = {
+	"tank": {"hp": 14.0, "hp_per_floor": 3.0, "speed": 62.0, "radius": 46.0, "worth": 3.0},
+	"armoured": {"hp": 9.0, "hp_per_floor": 2.0, "speed": 90.0, "radius": 34.0, "worth": 2.0},
+	"charger": {"hp": 7.0, "hp_per_floor": 1.5, "speed": 110.0, "radius": 24.0, "worth": 2.0},
+	"swarm": {"hp": 2.5, "hp_per_floor": 0.5, "speed": 235.0, "radius": 17.0, "worth": 0.5},
+	"burrower": {"hp": 8.0, "hp_per_floor": 2.0, "speed": 150.0, "radius": 28.0, "worth": 2.0},
+}
+var facing: Vector2 = Vector2.DOWN # armoured: where its shielded front points
+var charge_state: String = ""
+var charge_timer: float = 0.0
+var charge_cooldown: float = 0.0
+var charge_dir: Vector2 = Vector2.ZERO
+var flee_timer: float = 0.0
+var burrow_state: String = "walk"
+var burrow_timer: float = 0.0
+var dust: CPUParticles2D = null
 
 # Preloads
 var tear_scene = preload("res://Tear.tscn")
@@ -82,6 +105,21 @@ func setup_enemy(floor_number: int):
 		if light:
 			light.color = Color(0.0, 0.8, 0.9)
 			light.scale = Vector2(1.4, 1.4)
+
+	elif enemy_type in SPECIAL_STATS:
+		# The era's third animal (data/Fauna.gd): its own behaviour below
+		var st = SPECIAL_STATS[enemy_type]
+		max_health = st.hp + floor_number * st.hp_per_floor
+		speed = st.speed + randf_range(-10, 10)
+		damage = 1
+		$Sprite2D.texture = load("res://assets/enemy_gusha_sheet.png")
+		$Sprite2D.hframes = 4
+		$CollisionShape2D.shape.radius = st.radius
+		charge_cooldown = randf_range(1.0, 2.0)
+		burrow_timer = randf_range(1.2, 2.2)
+		if light:
+			light.color = Color(0.9, 0.75, 0.4)
+			light.scale = Vector2(1.3, 1.3)
 
 	elif enemy_type == "boss_stentor":
 		# Floor 1: STENTOR TITAN — colossal trumpet predatory ciliate
@@ -289,6 +327,10 @@ func _physics_process(delta: float):
 
 	if not player or not is_instance_valid(player):
 		return
+	if grabbed_time > 0:
+		grabbed_time -= delta
+	if blind_timer > 0:
+		blind_timer -= delta
 
 	# Bio-Electric knockback and stun processing
 	if knockback_velocity.length_squared() > 1.0:
@@ -337,9 +379,18 @@ func _physics_process(delta: float):
 		$Sprite2D.frame = int(fmod(anim_timer * 7.0, 4.0))
 
 		shoot_timer -= delta
-		if shoot_timer <= 0:
+		if shoot_timer <= 0 and blind_timer <= 0:
 			shoot_at_player()
 			shoot_timer = randf_range(1.5, 2.5) * shoot_delay_mult
+
+	elif enemy_type in SPECIAL_STATS:
+		$Sprite2D.frame = int(fmod(anim_timer * (9.0 if enemy_type == "swarm" else 5.0), 4.0))
+		match enemy_type:
+			"tank": process_tank(delta)
+			"armoured": process_armoured(delta)
+			"charger": process_charger(delta)
+			"swarm": process_swarm(delta)
+			"burrower": process_burrower(delta)
 
 	elif enemy_type == "boss_stentor":
 		$Sprite2D.frame = int(fmod(anim_timer * 4.5, 6.0))
@@ -370,6 +421,162 @@ func _physics_process(delta: float):
 		process_apex_sovereign_ai(delta)
 
 	check_contact_damage()
+
+# ═══════════════════════════════════════════════════════════
+# THIRD ANIMALS: one new behaviour per era
+# ═══════════════════════════════════════════════════════════
+func face_sprite(dir: Vector2, delta: float, rate: float = 8.0, offset: float = PI/2):
+	if dir.length_squared() > 0.01:
+		$Sprite2D.rotation = lerp_angle($Sprite2D.rotation, dir.angle() + offset, min(1.0, delta * rate))
+
+# Dickinsonia: drifts straight at you, too heavy to push around
+func process_tank(delta: float):
+	var dir = (player.global_position - global_position).normalized()
+	velocity = dir * speed
+	move_and_slide()
+	face_sprite(dir, delta, 2.0)
+
+# Wiwaxia: turns slowly to keep its scaly, spined front toward you
+func process_armoured(delta: float):
+	var to_p = (player.global_position - global_position).normalized()
+	var turn = clamp(facing.angle_to(to_p), -1.3 * delta, 1.3 * delta)
+	facing = facing.rotated(turn)
+	velocity = facing * speed
+	move_and_slide()
+	$Sprite2D.rotation = facing.angle() + PI/2
+
+func armour_blocks() -> bool:
+	if enemy_type != "armoured" or not player or not is_instance_valid(player):
+		return false
+	return facing.dot((player.global_position - global_position).normalized()) > 0.45
+
+# Orthoceras: lines up, then jets shell-first across the room until it hits
+# something; a wall leaves it dazed
+func process_charger(delta: float):
+	var to_p = player.global_position - global_position
+	match charge_state:
+		"windup":
+			charge_timer -= delta
+			$Sprite2D.modulate = base_tint.lerp(Color(2.0, 1.4, 1.2), 0.5 + 0.5 * sin(anim_timer * 40.0))
+			face_sprite(charge_dir, delta, 20.0, -PI/2) # shell points the way it will go
+			if charge_timer <= 0:
+				charge_state = "dash"
+				charge_timer = 1.4
+		"dash":
+			charge_timer -= delta
+			velocity = charge_dir * speed * 6.5
+			var hit = move_and_slide()
+			if hit or charge_timer <= 0:
+				var hit_player = false
+				for i in get_slide_collision_count():
+					if get_slide_collision(i).get_collider() == player:
+						hit_player = true
+				charge_state = ""
+				charge_cooldown = randf_range(1.6, 2.6)
+				$Sprite2D.modulate = base_tint
+				if hit and not hit_player:
+					stun_timer = 1.4 # dazed against the wall: free hits
+					var main = get_tree().get_first_node_in_group("main")
+					if main: main.shake_camera(4.0)
+		_:
+			wander_timer -= delta
+			if wander_timer <= 0:
+				pick_random_wander()
+			velocity = wander_dir * speed * 0.6
+			if move_and_slide():
+				pick_random_wander()
+			face_sprite(velocity, delta, 6.0, -PI/2)
+			charge_cooldown -= delta
+			if charge_cooldown <= 0 and to_p.length() < 900.0:
+				charge_state = "windup"
+				charge_timer = 0.65
+				charge_dir = to_p.normalized()
+
+# Archimylacris: a jittery pack; when one is hit the ones nearby scatter
+func process_swarm(delta: float):
+	var dir = (player.global_position - global_position).normalized()
+	dir = dir.rotated(sin(anim_timer * 7.0 + weave_phase * 3.0) * 0.8)
+	if flee_timer > 0:
+		flee_timer -= delta
+		dir = -dir
+	velocity = dir * speed
+	move_and_slide()
+	face_sprite(velocity, delta, 14.0)
+
+func scatter_swarm():
+	for e in get_tree().get_nodes_in_group("enemies"):
+		if is_instance_valid(e) and e.get("enemy_type") == "swarm" and e.global_position.distance_to(global_position) < 260.0:
+			e.flee_timer = 0.55
+
+# Diictodon: walks at you, digs in (can't be hit), tunnels close, then
+# bursts out after a dust warning and bites everything nearby
+func process_burrower(delta: float):
+	burrow_timer -= delta
+	match burrow_state:
+		"walk":
+			var dir = (player.global_position - global_position).normalized()
+			velocity = dir * speed
+			move_and_slide()
+			face_sprite(dir, delta)
+			if burrow_timer <= 0:
+				burrow_state = "dig"
+				burrow_timer = 0.45
+		"dig":
+			$Sprite2D.scale = Vector2.ONE * base_scale * max(0.1, burrow_timer / 0.45)
+			if burrow_timer <= 0:
+				burrow_state = "under"
+				burrow_timer = 1.6
+				set_burrowed(true)
+		"under":
+			var to_p = player.global_position - global_position
+			if to_p.length() > 70.0:
+				global_position += to_p.normalized() * speed * 1.7 * delta
+			if burrow_timer <= 0 or to_p.length() <= 70.0:
+				burrow_state = "rise"
+				burrow_timer = 0.6
+				if dust: dust.amount = 40
+		"rise":
+			if burrow_timer <= 0:
+				burrow_state = "walk"
+				burrow_timer = randf_range(1.6, 2.4)
+				set_burrowed(false)
+				$Sprite2D.scale = Vector2.ONE * base_scale
+				SoundManager.play_sfx("explosion", 1.6, -8.0)
+				if player.global_position.distance_to(global_position) < 100.0:
+					player.take_damage(damage)
+				var main = get_tree().get_first_node_in_group("main")
+				if main: main.shake_camera(5.0)
+
+func set_burrowed(on: bool):
+	$Sprite2D.visible = not on
+	if light: light.visible = not on
+	# Off the physics layers while underground: shots and bodies pass over
+	if on:
+		set_meta("layer", collision_layer)
+		collision_layer = 0
+		collision_mask = 0
+	else:
+		collision_layer = get_meta("layer", 2)
+		collision_mask = 1 | 4
+	if on and dust == null:
+		dust = CPUParticles2D.new()
+		dust.amount = 16
+		dust.lifetime = 0.6
+		dust.emission_shape = CPUParticles2D.EMISSION_SHAPE_SPHERE
+		dust.emission_sphere_radius = 26.0
+		dust.gravity = Vector2.ZERO
+		dust.initial_velocity_min = 10.0
+		dust.initial_velocity_max = 50.0
+		dust.scale_amount_min = 4.0
+		dust.scale_amount_max = 9.0
+		dust.color = Color(0.75, 0.6, 0.4, 0.8)
+		add_child(dust)
+	if dust:
+		dust.amount = 16
+		dust.emitting = on
+
+func is_burrowed() -> bool:
+	return burrow_state in ["under", "rise"]
 
 func check_contact_damage():
 	for i in get_slide_collision_count():
@@ -968,7 +1175,15 @@ func fire_arc_tears(num_tears: int, arc_deg: float, center_angle: float):
 		tear.speed = 440.0
 		get_parent().add_child(tear)
 
+func apply_stun(duration: float):
+	stun_timer = max(stun_timer, duration * (0.2 if is_boss() else 1.0))
+
 func apply_knockback(force: Vector2, stun_duration: float = 0.4):
+	if is_burrowed():
+		return
+	if enemy_type == "tank":
+		knockback_velocity = force * 0.15
+		return
 	if is_boss():
 		knockback_velocity = force * 0.15
 		stun_timer = 0.1
@@ -976,7 +1191,20 @@ func apply_knockback(force: Vector2, stun_duration: float = 0.4):
 		knockback_velocity = force
 		stun_timer = max(stun_timer, stun_duration)
 
+# For delayed hits (venom ticks, rasp scrapes) that may land after death
+func take_damage_if_alive(amount: float):
+	if not dead and health > 0:
+		take_damage(amount)
+
 func take_damage(amount: float):
+	if is_burrowed():
+		return
+	if armour_blocks():
+		amount *= 0.25
+		if randf() < 0.5:
+			SoundManager.play_sfx("hit", 1.8, -6.0)
+	if enemy_type == "swarm":
+		scatter_swarm()
 	health = max(0.0, health - amount)
 	hit_flash_timer = 0.18
 	
@@ -1015,7 +1243,9 @@ func die():
 # Eaten prey feeds the adaptation bar: chasers are worth 1, shooters 2
 func drop_biomass():
 	var worth = 2.0 if enemy_type == "pacer" else 1.0
-	var count = 5 if enemy_type == "pacer" else 3
+	if enemy_type in SPECIAL_STATS:
+		worth = SPECIAL_STATS[enemy_type].worth
+	var count = clampi(int(worth * 2.5), 1, 7)
 	for i in count:
 		var orb = biomass_orb_script.new()
 		orb.value = worth / count
@@ -1057,6 +1287,7 @@ func spawn_death_particles():
 	p.initial_velocity_max = 240.0
 	p.scale_amount_min = 4.0
 	p.scale_amount_max = 10.0
+	p.amount = 24
 	
 	if enemy_type == "fly":
 		p.amount = 28

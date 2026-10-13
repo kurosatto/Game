@@ -53,7 +53,8 @@ func keep_player_alive():
 	p.keys = max(p.keys, 5)
 
 func kill_enemies():
-	for i in 10:
+	# Burrowers can't be hit underground, so keep trying until they surface
+	for i in 40:
 		var alive = get_nodes_in_group("enemies").filter(func(e): return is_instance_valid(e) and not e.is_queued_for_deletion())
 		if alive.is_empty():
 			return
@@ -96,6 +97,14 @@ func step_to(target: Vector2i) -> bool:
 		return false
 	for attempt in 3:
 		keep_player_alive()
+		if not is_instance_valid(door):
+			# The room changed under us (a pick paused mid-walk); wait it out
+			for i in 120:
+				await process_frame
+				pick_adaptation()
+				if not main.is_transitioning:
+					break
+			return main.current_room_pos == target or await step_to(target)
 		main.player.global_position = door.global_position
 		for i in 120:
 			await process_frame

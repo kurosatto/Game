@@ -1347,25 +1347,25 @@ static func describe_senses(data: Dictionary) -> String:
 const WEAPONS = {
     # Ranged
     "vesicle": {"melee": false, "label": "ranged", "speed": 0.85, "life": 1.0},
-    "jet": {"melee": false, "label": "ranged", "speed": 1.3, "life": 0.65},
-    "spit": {"melee": false, "label": "ranged", "speed": 1.0, "life": 1.0},
-    "harpoon": {"melee": false, "label": "ranged", "speed": 1.35, "life": 1.0},
-    "slime": {"melee": false, "label": "ranged, stuns", "speed": 0.75, "life": 1.0, "stun": true},
-    "silk": {"melee": false, "label": "ranged, stuns", "speed": 1.0, "life": 1.0, "stun": true},
-    "spray": {"melee": false, "label": "short range, burns", "speed": 0.9, "life": 0.5, "caustic": true},
+    "jet": {"melee": false, "label": "ranged", "speed": 1.3, "life": 0.65, "special": "Pressure: shots shove enemies back"},
+    "spit": {"melee": false, "label": "ranged", "speed": 1.0, "life": 1.0, "special": "Blinding venom: hit enemies can't aim for 2.5 s"},
+    "harpoon": {"melee": false, "label": "ranged", "speed": 1.35, "life": 1.0, "special": "Conotoxin: harpoons pass through and paralyse"},
+    "slime": {"melee": false, "label": "ranged, stuns", "speed": 0.75, "life": 1.0, "stun": true, "special": "Clogging slime: hits stun"},
+    "silk": {"melee": false, "label": "ranged, stuns", "speed": 1.0, "life": 1.0, "stun": true, "special": "Silk: hits tangle and stun"},
+    "spray": {"melee": false, "label": "short range, burns", "speed": 0.9, "life": 0.5, "caustic": true, "special": "Boiling cone: three hot droplets per shot", "shot_damage": 0.45},
     # Melee
-    "engulf": {"melee": true, "label": "engulf, pulls prey in and digests it", "reach": 115.0, "arc": 1.7, "damage": 1.6, "cooldown": 1.15, "knockback": -140.0, "drain": true},
-    "clamp": {"melee": true, "label": "shell snap, stuns", "reach": 115.0, "arc": 1.1, "damage": 2.6, "cooldown": 1.6, "knockback": 350.0, "stun": 0.5},
-    "bite": {"melee": true, "label": "bite", "reach": 125.0, "arc": 1.2, "damage": 2.3, "cooldown": 1.5, "knockback": 150.0},
-    "rasp": {"melee": true, "label": "rasp, drains health", "reach": 115.0, "arc": 1.0, "damage": 1.7, "cooldown": 1.0, "drain": true},
-    "pincer": {"melee": true, "label": "pinch, stuns", "reach": 135.0, "arc": 0.9, "damage": 2.1, "cooldown": 1.4, "knockback": 250.0, "stun": 0.6},
-    "claw": {"melee": true, "label": "wide slash", "reach": 140.0, "arc": 1.7, "damage": 1.8, "cooldown": 1.3, "knockback": 200.0},
-    "lash": {"melee": true, "label": "wide sweep", "reach": 145.0, "arc": 2.2, "damage": 1.6, "cooldown": 1.3, "knockback": 300.0},
-    "sting": {"melee": true, "label": "long jab, venom", "reach": 170.0, "arc": 0.55, "damage": 2.0, "cooldown": 1.4, "venom": true},
-    "arms": {"melee": true, "label": "long grab, pulls", "reach": 200.0, "arc": 0.8, "damage": 1.6, "cooldown": 1.35, "knockback": -220.0, "stun": 0.4},
-    "tongue": {"melee": true, "label": "long grab, pulls", "reach": 230.0, "arc": 0.35, "damage": 1.8, "cooldown": 1.35, "knockback": -260.0, "stun": 0.5},
-    "spines": {"melee": true, "label": "all-round jab", "reach": 120.0, "arc": TAU, "damage": 1.5, "cooldown": 1.5, "knockback": 280.0},
-    "smash": {"melee": true, "label": "smash with a cavitation echo", "reach": 130.0, "arc": 0.8, "damage": 3.0, "cooldown": 2.0, "knockback": 500.0, "stun": 0.8, "cavitation": true},
+    "engulf": {"melee": true, "label": "engulf, pulls prey in and digests it", "reach": 115.0, "arc": 1.7, "damage": 1.6, "cooldown": 1.15, "knockback": -140.0, "drain": true, "special": "Devour: prey under a third health is swallowed whole for extra biomass"},
+    "clamp": {"melee": true, "label": "shell snap, stuns", "reach": 115.0, "arc": 1.1, "damage": 2.6, "cooldown": 1.6, "knockback": 350.0, "stun": 0.5, "special": "Crush: snapping a stunned animal does double damage"},
+    "bite": {"melee": true, "label": "bite", "reach": 125.0, "arc": 1.2, "damage": 2.3, "cooldown": 1.5, "knockback": 150.0, "special": "Crunch: every third bite in a row does 2.5x damage"},
+    "rasp": {"melee": true, "label": "rasp, drains health", "reach": 115.0, "arc": 1.0, "damage": 1.7, "cooldown": 1.0, "drain": true, "special": "Grind: each rasp scrapes twice more"},
+    "pincer": {"melee": true, "label": "pinch, stuns", "reach": 135.0, "arc": 0.9, "damage": 2.1, "cooldown": 1.4, "knockback": 250.0, "stun": 0.6, "special": "Crush: pinching a stunned animal does double damage"},
+    "claw": {"melee": true, "label": "wide slash", "reach": 140.0, "arc": 1.7, "damage": 1.8, "cooldown": 1.3, "knockback": 200.0, "special": "Pounce: leap forward into the slash"},
+    "lash": {"melee": true, "label": "wide sweep", "reach": 145.0, "arc": 2.2, "damage": 1.6, "cooldown": 1.3, "knockback": 300.0, "special": "Whip crack: hits at the tip do double damage and fling"},
+    "sting": {"melee": true, "label": "long jab, venom", "reach": 170.0, "arc": 0.55, "damage": 2.0, "cooldown": 1.4, "venom": true, "special": "Venom build-up: the third sting on one animal does 3x"},
+    "arms": {"melee": true, "label": "long grab, pulls", "reach": 200.0, "arc": 0.8, "damage": 1.6, "cooldown": 1.35, "knockback": -220.0, "stun": 0.4, "special": "Grip: hits on a held animal do 1.8x"},
+    "tongue": {"melee": true, "label": "long grab, pulls", "reach": 230.0, "arc": 0.35, "damage": 1.8, "cooldown": 1.35, "knockback": -260.0, "stun": 0.5, "special": "Gulp: weakened prey is swallowed whole and heals you"},
+    "spines": {"melee": true, "label": "all-round jab", "reach": 120.0, "arc": TAU, "damage": 1.5, "cooldown": 1.5, "knockback": 280.0, "special": "Bristle: anything pressing against you gets spiked"},
+    "smash": {"melee": true, "label": "smash with a cavitation echo", "reach": 130.0, "arc": 0.8, "damage": 3.0, "cooldown": 2.0, "knockback": 500.0, "stun": 0.8, "cavitation": true, "special": "Cavitation: the strike hits twice"},
 }
 
 # Escape moves for forms that cannot really dart away (a clam has no fins).
@@ -1446,6 +1446,8 @@ static func describe_perks(data: Dictionary) -> String:
     var weapon = weapon_stats(data.get("weapon", "vesicle"))
     var melee = weapon.melee
     lines.append("Attack: %s (%s)" % [data.get("weapon_name", "Engulf (phagocytosis)"), weapon.label])
+    if weapon.get("special", "") != "":
+        lines.append(weapon.special)
     lines.append(describe_senses(data))
     var attacks = {
         "triple": "Triple-shot spread", "5way": "Five-way spread", "7way": "Seven-way spread",

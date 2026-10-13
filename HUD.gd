@@ -616,6 +616,9 @@ func show_pause_info():
             t += "%s\n%s\n" % [form.get("clade_path", form.clade), form.fact]
             t += "Living today: %s\n" % form.living_example
             t += "Attack: %s (%s)\n" % [player.current_weapon_name, lineages.weapon_stats(player.current_weapon).label]
+            var special = lineages.weapon_stats(player.current_weapon).get("special", "")
+            if special != "":
+                t += "Special: %s\n" % special
             t += "%s\n" % lineages.describe_senses(form)
             t += "Damage %.1f · Speed %d · Health %d/%d\n" % [player.damage, int(player.speed), player.health, player.max_health]
         if not player.adaptations_taken.is_empty():
@@ -753,9 +756,11 @@ func show_era_card(floor_num: int, form: Dictionary):
     _close_card(vbox, "start" if floor_num == 1 else "continue")
 
 func _weapon_hint(weapon: Dictionary) -> String:
+    var special = weapon.get("special", "")
+    var tail = (". " + special) if special != "" else ""
     if weapon.get("melee", false):
-        return "a close-range %s toward where you aim" % weapon.get("label", "strike")
-    return "shot toward where you aim"
+        return "a close-range %s toward where you aim%s" % [weapon.get("label", "strike"), tail]
+    return "shot toward where you aim" + tail
 
 func _show_card(title: String, sub: String, rows: Array, footer: String, color: Color, verb: String = "start"):
     var vbox = _open_card(color, 1100)
