@@ -388,6 +388,102 @@ def inostrancevia(c, t, s):
               body_w=s * 0.14, tail_len=s * 0.2, leg_len=s * 0.13, fangs=True, stripes=True)
 
 
+# ─────────────── third animal per era (special behaviours) ───────────────
+
+def dickinsonia(c, t, s):
+    # Flat oval quilted into many segments either side of a midline
+    body = (200, 165, 130, 255)
+    cx, cy = s / 2, s / 2
+    c.shadow(cx, cy + 3, s * 0.38, s * 0.44)
+    breathe = 1 + 0.03 * math.sin(t * 2 * math.pi)
+    rx, ry = s * 0.36 * breathe, s * 0.43
+    c.ellipse(cx, cy, rx, ry, body)
+    n = 16
+    for i in range(1, n):
+        y = cy - ry + i * 2 * ry / n
+        half = rx * math.sqrt(max(0.0, 1 - ((y - cy) / ry) ** 2))
+        # Segments curve slightly toward the narrow end, like the fossils
+        c.d.line([(cx, y), (cx - half + 1, y + 2)], fill=shade(body, 0.7))
+        c.d.line([(cx, y), (cx + half - 1, y + 2)], fill=shade(body, 0.7))
+    c.d.line([(cx, cy - ry + 2), (cx, cy + ry - 2)], fill=shade(body, 0.6), width=1)
+    c.ellipse(cx, cy - ry * 0.55, rx * 0.25, ry * 0.12, shade(body, 1.15), outline=False)
+
+
+def wiwaxia(c, t, s):
+    # Oval body covered in overlapping scale-like sclerites, two rows of spines
+    body = (120, 140, 120, 255)
+    cx, cy = s / 2, s * 0.54
+    c.shadow(cx, cy + 3, s * 0.28, s * 0.36)
+    c.ellipse(cx, cy, s * 0.24, s * 0.34, body)
+    for row in range(7):
+        y = cy - s * 0.26 + row * s * 0.08
+        for col in range(-2, 3):
+            x = cx + col * s * 0.08 + (s * 0.04 if row % 2 else 0)
+            if abs(x - cx) < s * 0.2:
+                c.ellipse(x, y, 3, 2, shade(body, 1.15 if (row + col) % 2 else 0.95), outline=False)
+                c.d.arc((x - 3, y - 2, x + 3, y + 2), 0, 180, fill=shade(body, 0.6))
+    # Two rows of tall spines, swaying
+    sway = math.sin(t * 2 * math.pi) * 1.5
+    for i in range(6):
+        y = cy - s * 0.22 + i * s * 0.09
+        for side in (-1, 1):
+            base = (cx + side * s * 0.1, y)
+            tip = (cx + side * (s * 0.3 + i % 2 * 3) + sway, y - s * 0.12)
+            c.line([base, tip], (200, 210, 170, 255), 1)
+
+
+def orthoceras(c, t, s):
+    # Straight cone-shaped shell, tentacles at the front (head up)
+    shell = (200, 175, 140, 255)
+    cx = s / 2
+    c.shadow(cx, s * 0.6, s * 0.12, s * 0.42)
+    top, bottom = s * 0.26, s * 0.95
+    c.poly([(cx - s * 0.11, top), (cx + s * 0.11, top), (cx + 1.5, bottom), (cx - 1.5, bottom)], shell)
+    # Growth bands and chambers
+    for i in range(9):
+        y = top + (bottom - top) * (i + 1) / 10
+        w = s * 0.11 * (1 - (y - top) / (bottom - top)) + 1
+        c.d.line([(cx - w, y), (cx + w, y)], fill=shade(shell, 0.65))
+    for i in range(4):
+        y = top + (bottom - top) * (0.1 + i * 0.22)
+        c.d.line([(cx - 2, y), (cx + 2, y)], fill=(160, 80, 70, 255))
+    # Head and wriggling tentacles
+    c.ellipse(cx, top - 2, s * 0.09, s * 0.06, (190, 120, 120, 255))
+    c.eye(cx - s * 0.06, top - 3, (255, 220, 120, 255), 1)
+    c.eye(cx + s * 0.06, top - 3, (255, 220, 120, 255), 1)
+    for k in range(-3, 4):
+        wig = math.sin(t * 2 * math.pi + k) * 2
+        c.d.line([(cx + k * 2, top - 6), (cx + k * 3 + wig, top - s * 0.2)], fill=(210, 140, 140, 255), width=1)
+
+
+def archimylacris(c, t, s):
+    # Carboniferous roachoid: flat oval wings, shield over the head, antennae
+    body = (150, 105, 70, 255)
+    cx = s / 2
+    c.shadow(cx, s * 0.58, s * 0.22, s * 0.34)
+    for i in range(3):
+        y = s * 0.42 + i * s * 0.1
+        step = math.sin(t * 2 * math.pi * 2 + i * 2) * 3
+        for side in (-1, 1):
+            c.line([(cx + side * s * 0.12, y), (cx + side * s * 0.3, y + 3 + step * side)], shade(body, 0.7), 1)
+    c.ellipse(cx, s * 0.58, s * 0.2, s * 0.32, body)
+    c.d.line([(cx, s * 0.36), (cx, s * 0.88)], fill=shade(body, 0.6))
+    for i in range(4):
+        y = s * 0.45 + i * s * 0.1
+        c.d.line([(cx - s * 0.16, y), (cx - 2, y - 3)], fill=shade(body, 0.8))
+        c.d.line([(cx + s * 0.16, y), (cx + 2, y - 3)], fill=shade(body, 0.8))
+    c.ellipse(cx, s * 0.3, s * 0.15, s * 0.08, shade(body, 1.2))
+    sw = math.sin(t * 2 * math.pi * 2) * 3
+    c.d.line([(cx - 2, s * 0.25), (cx - 10 - sw, s * 0.04)], fill=shade(body, 1.3))
+    c.d.line([(cx + 2, s * 0.25), (cx + 10 + sw, s * 0.04)], fill=shade(body, 1.3))
+
+
+def diictodon(c, t, s):
+    # Small burrowing dicynodont: stubby body, short tail, a pair of tusks
+    quadruped(c, t, s, (175, 140, 105, 255), head_len=s * 0.2, head_w=s * 0.11, body_len=s * 0.36,
+              body_w=s * 0.15, tail_len=s * 0.04, leg_len=s * 0.1, tusks=True)
+
+
 # Fly-type sheets use 88px frames, pacer-type 104px, matching the originals
 SPECIES = {
     "spriggina": (88, spriggina),
@@ -400,11 +496,20 @@ SPECIES = {
     "pulmonoscorpius": (104, pulmonoscorpius),
     "lystrosaurus": (88, lystrosaurus),
     "inostrancevia": (104, inostrancevia),
+    "dickinsonia": (120, dickinsonia),
+    "wiwaxia": (104, wiwaxia),
+    "orthoceras": (104, orthoceras),
+    "archimylacris": (72, archimylacris),
+    "diictodon": (96, diictodon),
 }
 
 
 def main():
+    import sys
+    only = sys.argv[1:]
     for name, (px, fn) in SPECIES.items():
+        if only and name not in only:
+            continue
         sheet(name, px, fn)
 
 
