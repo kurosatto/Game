@@ -151,12 +151,8 @@ static func generate_level(floor_number: int = 1) -> Dictionary:
     if leaves.size() > 1:
         leaves[1].type = RoomType.TREASURE
 
-    # Third leaf is SHOP room (dead end)
-    if leaves.size() > 2:
-        leaves[2].type = RoomType.SHOP
-
     # Every floor has a guaranteed key in a normal room, so the locked
-    # treasure room and shop can always be opened
+    # treasure room can always be opened
     if true:
         for pos in rooms:
             var r = rooms[pos]

@@ -35,6 +35,21 @@ func _draw():
             draw_jaws(col, white, 0.7, 7.0, style == "rasp")
         "pincer":
             draw_jaws(col, white, 0.55, 10.0, false)
+        "clamp":
+            # Two shell valves slamming shut
+            draw_jaws(col, white, 0.95, 16.0, false)
+        "engulf":
+            # Pseudopods flow out around the prey and close into a food vacuole
+            var close = ease_out(min(t * 1.8, 1.0))
+            var r = reach * 0.6
+            var c = Vector2(reach * 0.55, 0)
+            var open = half_arc * (1.0 - close) + 0.15
+            draw_arc(c, r * 0.6, PI - open * 2.2, PI + open * 2.2, 24, Color(col.r, col.g, col.b, col.a * 0.25), r * 0.5, true)
+            for side in [-1.0, 1.0]:
+                var start = side * (PI - 0.3)
+                var finish = side * (0.25 + open)
+                draw_arc(c, r * 0.8, min(start, finish), max(start, finish), 20, col, 10.0, true)
+            draw_circle(c, 9.0 + 8.0 * close, white, false, 3.0, true)
         "sting":
             draw_thrust(col, white, "sting")
         "arms":

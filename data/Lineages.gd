@@ -8,7 +8,9 @@
 #
 # Stats, attack types and perks use the mechanics in Player.gd and Tear.gd.
 # "weapon" picks a style from WEAPONS below: a real feeding or defence tool
-# of the animal, so a cell releases lysosome vesicles and a shark bites.
+# of the animal, so a cell engulfs its prey and a shark bites. Only animals
+# that really launch something at prey or attackers (archerfish, spitting
+# reptiles, cone snails, bombardier beetles...) have ranged weapons.
 # Speed follows the real animal: sea cucumbers and buried clams crawl (270-300),
 # squid, sharks and dragonflies race (580-640). Slow forms make up for it with
 # more health, harder hits and a faster dash recharge (Player.gd), fast ones
@@ -34,8 +36,8 @@ const TREE = {
         "shot_speed": 720.0,
         "max_health_add": 0,
         "attack_type": "single",
-        "weapon": "vesicle",
-        "weapon_name": "Lysosome vesicles",
+        "weapon": "engulf",
+        "weapon_name": "Engulf (phagocytosis)",
         "tear_perks": {},
         "dash_perks": {},
         "passive": "none",
@@ -282,13 +284,13 @@ const TREE = {
         "light_color": Color(0.8, 0.8, 1.0),
         "scale": Vector2(1.35, 1.35),
         "speed": 300.0,
-        "damage": 7.6,
+        "damage": 5.0,
         "fire_delay": 0.24,
         "shot_speed": 680.0,
         "max_health_add": 6,
         "attack_type": "single",
-        "weapon": "jet",
-        "weapon_name": "Siphon jet",
+        "weapon": "clamp",
+        "weapon_name": "Shell snap",
         "tear_perks": {"knockback": 400.0},
         "dash_perks": {"slam_damage": 10.0},
         "passive": "double_iframes",
@@ -604,13 +606,13 @@ const TREE = {
         "light_color": Color(1.0, 0.65, 0.45),
         "scale": Vector2(1.35, 1.35),
         "speed": 450.0,
-        "damage": 4.9,
+        "damage": 6.1,
         "fire_delay": 0.35,
         "shot_speed": 680.0,
         "max_health_add": 4,
         "attack_type": "triple",
-        "weapon": "jet",
-        "weapon_name": "Clap jets",
+        "weapon": "clamp",
+        "weapon_name": "Shell clap",
         "tear_perks": {},
         "dash_perks": {"slipstream": true},
         "passive": "damage_reduction",
@@ -627,13 +629,13 @@ const TREE = {
         "light_color": Color(0.45, 0.9, 1.0),
         "scale": Vector2(1.35, 1.35),
         "speed": 280.0,
-        "damage": 10.0,
+        "damage": 7.3,
         "fire_delay": 0.24,
         "shot_speed": 680.0,
         "max_health_add": 10,
         "attack_type": "single",
-        "weapon": "jet",
-        "weapon_name": "Siphon jet",
+        "weapon": "clamp",
+        "weapon_name": "Shell snap",
         "tear_perks": {"knockback": 400.0},
         "dash_perks": {"slam_damage": 10.0},
         "passive": "double_iframes",
@@ -1352,6 +1354,8 @@ const WEAPONS = {
     "silk": {"melee": false, "label": "ranged, stuns", "speed": 1.0, "life": 1.0, "stun": true},
     "spray": {"melee": false, "label": "short range, burns", "speed": 0.9, "life": 0.5, "caustic": true},
     # Melee
+    "engulf": {"melee": true, "label": "engulf, pulls prey in and digests it", "reach": 115.0, "arc": 1.7, "damage": 1.6, "cooldown": 1.15, "knockback": -140.0, "drain": true},
+    "clamp": {"melee": true, "label": "shell snap, stuns", "reach": 115.0, "arc": 1.1, "damage": 2.6, "cooldown": 1.6, "knockback": 350.0, "stun": 0.5},
     "bite": {"melee": true, "label": "bite", "reach": 125.0, "arc": 1.2, "damage": 2.3, "cooldown": 1.5, "knockback": 150.0},
     "rasp": {"melee": true, "label": "rasp, drains health", "reach": 115.0, "arc": 1.0, "damage": 1.7, "cooldown": 1.0, "drain": true},
     "pincer": {"melee": true, "label": "pinch, stuns", "reach": 135.0, "arc": 0.9, "damage": 2.1, "cooldown": 1.4, "knockback": 250.0, "stun": 0.6},
@@ -1441,7 +1445,7 @@ static func describe_perks(data: Dictionary) -> String:
         lines.append("+%d max health" % data.max_health_add)
     var weapon = weapon_stats(data.get("weapon", "vesicle"))
     var melee = weapon.melee
-    lines.append("Attack: %s (%s)" % [data.get("weapon_name", "Lysosome vesicles"), weapon.label])
+    lines.append("Attack: %s (%s)" % [data.get("weapon_name", "Engulf (phagocytosis)"), weapon.label])
     lines.append(describe_senses(data))
     var attacks = {
         "triple": "Triple-shot spread", "5way": "Five-way spread", "7way": "Seven-way spread",
