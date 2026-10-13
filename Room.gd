@@ -424,6 +424,8 @@ func spawn_layout_obstacles(layout: Dictionary):
         var gx = obs["gx"]
         var gy = obs["gy"]
         var pos = Vector2(gx * 128 + 64, gy * 128 + 64 + 28)
+        if room_data and pos in room_data.destroyed_obstacles:
+            continue
 
         var obs_node = obstacle_scene.instantiate()
         obs_node.position = pos

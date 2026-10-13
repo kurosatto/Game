@@ -119,7 +119,16 @@ func spawn_hit_chip_fx():
     var timer = get_tree().create_timer(0.3)
     timer.timeout.connect(p.queue_free)
 
+var destroyed: bool = false
+
 func destroy_rock():
+    if destroyed:
+        return
+    destroyed = true
+    # Remember it in the room's data so it stays broken when you come back
+    var room = get_parent()
+    if room and "room_data" in room and room.room_data and "destroyed_obstacles" in room.room_data:
+        room.room_data.destroyed_obstacles.append(position)
     spawn_destruction_fx()
     SoundManager.play_sfx("explosion", 1.4, -6.0)
     
