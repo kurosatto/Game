@@ -20,7 +20,7 @@ signal creature_changed(character_name, clade, color)
 @export var shot_speed: float = 720.0
 
 # Organism Evolution & Inventory
-var dna_biomass: int = 0
+var dna_biomass: int = 0 # coins, spent in the shop
 var keys: int = 0
 var evolution_choices: Array = [] # Tracks chosen path index per floor [0 or 1, ...]
 var evolution_history: Array = [] # [{ "floor": 1, "title": "...", "clade": "...", "choice": 0 }]
@@ -48,6 +48,27 @@ var current_passive: String = "none"
 var vision: int = 1 # 1-10, see Lineages.VISION; Main.gd passes it to VisionFog
 var sense: int = 1 # 1-10, best non-visual sense, see Lineages.SENSES
 var sense_kind: String = ""
+
+# The current form's own stats; recompute_stats() adds items and adaptations
+var form_stats: Dictionary = {}
+# Flat bonuses from treasure items and refines, kept through evolution
+var flat_damage: float = 0.0
+var flat_speed: float = 0.0
+var flat_fire: float = 0.0
+var item_fire_mult: float = 1.0
+var item_triple: bool = false
+
+# Adaptations (data/Adaptations.gd): eating prey fills the biomass bar, and a
+# full bar offers a pick of three traits that stack and survive evolution
+var adaptations = preload("res://data/Adaptations.gd")
+var biomass: float = 0.0
+var adapt_level: int = 0
+var adapt_pending: bool = false
+var adaptations_taken: Dictionary = {} # id -> times taken
+var range_mult: float = 1.0
+var biomass_mult: float = 1.0
+var armour: int = 0
+var regen_on_clear: int = 0
 
 # Passive timer
 var regen_timer: float = 0.0
@@ -96,7 +117,7 @@ func _ready():
 func emit_all_signals():
     health_changed.emit(health, max_health)
     stats_changed.emit(dna_biomass, keys)
-    dna_changed.emit(dna_biomass, 0, evolution_choices.size() + 1)
+    emit_biomass()
     dash_updated.emit(dash_cooldown, max_dash_cooldown)
     discharge_updated.emit(discharge_cooldown, max_discharge_cooldown)
     creature_changed.emit(current_character_name, current_character_clade, current_modulate)
@@ -768,7 +789,7 @@ func melee_attack(dir: Vector2):
     SoundManager.play_sfx("dash", 1.6 + randf_range(-0.1, 0.1))
     $Sprite2D.scale = Vector2(0.85, 1.25)
 
-    var reach: float = w.reach
+    var reach: float = w.reach * range_mult
     var half_arc: float = min(PI, w.arc * 0.5 + melee_arc_bonus)
     var dmg: float = damage * w.damage
     var perk_knock: float = current_tear_perks.get("knockback", 0.0) * 0.6
@@ -879,11 +900,93 @@ func melee_blast(pos: Vector2, amount: float):
     get_tree().create_timer(0.4).timeout.connect(p.queue_free)
     SoundManager.play_sfx("explosion", 1.3, -4.0)
 
+func emit_biomass():
+    dna_changed.emit(int(biomass), adaptations.biomass_needed(adapt_level), adapt_level + 1)
+
+# BiomassOrb.gd calls this when an orb from a kill reaches the player
+func add_biomass(amount: float):
+    biomass += amount * biomass_mult
+    emit_biomass()
+    try_offer_adaptation()
+
+func try_offer_adaptation():
+    if adapt_pending or biomass < adaptations.biomass_needed(adapt_level):
+        return
+    var main = get_tree().get_first_node_in_group("main")
+    if main and main.has_method("offer_adaptation"):
+        adapt_pending = true
+        main.offer_adaptation()
+
+# Called by Main.gd with the id the player picked
+func apply_adaptation(id: String):
+    var a = adaptations.get_adaptation(id)
+    biomass = max(0.0, biomass - adaptations.biomass_needed(adapt_level))
+    adapt_level += 1
+    adapt_pending = false
+    if not a.is_empty():
+        adaptations_taken[id] = adaptations_taken.get(id, 0) + 1
+        var hp = a.mods.get("hp", 0)
+        if hp > 0:
+            add_max_health(hp)
+        recompute_stats()
+        SoundManager.play_sfx("level_up", 1.2)
+        creature_changed.emit(current_character_name, current_character_clade, current_modulate)
+    emit_biomass()
+    # Enough left over for another? Offer it once this pick has closed
+    call_deferred("try_offer_adaptation")
+
+# Sum of every adaptation taken, e.g. {"damage": 0.4, "perk": ["caustic"]}
+func adaptation_mods() -> Dictionary:
+    var total = {"perk": []}
+    for id in adaptations_taken:
+        var a = adaptations.get_adaptation(id)
+        for k in a.get("mods", {}):
+            var v = a.mods[k]
+            if k == "perk":
+                total.perk.append(v)
+            else:
+                total[k] = total.get(k, 0.0) + v * adaptations_taken[id]
+    return total
+
+# Form stats, then items and refines, then adaptations
+func recompute_stats():
+    if form_stats.is_empty():
+        return
+    var m = adaptation_mods()
+    damage = (form_stats.damage + flat_damage) * (1.0 + m.get("damage", 0.0))
+    speed = (form_stats.speed + flat_speed) * (1.0 + m.get("speed", 0.0))
+    fire_delay = max(0.06, max(0.08, form_stats.fire_delay - flat_fire) * item_fire_mult / (1.0 + m.get("fire", 0.0)))
+    shot_speed = form_stats.shot_speed
+    range_mult = 1.0 + m.get("range", 0.0)
+    range_lifetime = 0.85 * range_mult
+    max_dash_cooldown = form_stats.dash_cd / (1.0 + m.get("dash_cd", 0.0))
+    max_discharge_cooldown = 4.5 / (1.0 + m.get("zap_cd", 0.0))
+    discharge_radius = 290.0 * (1.0 + m.get("zap_radius", 0.0))
+    vision = clampi(form_stats.vision + int(m.get("vision", 0)), 1, 10)
+    sense = clampi(form_stats.sense + int(m.get("sense", 0)), 1, 10)
+    biomass_mult = 1.0 + m.get("biomass", 0.0)
+    armour = int(m.get("armour", 0))
+    regen_on_clear = int(m.get("regen", 0))
+
+    current_tear_perks = form_stats.perks.duplicate()
+    for perk in m.perk:
+        current_tear_perks[perk] = true
+    if m.get("knockback", 0.0) > 0.0:
+        current_tear_perks["knockback"] = current_tear_perks.get("knockback", 0.0) + m.knockback
+    current_attack_type = form_stats.attack_type
+    if item_triple and current_attack_type == "single":
+        current_attack_type = "triple"
+
+# Room.gd calls this when the last enemy in a room dies
+func on_room_cleared():
+    if regen_on_clear > 0 and health < max_health:
+        heal(regen_on_clear)
+
 func add_dna(amount: int):
     dna_biomass += amount
     SoundManager.play_sfx("dna_pickup", 1.0 + (dna_biomass % 10) * 0.05)
     stats_changed.emit(dna_biomass, keys)
-    dna_changed.emit(dna_biomass, 0, evolution_choices.size() + 1)
+    emit_biomass()
 
 # Called by Main.gd after the player picks an evolution on the choice screen.
 # choice is the index of the card picked; a form with no real split known
@@ -897,9 +1000,10 @@ func apply_evolution(floor_num: int, choice: int):
     var data: Dictionary
     if refined:
         # In-clade upgrade: same form, stronger
-        damage += 1.5
-        speed += 20.0
-        fire_delay = max(0.1, fire_delay - 0.02)
+        flat_damage += 1.5
+        flat_speed += 20.0
+        flat_fire += 0.02
+        recompute_stats()
         add_max_health(2)
         heal(2)
     else:
@@ -927,7 +1031,7 @@ func apply_evolution(floor_num: int, choice: int):
             main.display_item_banner(current_character_name, data.fact)
 
     creature_changed.emit(current_character_name, current_character_clade, current_modulate)
-    dna_changed.emit(dna_biomass, 0, evolution_choices.size() + 1)
+    emit_biomass()
     health_changed.emit(health, max_health)
 
 # Copies a form from data/Lineages.gd onto the player
@@ -938,26 +1042,24 @@ func apply_form(data: Dictionary):
     current_living_example = data.living_example
     current_modulate = data.color
     current_accessory = data.accessory
-    current_attack_type = data.attack_type
     current_weapon = data.get("weapon", "vesicle")
     current_weapon_name = data.get("weapon_name", "Lysosome vesicles")
-    current_tear_perks = data.tear_perks
     current_dash_perks = data.dash_perks
     current_passive = data.passive
     vision = lineages.get_vision(data)
     sense = lineages.get_sense(data)
     sense_kind = lineages.SENSES.get(data.id, [1, "Touch"])[1]
 
-    speed = data.speed
-    damage = data.damage
-    fire_delay = data.fire_delay
-    shot_speed = data.shot_speed
     escape_style = lineages.get_escape(data)[0]
     rooted_time = 0.0
-    if escape_style == "dart":
-        max_dash_cooldown = dash_cooldown_for_speed(speed)
-    else:
-        max_dash_cooldown = lineages.ESCAPE_STYLES[escape_style].cooldown
+    form_stats = {
+        "speed": data.speed, "damage": data.damage, "fire_delay": data.fire_delay,
+        "shot_speed": data.shot_speed, "attack_type": data.attack_type,
+        "perks": data.tear_perks, "vision": vision, "sense": sense,
+        "dash_cd": dash_cooldown_for_speed(data.speed) if escape_style == "dart" \
+            else lineages.ESCAPE_STYLES[escape_style].cooldown,
+    }
+    recompute_stats()
 
     # Flight collision mask
     if current_passive == "flight":
@@ -1009,6 +1111,9 @@ func take_damage(amount: int):
     # Passive damage reduction (Ammonite, Prismatic Ammonite)
     if (current_passive == "damage_reduction" or current_passive == "damage_reduction_plus_reflect") and actual_amount > 1:
         actual_amount = max(1, actual_amount - 1)
+    # Mineralised armour adaptation
+    if armour > 0 and actual_amount > 1:
+        actual_amount = max(1, actual_amount - armour)
         
     health = max(0, health - actual_amount)
     
@@ -1055,19 +1160,21 @@ func add_key(amount: int):
     stats_changed.emit(dna_biomass, keys)
 
 func apply_item_upgrade(item_id: String):
+    # Kept as bonuses so they survive the next evolution
     if item_id == "onion":
-        fire_delay = max(0.08, fire_delay - 0.08)
+        flat_fire += 0.08
     elif item_id == "eye":
-        current_attack_type = "triple"
-        fire_delay = fire_delay * 1.15
+        item_triple = true
+        item_fire_mult *= 1.15
         melee_arc_bonus += 0.25
     elif item_id == "hormones":
-        damage += 2.0
-        speed += 50.0
+        flat_damage += 2.0
+        flat_speed += 50.0
     elif item_id == "cells":
         add_max_health(2)
         heal(2)
-        
+    recompute_stats()
+
     health_changed.emit(health, max_health)
     stats_changed.emit(dna_biomass, keys)
 

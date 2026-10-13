@@ -34,6 +34,7 @@ func _ready():
     if hud.has_method("update_discharge_cooldown"):
         player.discharge_updated.connect(hud.update_discharge_cooldown)
     hud.evolution_selected.connect(_on_evolution_selected)
+    hud.adaptation_selected.connect(player.apply_adaptation)
     player.creature_changed.connect(_on_player_creature_changed)
     
     SettingsManager.set_brightness(SettingsManager.brightness)
@@ -333,6 +334,22 @@ func _on_evolution_selected(floor_num: int, choice_index: int):
     # The new form and its attack are shown on the next era's card
     if current_room_node and current_room_node.has_method("spawn_trapdoor"):
         current_room_node.spawn_trapdoor()
+
+# The biomass bar is full: after a short beat, offer three adaptations.
+# Waits while another card or menu has the game paused.
+var adaptation_offer_queued: bool = false
+
+func offer_adaptation():
+    if adaptation_offer_queued:
+        return
+    adaptation_offer_queued = true
+    await get_tree().create_timer(0.35).timeout
+    while get_tree().paused or hud.is_card_up():
+        await get_tree().create_timer(0.25).timeout
+    adaptation_offer_queued = false
+    if player.health <= 0:
+        return
+    hud.show_adaptation_modal(player.adaptations.roll(player.adaptations_taken), player.adaptations_taken)
 
 # The player's current form; a refine keeps the last real form on the path
 func current_form() -> Dictionary:

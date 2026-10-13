@@ -2,6 +2,7 @@
 extends CanvasLayer
 
 signal evolution_selected(floor_num: int, choice_index: int)
+signal adaptation_selected(id: String)
 
 const ERA_NAMES = {
     1: "ERA 1: EDIACARAN SOUP (600 MYA)",
@@ -216,7 +217,7 @@ func update_inventory(dna: int, keys: int):
     keys_label.text = "%02d" % keys
 
 func update_dna(current_dna: int, max_dna: int, level: int):
-    dna_label.text = "BIOMASS: %d / %d (LVL %d)" % [current_dna, max_dna, level]
+    dna_label.text = "🧬 BIOMASS %d / %d" % [current_dna, max_dna]
     dna_bar.max_value = max_dna
     dna_bar.value = current_dna
 
@@ -447,11 +448,11 @@ func _create_evolution_modal():
     cards_row.add_theme_constant_override("separation", 50)
     center_box.add_child(cards_row)
 
-func _build_choice_card(parent: HBoxContainer, floor_num: int, choice_idx: int, data: Dictionary, total: int = 2):
+func _build_choice_card(parent: HBoxContainer, floor_num: int, choice_idx: int, data: Dictionary, total: int = 2, on_pick: Callable = Callable(), height: float = 560.0, button_text: String = "⚡ MUTATE & ADAPT") -> Button:
     var card = PanelContainer.new()
     # Up to four cards share the row
     var gap = 50 if total <= 2 else 24
-    card.custom_minimum_size = Vector2(min(680.0, (1640.0 - gap * (total - 1)) / total), 560)
+    card.custom_minimum_size = Vector2(min(680.0, (1640.0 - gap * (total - 1)) / total), height)
     parent.add_theme_constant_override("separation", gap)
     
     var style = StyleBoxFlat.new()
@@ -516,15 +517,19 @@ func _build_choice_card(parent: HBoxContainer, floor_num: int, choice_idx: int, 
     vbox.add_child(spacer)
     
     var btn = Button.new()
-    btn.text = "⚡ MUTATE & ADAPT"
+    btn.text = button_text
     btn.custom_minimum_size = Vector2(0, 56)
     btn.add_theme_font_size_override("font_size", 22)
-    btn.pressed.connect(func():
-        _on_evolution_choice_clicked(floor_num, choice_idx)
-    )
+    if on_pick.is_valid():
+        btn.pressed.connect(on_pick)
+    else:
+        btn.pressed.connect(func():
+            _on_evolution_choice_clicked(floor_num, choice_idx)
+        )
     vbox.add_child(btn)
     
     parent.add_child(card)
+    return btn
 
 func _on_evolution_choice_clicked(floor_num: int, choice_idx: int):
     if evolution_modal:
@@ -532,6 +537,55 @@ func _on_evolution_choice_clicked(floor_num: int, choice_idx: int):
     get_tree().paused = false
     SoundManager.play_sfx("evolve")
     evolution_selected.emit(floor_num, choice_idx)
+
+# ---- Adaptations ----
+# Shown when the biomass bar fills: three traits from data/Adaptations.gd.
+# Reuses the evolution modal's look; buttons wake up after a moment so a
+# thumb still on the attack stick can't pick one by accident.
+var adaptation_options: Array = [] # what the open adaptation modal offers
+
+func show_adaptation_modal(options: Array, taken: Dictionary = {}):
+    adaptation_options = options
+    _create_evolution_modal()
+    var header = evolution_modal.get_node("CenterBox/Header") as Label
+    var subheader = evolution_modal.get_node("CenterBox/SubHeader") as Label
+    header.text = "🧬 ADAPTATION"
+    subheader.text = "Your lineage has fed well. Natural selection favours one new trait:"
+    var cards_row = evolution_modal.get_node("CenterBox/CardsRow") as HBoxContainer
+    for c in cards_row.get_children():
+        cards_row.remove_child(c)
+        c.queue_free()
+    var buttons: Array = []
+    for i in options.size():
+        var a: Dictionary = options[i]
+        var times = taken.get(a.id, 0)
+        var btn = _build_choice_card(cards_row, 0, i, {
+            "title": a.name,
+            "clade": "Adaptation" + (" (have %d)" % times if times > 0 else ""),
+            "desc": a.fact,
+            "perks": a.effect,
+            "color": Color(0.45, 1.0, 0.6),
+        }, options.size(), _on_adaptation_clicked.bind(a.id), 400.0, "🧬 ADAPT")
+        btn.disabled = true
+        buttons.append(btn)
+    evolution_modal.visible = true
+    get_tree().paused = true
+    SoundManager.play_sfx("level_up", 1.0)
+    await get_tree().create_timer(0.45, true).timeout
+    for b in buttons:
+        if is_instance_valid(b):
+            b.disabled = false
+
+func is_adaptation_up() -> bool:
+    return not adaptation_options.is_empty() and evolution_modal != null and evolution_modal.visible
+
+func _on_adaptation_clicked(id: String):
+    adaptation_options = []
+    if evolution_modal:
+        evolution_modal.visible = false
+    get_tree().paused = false
+    SoundManager.play_sfx("evolve", 1.2)
+    adaptation_selected.emit(id)
 
 # ---- How-to-play cards ----
 # A card at the start of each floor: the era and what you are on the left,
