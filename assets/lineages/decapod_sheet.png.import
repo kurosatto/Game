@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://djhnp16ho3y5t"
-path="res://.godot/imported/pancrustacean_sheet.png-1367a1b394257c5d64a2e935ca26859b.ctex"
+uid="uid://c0iy08ueds55m"
+path="res://.godot/imported/decapod_sheet.png-d5f77743d17e7cd00359c729ef583142.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/lineages/pancrustacean_sheet.png"
-dest_files=["res://.godot/imported/pancrustacean_sheet.png-1367a1b394257c5d64a2e935ca26859b.ctex"]
+source_file="res://assets/lineages/decapod_sheet.png"
+dest_files=["res://.godot/imported/decapod_sheet.png-d5f77743d17e7cd00359c729ef583142.ctex"]
 
 [params]
 
