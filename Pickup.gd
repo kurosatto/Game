@@ -7,10 +7,23 @@ var player: Node2D = null
 var magnet_range: float = 90.0
 
 func _ready():
+    # There is no shop any more: old coin drops become a burst of biomass
+    if pickup_type == "coin":
+        call_deferred("become_biomass")
+        return
     add_to_group("pickups")
     # Deferred: reacting can add/remove physics nodes, which Godot forbids mid physics step
     body_entered.connect(_on_body_entered, CONNECT_DEFERRED)
     call_deferred("setup_visuals")
+
+func become_biomass():
+    var orb_script = load("res://BiomassOrb.gd")
+    for i in 3:
+        var orb = orb_script.new()
+        orb.value = 0.5
+        orb.position = position
+        get_parent().add_child(orb)
+    queue_free()
 
 func setup_visuals():
     var tex_path = "res://assets/pickup_coin.png"

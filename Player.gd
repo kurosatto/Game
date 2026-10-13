@@ -20,7 +20,7 @@ signal creature_changed(character_name, clade, color)
 @export var shot_speed: float = 720.0
 
 # Organism Evolution & Inventory
-var dna_biomass: int = 0 # coins, spent in the shop
+var dna_biomass: int = 0 # old coin count; unused since the shop was removed
 var keys: int = 0
 var evolution_choices: Array = [] # Tracks chosen path index per floor [0 or 1, ...]
 var evolution_history: Array = [] # [{ "floor": 1, "title": "...", "clade": "...", "choice": 0 }]
@@ -39,8 +39,8 @@ var has_lineage_art: bool = false
 var heading_offset: float = -PI/2
 var current_attack_type: String = "single"
 # Weapon style from data/Lineages.gd WEAPONS (ranged projectile or melee swing)
-var current_weapon: String = "vesicle"
-var current_weapon_name: String = "Lysosome vesicles"
+var current_weapon: String = "engulf"
+var current_weapon_name: String = "Engulf (phagocytosis)"
 var melee_arc_bonus: float = 0.0
 var current_tear_perks: Dictionary = {}
 var current_dash_perks: Dictionary = {}
@@ -73,6 +73,11 @@ var regen_on_clear: int = 0
 # Passive timer
 var regen_timer: float = 0.0
 var regen_interval: float = 8.0
+
+# Where the creature faces: the aim while attacking, else where it moves.
+# Kept when standing still, so it doesn't snap back to pointing up.
+var face_dir: Vector2 = Vector2.UP
+var aim_hold: float = 0.0
 
 # Tear counter for burst cadences
 var shot_counter: int = 0
@@ -250,14 +255,20 @@ func _physics_process(delta: float):
         var stretch_x = 1.0 + sin(swim_time) * 0.15
         var stretch_y = 1.0 - sin(swim_time) * 0.15
         $Sprite2D.scale = Vector2(stretch_x, stretch_y)
-        $Sprite2D.rotation = lerp_angle($Sprite2D.rotation, move_dir.angle() + heading_offset, delta * 9.0)
         $Sprite2D.frame = int(fmod(swim_time, 4.0))
     else:
         swim_time += delta * 3.5
         var pulse = 1.0 + sin(swim_time) * 0.06
         $Sprite2D.scale = Vector2(pulse, pulse)
-        $Sprite2D.rotation = lerp_angle($Sprite2D.rotation, 0.0, delta * 8.0)
         $Sprite2D.frame = int(fmod(swim_time, 4.0))
+
+    # Face the aim while attacking, otherwise the way we swim
+    if aim_hold > 0:
+        aim_hold -= delta
+    elif move_dir != Vector2.ZERO and rooted_time <= 0:
+        face_dir = move_dir.normalized()
+    if not is_dashing:
+        $Sprite2D.rotation = lerp_angle($Sprite2D.rotation, face_dir.angle() + heading_offset, delta * (16.0 if aim_hold > 0 else 9.0))
 
     # 2. Shooting: 8-Direction Keyboard + Mouse Aim
     handle_shooting()
@@ -422,6 +433,8 @@ func perform_bio_dash():
 
     $Sprite2D.scale = Vector2(1.45, 0.65)
     $Sprite2D.rotation = dash_direction.angle() + heading_offset
+    face_dir = dash_direction
+    aim_hold = 0.0
 
 # The dash button for forms that can't dart (see Lineages.ESCAPES): a clam
 # clamps shut, an urchin raises its spines, a sea cucumber throws sticky
@@ -718,6 +731,8 @@ func handle_shooting():
             shoot_tear(to_mouse)
 
 func shoot_tear(dir: Vector2):
+    face_dir = dir
+    aim_hold = 0.4
     if lineages.weapon_stats(current_weapon).melee:
         melee_attack(dir)
         return
@@ -923,17 +938,23 @@ func apply_adaptation(id: String):
     biomass = max(0.0, biomass - adaptations.biomass_needed(adapt_level))
     adapt_level += 1
     adapt_pending = false
-    if not a.is_empty():
-        adaptations_taken[id] = adaptations_taken.get(id, 0) + 1
-        var hp = a.mods.get("hp", 0)
-        if hp > 0:
-            add_max_health(hp)
-        recompute_stats()
-        SoundManager.play_sfx("level_up", 1.2)
-        creature_changed.emit(current_character_name, current_character_clade, current_modulate)
+    grant_adaptation(id)
+    SoundManager.play_sfx("level_up", 1.2)
     emit_biomass()
     # Enough left over for another? Offer it once this pick has closed
     call_deferred("try_offer_adaptation")
+
+# Adds an adaptation without spending biomass (also the menu's starting trait)
+func grant_adaptation(id: String):
+    var a = adaptations.get_adaptation(id)
+    if a.is_empty():
+        return
+    adaptations_taken[id] = adaptations_taken.get(id, 0) + 1
+    var hp = a.mods.get("hp", 0)
+    if hp > 0:
+        add_max_health(hp)
+    recompute_stats()
+    creature_changed.emit(current_character_name, current_character_clade, current_modulate)
 
 # Sum of every adaptation taken, e.g. {"damage": 0.4, "perk": ["caustic"]}
 func adaptation_mods() -> Dictionary:
@@ -1043,7 +1064,7 @@ func apply_form(data: Dictionary):
     current_modulate = data.color
     current_accessory = data.accessory
     current_weapon = data.get("weapon", "vesicle")
-    current_weapon_name = data.get("weapon_name", "Lysosome vesicles")
+    current_weapon_name = data.get("weapon_name", "Engulf (phagocytosis)")
     current_dash_perks = data.dash_perks
     current_passive = data.passive
     vision = lineages.get_vision(data)

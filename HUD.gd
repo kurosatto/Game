@@ -88,10 +88,22 @@ func _ready():
     setup_settings_ui()
     if TouchControls.should_show():
         use_touch_texts()
+    # No shop, so no coin counter; kills fill the biomass bar instead
+    $HUDPanel/MarginContainer/HBoxContainer/Counters/Coins.visible = false
 
 func setup_settings_ui():
     settings_btn.pressed.connect(toggle_settings)
     resume_btn.pressed.connect(toggle_settings)
+    var menu_btn = Button.new()
+    menu_btn.text = "MAIN MENU (ends this run)"
+    menu_btn.custom_minimum_size = Vector2(0, 44)
+    menu_btn.add_theme_font_size_override("font_size", 16)
+    menu_btn.pressed.connect(func():
+        SettingsManager.save_settings()
+        get_tree().paused = false
+        get_tree().change_scene_to_file("res://MainMenu.tscn")
+    )
+    resume_btn.get_parent().add_child(menu_btn)
     
     # Initialize display options (1080p Standard)
     display_option.clear()
@@ -166,6 +178,8 @@ func _unhandled_input(event: InputEvent):
 func toggle_settings():
     settings_modal.visible = not settings_modal.visible
     get_tree().paused = settings_modal.visible
+    if settings_modal.visible:
+        show_pause_info()
     
     if not settings_modal.visible:
         SettingsManager.save_settings()
@@ -252,7 +266,10 @@ var current_creature_name: String = "PRIMORDIAL PROTOZOA"
 func set_current_creature(creature_name: String):
     current_creature_name = creature_name
 
+var current_floor: int = 1
+
 func update_floor(floor_num: int):
+    current_floor = floor_num
     var era_str = ERA_NAMES.get(floor_num, "ERA %d" % floor_num)
     floor_label.text = "%s | 🧬 %s" % [era_str, current_creature_name]
 
@@ -332,9 +349,18 @@ func show_item_banner(title: String, desc: String, near_top: bool = false):
     item_title.text = title
     item_desc.text = desc
     item_banner.modulate.a = 1.0
-    var tween = create_tween()
-    tween.tween_property(item_banner, "modulate:a", 0.0, 0.4).set_delay(1.8)
-    tween.tween_callback(func(): item_banner.visible = false)
+    last_banner = [title, desc]
+    # Long enough to read: about 4 s plus a second per 25 characters, and the
+    # pause screen keeps the latest one for later
+    if banner_tween and banner_tween.is_valid():
+        banner_tween.kill()
+    var hold = clamp(4.0 + desc.length() / 25.0, 4.0, 10.0)
+    banner_tween = create_tween()
+    banner_tween.tween_property(item_banner, "modulate:a", 0.0, 0.6).set_delay(hold)
+    banner_tween.tween_callback(func(): item_banner.visible = false)
+
+var banner_tween: Tween = null
+var last_banner: Array = []
 
 func show_game_over():
     game_over_screen.visible = true
@@ -538,6 +564,71 @@ func _on_evolution_choice_clicked(floor_num: int, choice_idx: int):
     SoundManager.play_sfx("evolve")
     evolution_selected.emit(floor_num, choice_idx)
 
+# ---- Pause screen info ----
+# Left of the settings: the era, what you are, your adaptations and the
+# last banner, so nothing shown in passing is lost.
+var pause_info: RichTextLabel = null
+
+func _create_pause_info():
+    var panel = settings_modal.get_node("Panel")
+    panel.offset_left = 40.0
+    panel.offset_right = 600.0
+    panel.offset_top = min(panel.offset_top, -270.0)
+    panel.offset_bottom = max(panel.offset_bottom, 270.0)
+    var box = PanelContainer.new()
+    box.set_anchors_preset(Control.PRESET_CENTER)
+    box.offset_left = -900.0
+    box.offset_right = 0.0
+    box.offset_top = -440.0
+    box.offset_bottom = 440.0
+    var style = StyleBoxFlat.new()
+    style.bg_color = Color(0.04, 0.08, 0.13, 0.96)
+    style.border_color = Color(0.0, 0.8, 0.75, 0.6)
+    style.set_border_width_all(2)
+    style.set_corner_radius_all(10)
+    style.set_content_margin_all(28)
+    box.add_theme_stylebox_override("panel", style)
+    settings_modal.add_child(box)
+    pause_info = RichTextLabel.new()
+    pause_info.bbcode_enabled = true
+    pause_info.scroll_active = true
+    pause_info.add_theme_font_size_override("normal_font_size", 20)
+    pause_info.add_theme_font_size_override("bold_font_size", 24)
+    pause_info.add_theme_color_override("default_color", Color(0.78, 0.88, 0.96))
+    box.add_child(pause_info)
+
+func show_pause_info():
+    if pause_info == null:
+        _create_pause_info()
+    var main = get_tree().get_first_node_in_group("main")
+    var player = get_tree().get_first_node_in_group("player")
+    var t = ""
+    var era = ERA_INFO.get(current_floor, {})
+    if not era.is_empty():
+        t += "[b][color=#33ffd9]%s[/color][/b]  %s\n%s\n" % [era.name, era.dates, era.fact]
+        var animals = preload("res://data/Fauna.gd").describe_floor(current_floor)
+        if animals != "":
+            t += "[color=#9fb4c8]%s[/color]\n" % animals
+    if main and player and main.has_method("current_form"):
+        var form = main.current_form()
+        if not form.is_empty():
+            t += "\n[b][color=#33ffd9]YOU ARE: %s[/color][/b]\n" % form.name
+            t += "%s\n%s\n" % [form.get("clade_path", form.clade), form.fact]
+            t += "Living today: %s\n" % form.living_example
+            t += "Attack: %s (%s)\n" % [player.current_weapon_name, lineages.weapon_stats(player.current_weapon).label]
+            t += "%s\n" % lineages.describe_senses(form)
+            t += "Damage %.1f · Speed %d · Health %d/%d\n" % [player.damage, int(player.speed), player.health, player.max_health]
+        if not player.adaptations_taken.is_empty():
+            t += "\n[b][color=#73ff99]ADAPTATIONS[/color][/b]\n"
+            for id in player.adaptations_taken:
+                var a = player.adaptations.get_adaptation(id)
+                var n = player.adaptations_taken[id]
+                t += "• %s%s: %s\n" % [a.name, (" ×%d" % n) if n > 1 else "", a.effect]
+    if not last_banner.is_empty():
+        t += "\n[b][color=#ffd24d]LAST DISCOVERY: %s[/color][/b]\n%s\n" % last_banner
+    pause_info.text = t
+    pause_info.scroll_to_line(0)
+
 # ---- Adaptations ----
 # Shown when the biomass bar fills: three traits from data/Adaptations.gd.
 # Reuses the evolution modal's look; buttons wake up after a moment so a
@@ -647,7 +738,7 @@ func show_era_card(floor_num: int, form: Dictionary):
     left.add_child(HSeparator.new())
     var who = ("YOU ARE THE " if floor_num == 1 else "YOU ARE NOW ") + form.get("name", current_creature_name)
     left.add_child(_card_label(who, 24, color))
-    left.add_child(_card_label("Your attack: %s, %s." % [form.get("weapon_name", "Lysosome vesicles").to_lower(), _weapon_hint(weapon)], 19, Color(0.75, 0.85, 0.95)))
+    left.add_child(_card_label("Your attack: %s, %s." % [form.get("weapon_name", "Engulf (phagocytosis)").to_lower(), _weapon_hint(weapon)], 19, Color(0.75, 0.85, 0.95)))
 
     cols.add_child(VSeparator.new())
 

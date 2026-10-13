@@ -15,6 +15,8 @@ func _initialize():
 	root.add_child(main)
 	current_scene = main
 	for i in 30: await process_frame
+	# Kills fill the biomass bar; keep the adaptation pick from pausing the walk
+	main.player.adapt_pending = true
 	var fails := 0
 	var total := 0
 	for floor_num in range(1, 6):

@@ -36,6 +36,7 @@ func _ready():
     hud.evolution_selected.connect(_on_evolution_selected)
     hud.adaptation_selected.connect(player.apply_adaptation)
     player.creature_changed.connect(_on_player_creature_changed)
+    hud.adaptation_selected.connect(func(_id): check_challenges())
     
     SettingsManager.set_brightness(SettingsManager.brightness)
     
@@ -118,15 +119,47 @@ var last_player_health: int = -1
 
 func _on_player_health_feedback(health, _max_health):
     if last_player_health >= 0 and health < last_player_health:
+        hit_this_floor = true
         hit_stop(0.07)
         hud.flash_hurt()
     last_player_health = health
 
+var progress = preload("res://data/Progress.gd")
+var hit_this_floor: bool = false
+
 func start_new_game():
     floor_number = 1
     generate_floor()
+    # Starting trait chosen on the main menu (unlocked by a challenge)
+    var start_trait = progress.start_trait()
+    if start_trait != "" and get_tree().get_script() == null:
+        player.grant_adaptation(start_trait)
+
+# Saves a challenge and announces it the first time it is completed
+func complete_challenge(id: String):
+    if get_tree().get_script() != null:
+        return # tools/*.gd runs shouldn't fill the real save
+    if progress.complete(id):
+        var c = progress.get_challenge(id)
+        var a = player.adaptations.get_adaptation(c.unlock)
+        SoundManager.play_sfx("level_up", 0.9)
+        hud.show_item_banner("🏆 CHALLENGE: " + c.name, "%s. New starting trait on the main menu: %s." % [c.goal, a.name], true)
+
+# Codex, form and adaptation challenges, checked whenever they could change
+func check_challenges():
+    var found = player.codex.load_discovered().size()
+    if found >= 10:
+        complete_challenge("codex_10")
+    if found >= 25:
+        complete_challenge("codex_25")
+    if player.adapt_level >= 10:
+        complete_challenge("well_fed")
+    var form = current_form()
+    if form.get("clade_path", "").contains("Arthropoda"):
+        complete_challenge("arthropod")
 
 func generate_floor():
+    hit_this_floor = false
     hud.update_floor(floor_number)
     SoundManager.play_music(SoundManager.music_for_floor(floor_number))
     
@@ -141,6 +174,8 @@ func generate_floor():
     load_room(current_room_pos)
     hud.update_minimap(dungeon_rooms, current_room_pos)
     hud.show_item_banner("WILDLIFE OF THIS ERA", fauna.describe_floor(floor_number), true)
+    if floor_number >= 3:
+        complete_challenge("ordovician")
 
 func load_room(grid_pos: Vector2i):
     hud.hide_boss_health()
@@ -319,6 +354,12 @@ func display_item_banner(title: String, desc: String):
     hud.show_item_banner(title, desc)
 
 func on_boss_defeated(f_num: int):
+    if f_num == 1:
+        complete_challenge("ediacaran")
+    if not hit_this_floor:
+        complete_challenge("untouched")
+    if f_num >= 5:
+        complete_challenge("survivor")
     SoundManager.play_music(SoundManager.music_for_floor(f_num))
     if f_num >= 5:
         # Ultimate Final Boss Defeated!
@@ -331,6 +372,7 @@ func on_boss_defeated(f_num: int):
 
 func _on_evolution_selected(floor_num: int, choice_index: int):
     player.apply_evolution(floor_num, choice_index)
+    check_challenges()
     # The new form and its attack are shown on the next era's card
     if current_room_node and current_room_node.has_method("spawn_trapdoor"):
         current_room_node.spawn_trapdoor()

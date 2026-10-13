@@ -126,7 +126,7 @@ func _on_body_entered(body: Node):
 		
 	if body.is_in_group("player"):
 		if is_locked and body.keys <= 0:
-			_show_hint("LOCKED", "Find the key in another room, or buy one in the shop")
+			_show_hint("LOCKED", "A key lies in one of this floor's other rooms")
 			trigger_cooldown = 2.0
 			return
 		if is_locked:
