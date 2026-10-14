@@ -205,7 +205,7 @@ func cycle_trait():
 	update_trait_text()
 
 # ---- Overlays ----
-func open_overlay(title: String) -> VBoxContainer:
+func open_overlay(title: String, scrolling: bool = true) -> VBoxContainer:
 	close_overlay()
 	menu_box.visible = false
 	overlay = PanelContainer.new()
@@ -224,6 +224,11 @@ func open_overlay(title: String) -> VBoxContainer:
 	var back = button("◀  BACK", close_overlay)
 	back.custom_minimum_size = Vector2(220, 64)
 	top.add_child(back)
+	if not scrolling:
+		var area = VBoxContainer.new()
+		area.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		outer.add_child(area)
+		return area
 	var scroll = ScrollContainer.new()
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
@@ -260,9 +265,31 @@ func show_challenges():
 		else:
 			row(list, "○ " + c.name, "%s.  Unlocks starting trait: %s" % [c.goal, a.name], UI.CREAM)
 
+# The codex opens on the evolution tree (CodexTree.gd); LIST shows the
+# same forms as plain text rows.
 func show_codex():
 	var found: Array = codex.load_discovered()
+	var area = open_overlay("📖 CODEX  %d / %d" % [found.size(), lineages.TREE.size()], false)
+	add_overlay_button(area, "☰  LIST", show_codex_list)
+	var hint = label("Drag to explore  ·  pinch to zoom  ·  tap a form to read about it", 18, UI.MUTED)
+	area.add_child(hint)
+	var tree = preload("res://CodexTree.gd").new()
+	tree.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	tree.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	area.add_child(tree)
+
+# Puts an extra button next to BACK in the overlay's top bar
+func add_overlay_button(area: Control, text: String, on_press: Callable):
+	var top: HBoxContainer = area.get_parent().get_child(0)
+	var b = button(text, on_press)
+	b.custom_minimum_size = Vector2(200, 64)
+	top.add_child(b)
+	top.move_child(b, top.get_child_count() - 2)
+
+func show_codex_list():
+	var found: Array = codex.load_discovered()
 	var list = open_overlay("📖 CODEX  %d / %d" % [found.size(), lineages.TREE.size()])
+	add_overlay_button(list.get_parent(), "🌳  TREE", show_codex)
 	# Tree order: the path keys sort parents before children
 	var paths: Array = lineages.TREE.keys()
 	paths.sort_custom(func(a, b): return a.split(",").size() < b.split(",").size() or (a.split(",").size() == b.split(",").size() and a < b))
