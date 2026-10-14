@@ -22,6 +22,8 @@ func test_type(main, p, floor_num: int, type: String):
 	var room = main.current_room_node
 	room.spawn_enemy(Vector2(1300, 540), type, floor_num)
 	var foes = get_nodes_in_group("enemies").filter(func(e): return e.enemy_type == type)
+	# Skip the calm idling (tools/moodtest.gd covers it): test the fight
+	for e in foes: e.provoke()
 	var seen := {}
 	var start_dist = foes[0].global_position.distance_to(room.global_position + Vector2(700, 540))
 	# Slime and venom only land on a player who can be touched
