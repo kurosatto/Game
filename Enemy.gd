@@ -84,6 +84,21 @@ var spray_state: String = "" # snarer: "windup" before a slime jet
 var spray_timer: float = 0.0
 var orbit_sign: float = 1.0 # orbiter: which way it circles
 
+# Personality (data/Fauna.gd TEMPERS): animals mind their own business
+# ("calm"), notice you ("alert", a "!" and a beat to react), then fight
+# ("hostile"). Most lose interest again if you leave them alone.
+var mood: String = "hostile"
+var temper: String = ""
+var idle_style: String = ""
+var aggro_radius: float = 300.0
+var calm_radius: float = -1.0
+var notice_time: float = 0.4
+var alert_timer: float = 0.0
+var calm_timer: float = 0.0
+var home_pos: Vector2 = Vector2.INF
+var idle_timer: float = 0.0
+var idle_moving: bool = false
+
 # Preloads
 var tear_scene = preload("res://Tear.tscn")
 var fauna = preload("res://data/Fauna.gd")
@@ -259,6 +274,15 @@ func apply_fauna(floor_number: int):
 	shoot_delay_mult = f.get("shoot_delay", 1.0)
 	weave_phase = randf() * TAU
 	lunge_cooldown = randf_range(1.0, 2.5)
+	temper = f.get("temper", "")
+	idle_style = f.get("idle", "graze")
+	if temper != "" and enemy_type not in HARMLESS:
+		var t = fauna.TEMPERS[temper]
+		aggro_radius = t.aggro * randf_range(0.9, 1.1)
+		calm_radius = t.calm
+		notice_time = t.notice
+		mood = "calm"
+		idle_timer = randf_range(0.0, 2.0)
 
 # Ambush predators wind up, then dash at the player. Returns true while lunging.
 func process_lunge(delta: float) -> bool:
@@ -323,6 +347,10 @@ func _physics_process(delta: float):
 		stun_timer -= delta
 		return
 
+	if mood != "hostile":
+		process_mood(delta)
+		return
+
 	if enemy_type == "fly":
 		var dir = (player.global_position - global_position).normalized()
 		if behavior == "weave":
@@ -378,6 +406,247 @@ func _physics_process(delta: float):
 			"orbiter": process_orbiter(delta)
 
 	check_contact_damage()
+	check_lose_interest(delta)
+
+# ═══════════════════════════════════════════════════════════
+# PERSONALITY: idling, noticing you, alarming kin, losing interest
+# ═══════════════════════════════════════════════════════════
+func process_mood(delta: float):
+	if home_pos == Vector2.INF:
+		home_pos = global_position
+	var to_p = player.global_position - global_position
+	var d = to_p.length()
+	if mood == "alert":
+		# Freeze, turn to look, a little startled hop, then go
+		alert_timer -= delta
+		velocity = Vector2.ZERO
+		face_sprite(to_p, delta, 14.0, idle_face_offset())
+		var hop = 1.0 + 0.18 * sin(clamp(1.0 - alert_timer / notice_time, 0.0, 1.0) * PI)
+		$Sprite2D.scale = Vector2.ONE * base_scale * hop
+		if alert_timer <= 0:
+			become_hostile()
+		return
+	if d < aggro_radius:
+		if temper == "timid":
+			# Backs off rather than fights, until it is hurt or cornered
+			velocity = -to_p.normalized().rotated(sin(anim_timer * 4.0 + weave_phase) * 0.5) * speed * 0.75
+			if move_and_slide() and d < aggro_radius * 0.45:
+				notice()
+			face_sprite(velocity, delta, 10.0, idle_face_offset())
+			$Sprite2D.frame = int(fmod(anim_timer * 8.0, 4.0))
+			return
+		notice()
+		return
+	process_idle(delta, to_p)
+	# Bumping into a calm animal is rude
+	for i in get_slide_collision_count():
+		if get_slide_collision(i).get_collider() == player:
+			notice()
+
+func idle_face_offset() -> float:
+	return -PI/2 if enemy_type == "charger" else PI/2
+
+func notice(delay: float = 0.0):
+	if mood != "calm":
+		return
+	mood = "alert"
+	alert_timer = notice_time + delay
+	if delay <= 0.0:
+		show_mood("!", Color(1.0, 0.85, 0.3))
+	alarm_kin()
+
+func become_hostile():
+	if mood == "hostile":
+		return
+	if mood == "calm":
+		show_mood("!", Color(1.0, 0.45, 0.3))
+		alarm_kin()
+	mood = "hostile"
+	calm_timer = 0.0
+	$Sprite2D.scale = Vector2.ONE * base_scale
+	$Sprite2D.modulate = base_tint
+	# Ready to act, but not instantly: a fair beat after the "!"
+	shoot_timer = randf_range(0.5, 0.9)
+	lunge_cooldown = min(lunge_cooldown, randf_range(0.4, 0.8))
+	charge_cooldown = min(charge_cooldown, randf_range(0.4, 0.8))
+	spray_timer = min(spray_timer, randf_range(0.6, 1.0))
+
+# Its own kind nearby takes the hint: herds stampede, schools turn, packs join
+func alarm_kin():
+	for e in get_tree().get_nodes_in_group("enemies"):
+		if e == self or not is_instance_valid(e) or e.get("fauna_name") != fauna_name:
+			continue
+		if e.mood == "calm" and e.global_position.distance_to(global_position) < 380.0:
+			e.notice(randf_range(0.15, 0.5))
+
+# A "!" or "?" that pops up over the animal's head and rides along with it
+func show_mood(text: String, col: Color):
+	var l = Label.new()
+	l.text = text
+	l.add_theme_font_size_override("font_size", 52)
+	l.add_theme_color_override("font_color", col)
+	l.add_theme_color_override("font_outline_color", Color(0.05, 0.03, 0.02, 0.9))
+	l.add_theme_constant_override("outline_size", 12)
+	l.self_modulate = Color(1.6, 1.6, 1.6) # readable under the room's dark tint
+	l.z_index = 20
+	l.size = Vector2(60, 70)
+	l.pivot_offset = Vector2(30, 60)
+	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	l.position = Vector2(-30, -$CollisionShape2D.shape.radius - 78.0)
+	l.scale = Vector2(0.2, 0.2)
+	add_child(l)
+	var tw = l.create_tween()
+	tw.tween_property(l, "scale", Vector2.ONE, 0.18).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tw.tween_interval(0.5)
+	tw.tween_property(l, "modulate:a", 0.0, 0.25)
+	tw.tween_callback(l.queue_free)
+
+# Left alone long enough, most animals go back to what they were doing.
+# Predators keep hunting; nothing gives up mid-charge or underground.
+func check_lose_interest(delta: float):
+	if calm_radius < 0.0 or temper == "" or mood != "hostile":
+		return
+	if charge_state != "" or lunge_state != "" or spray_state != "" or burrow_state != "walk" or enroll_time > 0:
+		return
+	if player.global_position.distance_to(global_position) > calm_radius:
+		calm_timer += delta
+		if calm_timer > 3.5:
+			mood = "calm"
+			calm_timer = 0.0
+			idle_timer = 0.0
+			home_pos = global_position
+			show_mood("?", Color(0.75, 0.85, 1.0))
+	else:
+		calm_timer = 0.0
+
+func provoke():
+	if temper == "" or mood == "hostile":
+		return
+	become_hostile()
+
+# What each animal does while it minds its own business
+func process_idle(delta: float, to_p: Vector2):
+	idle_timer -= delta
+	var home = home_pos - global_position
+	var dir = Vector2.ZERO
+	var pace = 0.0
+	var breathe = 1.0
+	var style = idle_style
+	if style == "stalk" and to_p.length() > 780.0:
+		style = "patrol" # nothing to stalk yet
+	match style:
+		"graze", "forage":
+			# Crawl a little, stop and feed; foragers skitter in quick short runs
+			if idle_timer <= 0:
+				idle_moving = not idle_moving
+				if idle_style == "forage":
+					idle_timer = randf_range(0.3, 0.6) if idle_moving else randf_range(0.4, 1.2)
+				else:
+					idle_timer = randf_range(1.0, 2.2) if idle_moving else randf_range(1.4, 3.0)
+				if idle_moving:
+					pick_idle_dir(home, 200.0)
+			if idle_moving:
+				dir = wander_dir
+				pace = 0.7 if idle_style == "forage" else 0.3
+			else:
+				# Head down, feeding: a small nibbling wiggle
+				$Sprite2D.rotation += sin(anim_timer * 9.0 + weave_phase) * 0.6 * delta
+				breathe = 1.0 + 0.03 * sin(anim_timer * 9.0)
+		"rest", "ambush", "dig":
+			# Mostly still; now and then shuffles to a new spot
+			if idle_timer <= 0:
+				idle_moving = not idle_moving and randf() < 0.6
+				idle_timer = randf_range(0.5, 0.9) if idle_moving else randf_range(3.0, 6.0)
+				if idle_moving:
+					pick_idle_dir(home, 140.0)
+			if idle_moving:
+				dir = wander_dir
+				pace = 0.25
+			breathe = 1.0 + 0.045 * sin(anim_timer * 1.6 + weave_phase)
+			if idle_style == "ambush":
+				# Lying low: darker and flatter until you come close
+				$Sprite2D.modulate = base_tint * Color(0.62, 0.62, 0.7)
+			elif idle_style == "dig" and not idle_moving:
+				$Sprite2D.rotation += sin(anim_timer * 14.0) * 0.8 * delta
+				if fmod(anim_timer + weave_phase, 1.3) < delta:
+					kick_dust()
+		"drift":
+			# A slow, meandering swim around its patch
+			dir = Vector2.RIGHT.rotated(anim_timer * 0.4 + weave_phase + sin(anim_timer * 0.9) * 1.2)
+			if home.length() > 180.0:
+				dir = (dir + home.normalized() * 1.5).normalized()
+			pace = 0.28
+			breathe = 1.0 + 0.04 * sin(anim_timer * 2.5)
+		"patrol":
+			# Loops around its patch, like a dragonfly hawking its stretch of bank
+			var radial = -home.normalized() if home.length() > 1.0 else Vector2.RIGHT
+			var r = home.length()
+			var tangent = radial.rotated(PI / 2 * orbit_sign)
+			dir = (tangent + -radial * clamp((r - 150.0) / 80.0, -1.0, 1.0)).normalized()
+			pace = 0.45
+		"school":
+			# Stay with the shoal: drift together, keep a little space
+			var centre = Vector2.ZERO
+			var heading = Vector2.ZERO
+			var push = Vector2.ZERO
+			var n = 0
+			for e in get_tree().get_nodes_in_group("enemies"):
+				if e == self or not is_instance_valid(e) or e.get("fauna_name") != fauna_name:
+					continue
+				var off = e.global_position - global_position
+				if off.length() < 340.0:
+					centre += off
+					heading += e.velocity
+					n += 1
+					if off.length() < 80.0:
+						push -= off.normalized() * (80.0 - off.length()) / 80.0
+			dir = Vector2.RIGHT.rotated(anim_timer * 0.3 + weave_phase)
+			if n > 0:
+				dir += (centre / n).normalized() * 0.6 + heading.normalized() * 0.8
+			dir += push * 2.0
+			if home.length() > 260.0:
+				dir += home.normalized()
+			dir = dir.normalized()
+			pace = 0.35
+		"stalk":
+			# Has seen you: creeps closer, low and watchful
+			dir = to_p.normalized().rotated(sin(anim_timer * 0.8 + weave_phase) * 0.5)
+			pace = 0.3
+			$Sprite2D.modulate = base_tint * Color(0.8, 0.8, 0.85)
+			face_sprite(to_p, delta, 6.0, idle_face_offset())
+	velocity = dir * speed * pace
+	if pace > 0.0 and move_and_slide():
+		pick_idle_dir(home, 0.0)
+		idle_timer = min(idle_timer, 0.6)
+	if pace > 0.0 and style != "stalk":
+		face_sprite(velocity, delta, 5.0, idle_face_offset())
+		if enemy_type == "armoured":
+			facing = velocity.normalized()
+	$Sprite2D.scale = Vector2.ONE * base_scale * breathe
+	$Sprite2D.frame = int(fmod(anim_timer * (2.0 + 10.0 * pace), 4.0))
+
+# A new idle heading, turning back toward home once it has strayed
+func pick_idle_dir(home: Vector2, leash: float):
+	pick_random_wander()
+	if home.length() > leash:
+		wander_dir = (home.normalized() + wander_dir * 0.5).normalized()
+
+func kick_dust():
+	var p = CPUParticles2D.new()
+	p.position = global_position + Vector2(0, $CollisionShape2D.shape.radius * 0.5)
+	p.one_shot = true
+	p.explosiveness = 0.9
+	p.amount = 6
+	p.lifetime = 0.5
+	p.gravity = Vector2(0, 40)
+	p.initial_velocity_min = 20.0
+	p.initial_velocity_max = 60.0
+	p.scale_amount_min = 3.0
+	p.scale_amount_max = 6.0
+	p.color = Color(0.75, 0.6, 0.4, 0.7)
+	p.emitting = true
+	get_parent().add_child(p)
+	get_tree().create_timer(0.7).timeout.connect(p.queue_free)
 
 # ═══════════════════════════════════════════════════════════
 # THIRD ANIMALS: one new behaviour per era
@@ -812,6 +1081,9 @@ func take_damage(amount: float):
 			SoundManager.play_sfx("hit", 1.8, -6.0)
 	if enemy_type == "swarm":
 		scatter_swarm()
+	# Hurt, any animal fights back
+	if mood != "hostile":
+		become_hostile()
 	health = max(0.0, health - amount)
 	if enemy_type == "enroll" and health > 0 and enroll_cooldown <= 0:
 		enroll_time = 1.8
