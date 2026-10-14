@@ -426,11 +426,12 @@ func process_mood(delta: float):
 		if alert_timer <= 0:
 			become_hostile()
 		return
-	if d < aggro_radius:
+	var reach = aggro_radius * player_notice()
+	if d < reach:
 		if temper == "timid":
 			# Backs off rather than fights, until it is hurt or cornered
 			velocity = -to_p.normalized().rotated(sin(anim_timer * 4.0 + weave_phase) * 0.5) * speed * 0.75
-			if move_and_slide() and d < aggro_radius * 0.45:
+			if move_and_slide() and d < reach * 0.45:
 				notice()
 			face_sprite(velocity, delta, 10.0, idle_face_offset())
 			$Sprite2D.frame = int(fmod(anim_timer * 8.0, 4.0))
@@ -442,6 +443,23 @@ func process_mood(delta: float):
 	for i in get_slide_collision_count():
 		if get_slide_collision(i).get_collider() == player:
 			notice()
+
+# Hard-to-spot forms, holding still or hiding shrink how far animals notice
+# you (Player.notice_mult)
+func player_notice() -> float:
+	return player.notice_mult() if player.has_method("notice_mult") else 1.0
+
+# Ink or camouflage: it loses sight of you, unless it is mid-attack
+func lose_track():
+	if temper == "" or mood == "calm":
+		return
+	if charge_state != "" or lunge_state != "" or spray_state != "" or burrow_state != "walk":
+		return
+	mood = "calm"
+	calm_timer = 0.0
+	idle_timer = 0.0
+	home_pos = global_position
+	show_mood("?", Color(0.75, 0.85, 1.0))
 
 func idle_face_offset() -> float:
 	return -PI/2 if enemy_type == "charger" else PI/2
@@ -532,7 +550,7 @@ func process_idle(delta: float, to_p: Vector2):
 	var pace = 0.0
 	var breathe = 1.0
 	var style = idle_style
-	if style == "stalk" and to_p.length() > 780.0:
+	if style == "stalk" and to_p.length() > 780.0 * player_notice():
 		style = "patrol" # nothing to stalk yet
 	match style:
 		"graze", "forage":

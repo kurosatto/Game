@@ -25,6 +25,7 @@ func _initialize():
 			if f.get("temper", "") == "":
 				continue
 			await test_type(room, p, floor_num, type, f)
+	await test_stealth(room, p)
 	print("MOOD done, %d failures" % fails)
 	quit()
 
@@ -55,7 +56,8 @@ func test_type(room, p, floor_num: int, type: String, f: Dictionary):
 		strayed = max(strayed, e.global_position.distance_to(e.home_pos))
 	check(far_calm or t == "predator", "%s calm while far" % f.name)
 	# Step up close to the first
-	var near_pos = a.position + Vector2(-(a.aggro_radius * 0.7), 0)
+	p.stealth = 1.0
+	var near_pos = a.position + Vector2(-(a.aggro_radius * 0.45), 0)
 	if t == "docile":
 		near_pos = a.position + Vector2(-(a.aggro_radius + 90.0), 0)
 	await hold(p, room, near_pos, 90)
@@ -91,3 +93,21 @@ func test_type(room, p, floor_num: int, type: String, f: Dictionary):
 		if is_instance_valid(e):
 			e.queue_free()
 	await hold(p, room, Vector2(330, 540), 5)
+
+# A hard-to-spot form gets closer before a wary animal notices; ink makes a
+# hostile one lose track of you
+func test_stealth(room, p):
+	room.spawn_enemy(Vector2(1300, 540), "pacer", 2) # Olenoides, wary
+	var e = get_nodes_in_group("enemies").filter(func(x): return not x.is_queued_for_deletion())[0]
+	e.idle_style = "rest"
+	var close = e.position + Vector2(-(e.aggro_radius * 0.5), 0)
+	p.stealth = 0.4
+	await hold(p, room, close, 60)
+	check(e.mood == "calm", "stealthy form gets close unnoticed")
+	p.stealth = 1.0
+	await hold(p, room, close, 60)
+	check(e.mood == "hostile", "normal form is noticed at the same spot")
+	p.hide_from_animals(1.2)
+	check(e.mood == "calm", "ink makes it lose track")
+	print("MOOD stealth: hidden at %d px, noticed without stealth, ink lost it: %s" % [e.aggro_radius * 0.5, e.mood])
+	e.queue_free()

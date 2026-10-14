@@ -9,7 +9,8 @@
 # autotomy (shed the first hit after each cleared room), iframes (seconds
 # added to dash/escape), crit (share of hits doing double), symbiont (heal
 # half a heart per 12 biomass), thorns (contact damage x your damage),
-# zap_power (ZAP damage and stun).
+# zap_power (ZAP damage and stun), stealth (animals must come this share
+# closer before they notice you).
 # "once": can only be taken one time.
 extends RefCounted
 
@@ -68,6 +69,9 @@ const LIST = [
 	{"id": "thorns", "name": "Defensive Spines",
 		"fact": "Spines evolved again and again, on sea urchins, pufferfish and hedgehogs, to punish anything that bites.",
 		"effect": "Enemies touching you are pricked twice a second", "mods": {"thorns": 1.0}},
+	{"id": "camouflage", "name": "Cryptic Colouring",
+		"fact": "Mottled, disruptive patterns break up an outline; flounders, leaf insects and peppered moths all hide this way.",
+		"effect": "Animals notice you 20% closer", "mods": {"stealth": 0.2}},
 	{"id": "electrocytes", "name": "Electric Organ",
 		"fact": "Stacks of electrocytes, modified muscle cells, evolved at least six separate times in fish.",
 		"effect": "ZAP hits 40% harder and stuns longer", "mods": {"zap_power": 0.4}},
