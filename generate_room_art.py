@@ -2,7 +2,7 @@
 
 For each of the five eras (floors) this writes
   assets/eras/<era>/room.png       1920x1080 room: floor plus 128px walls
-  assets/eras/<era>/<slot>.png     128x128 obstacles: rock, tall, mound, glow, fossil
+  (obstacles: see generate_scenery_art.py)
 
 Everything is painted at half resolution and scaled 2x for the same chunky
 pixels as the sprites. The room image tiles horizontally between the side
@@ -848,9 +848,8 @@ def main():
         out = os.path.join("assets", "eras", era)
         os.makedirs(out, exist_ok=True)
         make_room(era, 100 + i).save(os.path.join(out, "room.png"))
-        rng = np.random.default_rng(200 + i)
-        for slot, fn in SLOTS.items():
-            fn(era, rng).resize((128, 128), Image.NEAREST).save(os.path.join(out, slot + ".png"))
+        # Obstacles now come from generate_scenery_art.py; the old 64 px
+        # versions below are kept only for reference
         for state in ("open", "closed", "locked"):
             door_frame(era, np.random.default_rng(300 + i), state).save(os.path.join(out, "door_%s.png" % state))
         make_shadow(era, np.random.default_rng(400 + i)).save(os.path.join(out, "shadow.png"))
