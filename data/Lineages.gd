@@ -2012,6 +2012,34 @@ const ESCAPE_STYLES = {
     "ink": {"label": "INK", "invulnerable": 0.8, "rooted": 0.0, "cooldown": 2.0},
 }
 
+# Forms that are hard to spot: animals have to come this much closer
+# (a multiplier on Enemy.aggro_radius) before they notice you, and why.
+# Camouflage, burial, tiny size and night habits are all real ways to hide.
+const STEALTH = {
+    "ancestral_collar_cell": [0.8, "Tiny", "a single cell is almost too small to see"],
+    "sea_lily": [0.8, "Looks like a plant", "a stalked crinoid passes for a sea plant"],
+    "burrowing_clam": [0.5, "Buried", "lies dug into the sand with only its siphons showing"],
+    "shipworm": [0.5, "Hidden in wood", "spends its life inside the timber it bores through"],
+    "moon_snail": [0.7, "Ploughs under the sand", "hunts buried, its big foot pushing through the sediment"],
+    "sea_slug_line": [0.7, "Coloured like its food", "sea hares turn the red, brown or green of the seaweed they eat"],
+    "brittle_star": [0.75, "Hides in crevices", "stays under rocks with only its arm tips showing"],
+    "cephalopod": [0.75, "Colour-changing skin", "chromatophores, tiny sacs of pigment, change its colour in an instant"],
+    "coleoid": [0.65, "Colour-changing skin", "chromatophores and mirror cells match it to the background"],
+    "squid_line": [0.65, "Counter-illumination", "glowing undersides cancel out its shadow seen from below"],
+    "octopus_line": [0.5, "Master of disguise", "changes colour, pattern and even skin texture in a fraction of a second"],
+    "mantis_shrimp_line": [0.75, "Burrow ambusher", "waits in its burrow with only its eyes poking out"],
+    "scorpion": [0.75, "Hides by day", "rests under stones and in burrows, hunting at night"],
+    "spider": [0.8, "Sits and waits", "trapdoor spiders wait hidden behind a silk lid"],
+    "ray_finned_fish": [0.9, "Countershading", "a dark back and pale belly blend into the water from above and below"],
+    "teleost_line": [0.85, "Countershading", "a dark back and silver belly blend into the water from above and below"],
+    "lissamphibian": [0.85, "Camouflaged skin", "mottled skin matches the leaf litter and pond bottom"],
+    "synapsid": [0.85, "Active at night", "early mammal relatives hid in burrows and came out after dark"],
+}
+
+# How close animals must come to notice this form (1.0 = normal)
+static func get_stealth(data: Dictionary) -> float:
+    return STEALTH.get(data.get("id", ""), [1.0])[0]
+
 # Escape for a form: style ("dart" for a normal dash), name and why
 static func get_escape(data: Dictionary) -> Array:
     return ESCAPES.get(data.get("id", ""), ["dart", "Dash", "darts away"])
@@ -2092,6 +2120,9 @@ static func describe_perks(data: Dictionary) -> String:
     for key in data.dash_perks:
         if dash_text.has(key):
             lines.append(dash_text[key])
+    if STEALTH.has(data.get("id", "")):
+        var st = STEALTH[data.id]
+        lines.append("Hard to spot (%s): animals notice you %d%% closer" % [st[1].to_lower(), int(round((1.0 - st[0]) * 100.0))])
     var escape = get_escape(data)
     if escape[0] != "dart":
         lines.append("No dash: %s instead" % escape[1].to_lower())

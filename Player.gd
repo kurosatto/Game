@@ -47,6 +47,10 @@ var current_dash_perks: Dictionary = {}
 var current_passive: String = "none"
 var vision: int = 1 # 1-10, see Lineages.VISION; Main.gd passes it to VisionFog
 var sense: int = 1 # 1-10, best non-visual sense, see Lineages.SENSES
+# How close animals must come before they notice you (Lineages.STEALTH times
+# the Cryptic Colouring adaptation); see notice_mult()
+var stealth: float = 1.0
+var cloak_time: float = 0.0 # ink, smoke or a camouflage dash: hard to see
 var sense_kind: String = ""
 
 # The current form's own stats; recompute_stats() adds items and adaptations
@@ -176,6 +180,8 @@ func _physics_process(delta: float):
         
     if rooted_time > 0:
         rooted_time -= delta
+    if cloak_time > 0:
+        cloak_time -= delta
     if bite_chain_time > 0:
         bite_chain_time -= delta
     if slow_timer > 0:
@@ -423,6 +429,7 @@ func perform_bio_dash():
     
     # Camouflage active stealth (Phantom Cuttlefish)
     if current_dash_perks.get("camouflage", false):
+        hide_from_animals(1.5)
         $Sprite2D.modulate.a = 0.25
         var tw = create_tween()
         tw.tween_interval(1.5)
@@ -530,7 +537,28 @@ func spawn_escape_ring(radius: float, col: Color):
     tw.tween_property(ring, "modulate:a", 0.0, 0.25)
     tw.chain().tween_callback(ring.queue_free)
 
+# Multiplier on how close animals must come to notice you (Enemy.process_mood).
+# Most animals spot movement first, so holding still helps; so does hiding in
+# a shell or behind ink.
+func notice_mult() -> float:
+    var m = stealth
+    if velocity.length() < 20.0:
+        m *= 0.7
+    if rooted_time > 0:
+        m *= 0.5
+    if cloak_time > 0:
+        m *= 0.3
+    return m
+
+# Ink, smoke or a sudden change of colour: animals close by lose track of you
+func hide_from_animals(duration: float):
+    cloak_time = max(cloak_time, duration)
+    for e in get_tree().get_nodes_in_group("enemies"):
+        if is_instance_valid(e) and e.has_method("lose_track") and e.global_position.distance_to(global_position) < 380.0:
+            e.lose_track()
+
 func spawn_dash_smoke_cloud():
+    hide_from_animals(1.2)
     var cloud = Area2D.new()
     cloud.position = global_position
     cloud.collision_layer = 0
@@ -1158,6 +1186,7 @@ func recompute_stats():
     discharge_radius = 290.0 * (1.0 + m.get("zap_radius", 0.0))
     vision = clampi(form_stats.vision + int(m.get("vision", 0)), 1, 10)
     sense = clampi(form_stats.sense + int(m.get("sense", 0)), 1, 10)
+    stealth = form_stats.get("stealth", 1.0) * max(0.4, 1.0 - m.get("stealth", 0.0))
     biomass_mult = 1.0 + m.get("biomass", 0.0)
     armour = int(m.get("armour", 0))
     regen_on_clear = int(m.get("regen", 0))
@@ -1258,6 +1287,7 @@ func apply_form(data: Dictionary):
         "speed": data.speed, "damage": data.damage, "fire_delay": data.fire_delay,
         "shot_speed": data.shot_speed, "attack_type": data.attack_type,
         "perks": data.tear_perks, "vision": vision, "sense": sense,
+        "stealth": lineages.get_stealth(data),
         "dash_cd": dash_cooldown_for_speed(data.speed) if escape_style == "dart" \
             else lineages.ESCAPE_STYLES[escape_style].cooldown,
     }
