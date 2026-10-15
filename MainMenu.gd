@@ -16,6 +16,7 @@ const LOCKED = Color(0.45, 0.5, 0.45)
 
 var menu_box: VBoxContainer
 var trait_btn: Button
+var trait_info: Label
 var overlay: Control = null
 var drifters: Array = []
 
@@ -156,8 +157,11 @@ func build_menu():
 	col.add_child(play)
 	trait_btn = button("", cycle_trait)
 	trait_btn.add_theme_font_size_override("font_size", 24)
-	update_trait_text()
 	col.add_child(trait_btn)
+	trait_info = label("", 19, UI.MUTED)
+	trait_info.custom_minimum_size = Vector2(600, 0)
+	col.add_child(trait_info)
+	update_trait_text()
 	var pair = HBoxContainer.new()
 	pair.add_theme_constant_override("separation", 16)
 	col.add_child(pair)
@@ -192,10 +196,14 @@ func update_trait_text():
 	if unlocked.is_empty():
 		trait_btn.text = "🔒  STARTING TRAIT: complete a challenge"
 		trait_btn.disabled = true
+		trait_info.text = "Each challenge unlocks a trait to begin runs with."
 	elif current == "":
 		trait_btn.text = "🧬  STARTING TRAIT: none (tap to choose)"
+		trait_info.text = "%d unlocked. Tap to cycle; see CHALLENGES for what each does." % unlocked.size()
 	else:
-		trait_btn.text = "🧬  STARTING TRAIT: " + adaptations.get_adaptation(current).name
+		var a = adaptations.get_adaptation(current)
+		trait_btn.text = "🧬  STARTING TRAIT: " + a.name
+		trait_info.text = a.effect + ".  " + a.fact
 
 func cycle_trait():
 	var options: Array = [""] + progress.unlocked_traits()
@@ -259,11 +267,35 @@ func row(parent: Container, title: String, body: String, color: Color):
 func show_challenges():
 	var list = open_overlay("🏆 CHALLENGES")
 	for c in progress.CHALLENGES:
-		var a = adaptations.get_adaptation(c.unlock)
-		if progress.is_complete(c.id):
-			row(list, "✓ " + c.name, "%s.  Unlocked starting trait: %s (%s)" % [c.goal, a.name, a.effect], UI.LEAF)
-		else:
-			row(list, "○ " + c.name, "%s.  Unlocks starting trait: %s" % [c.goal, a.name], UI.CREAM)
+		var done = progress.is_complete(c.id)
+		var t = label(("✓ " if done else "○ ") + c.name, 26, UI.LEAF if done else UI.CREAM)
+		t.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+		list.add_child(t)
+		var g = label(c.goal, 20, SOFT)
+		g.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+		list.add_child(g)
+		list.add_child(trait_card(adaptations.get_adaptation(c.unlock), done, progress.start_trait() == c.unlock))
+		list.add_child(HSeparator.new())
+
+# What a challenge's starting trait does: name, effect and the real biology
+func trait_card(a: Dictionary, unlocked: bool, chosen: bool) -> Control:
+	var card = PanelContainer.new()
+	var tint = UI.LEAF if unlocked else LOCKED
+	card.add_theme_stylebox_override("panel", UI.panel(tint, 18, 0.7, 16.0))
+	var col = VBoxContainer.new()
+	col.add_theme_constant_override("separation", 4)
+	card.add_child(col)
+	var head = "🧬 Starting trait: " if unlocked else "🔒 Unlocks starting trait: "
+	var n = label(head + a.name + ("  (chosen)" if chosen else ""), 22, UI.SUN if unlocked else UI.CREAM)
+	n.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	col.add_child(n)
+	var e = label(a.effect, 20, UI.LEAF if unlocked else UI.MUTED)
+	e.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	col.add_child(e)
+	var f = label(a.fact, 18, UI.MUTED)
+	f.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	col.add_child(f)
+	return card
 
 # The codex opens on the evolution tree (CodexTree.gd); LIST shows the
 # same forms as plain text rows.
