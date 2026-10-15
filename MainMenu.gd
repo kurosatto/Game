@@ -81,6 +81,8 @@ func build_background():
 		var s = Sprite2D.new()
 		s.texture = load(path)
 		s.hframes = 4
+		# Sheets are drawn at 256 px a frame; drift past at 128
+		s.scale = Vector2.ONE * 128.0 / s.texture.get_height()
 		s.modulate = Color(1, 1, 1, 0.7)
 		s.position = Vector2(randf_range(100, 1820), randf_range(150, 950))
 		var dir = Vector2.RIGHT.rotated(randf() * TAU)

@@ -155,7 +155,7 @@ func shape(pts: PackedVector2Array, col: Color, w: float = OW) -> bool:
 		if shadow_pass:
 			draw_colored_polygon(pts, _rim_col())
 		else:
-			draw_polyline(rim, HALO, w + _rim_w())
+			draw_polyline(rim, HALO, w + _rim_w(), true)
 		return true
 	draw_colored_polygon(pts, col)
 	if w > 0 and col.a > 0.8:
@@ -169,13 +169,18 @@ func shape(pts: PackedVector2Array, col: Color, w: float = OW) -> bool:
 	if w > 0:
 		var loop := pts.duplicate()
 		loop.append(pts[0])
-		draw_polyline(loop, OUTLINE, w)
+		draw_polyline(loop, OUTLINE, w, true)
 	return true
 
 func fill(pts: PackedVector2Array, col: Color):
 	if halo_pass or pts.size() < 3 or Geometry2D.triangulate_polygon(pts).is_empty():
 		return
-	draw_colored_polygon(pts, cute(col))
+	col = cute(col)
+	draw_colored_polygon(pts, col)
+	# A hairline in the same colour smooths the polygon's jagged edge
+	var loop := pts.duplicate()
+	loop.append(pts[0])
+	draw_polyline(loop, col, 1.0, true)
 
 func oval(c: Vector2, rx: float, ry: float, rot: float, col: Color, w: float = OW):
 	shape(ellipse_pts(c, rx, ry, rot), col, w)
@@ -186,23 +191,23 @@ func blob(c: Vector2, rx: float, ry: float, rot: float, col: Color):
 func disc(c: Vector2, r: float, col: Color, w: float = OW):
 	if halo_pass:
 		if w > 0:
-			draw_circle(c, r + w * 0.5 + (0.0 if shadow_pass else 2.5), _rim_col())
+			draw_circle(c, r + w * 0.5 + (0.0 if shadow_pass else 2.5), _rim_col(), true, -1.0, true)
 		return
 	if w > 0:
-		draw_circle(c, r + w * 0.5, OUTLINE)
-	draw_circle(c, r, cute(col))
+		draw_circle(c, r + w * 0.5, OUTLINE, true, -1.0, true)
+	draw_circle(c, r, cute(col), true, -1.0, true)
 
 func dot(c: Vector2, r: float, col: Color):
 	if not halo_pass:
-		draw_circle(c, r, col)
+		draw_circle(c, r, col, true, -1.0, true)
 
 func line(a: Vector2, b: Vector2, col: Color, w: float = 1.5):
 	if not halo_pass:
-		draw_line(a, b, col, w)
+		draw_line(a, b, col, w, true)
 
 func pline(pts: PackedVector2Array, col: Color, w: float = 1.5):
 	if not halo_pass and pts.size() > 1:
-		draw_polyline(pts, col, w)
+		draw_polyline(pts, col, w, true)
 
 # A round-jointed stroke with an outline (legs, antennae, tentacles)
 func limb(pts: PackedVector2Array, w: float, col: Color, outline: bool = true):
@@ -212,18 +217,18 @@ func limb(pts: PackedVector2Array, w: float, col: Color, outline: bool = true):
 		if not outline:
 			return
 		var hw = w + 3.0 + _rim_w()
-		draw_polyline(pts, _rim_col(), hw)
+		draw_polyline(pts, _rim_col(), hw, true)
 		for p in pts:
-			draw_circle(p, hw * 0.5, _rim_col())
+			draw_circle(p, hw * 0.5, _rim_col(), true, -1.0, true)
 		return
 	col = cute(col)
 	if outline:
-		draw_polyline(pts, OUTLINE, w + 3.0)
+		draw_polyline(pts, OUTLINE, w + 3.0, true)
 		for p in pts:
-			draw_circle(p, (w + 3.0) * 0.5, OUTLINE)
-	draw_polyline(pts, col, w)
+			draw_circle(p, (w + 3.0) * 0.5, OUTLINE, true, -1.0, true)
+	draw_polyline(pts, col, w, true)
 	for p in pts:
-		draw_circle(p, w * 0.5, col)
+		draw_circle(p, w * 0.5, col, true, -1.0, true)
 
 # Tapered limb: each piece thinner than the last
 func taper(pts: PackedVector2Array, w0: float, w1: float, col: Color, outline: bool = true):
@@ -235,22 +240,22 @@ func taper(pts: PackedVector2Array, w0: float, w1: float, col: Color, outline: b
 			return
 		for i in n - 1:
 			var w = lerp(w0, w1, i / float(max(n - 2, 1)))
-			draw_line(pts[i], pts[i + 1], _rim_col(), w + 3.0 + _rim_w())
-			draw_circle(pts[i], (w + 3.0 + _rim_w()) * 0.5, _rim_col())
-		draw_circle(pts[n - 1], (w1 + 3.0 + _rim_w()) * 0.5, _rim_col())
+			draw_line(pts[i], pts[i + 1], _rim_col(), w + 3.0 + _rim_w(), true)
+			draw_circle(pts[i], (w + 3.0 + _rim_w()) * 0.5, _rim_col(), true, -1.0, true)
+		draw_circle(pts[n - 1], (w1 + 3.0 + _rim_w()) * 0.5, _rim_col(), true, -1.0, true)
 		return
 	col = cute(col)
 	if outline:
 		for i in n - 1:
 			var w = lerp(w0, w1, i / float(max(n - 2, 1)))
-			draw_line(pts[i], pts[i + 1], OUTLINE, w + 3.0)
-			draw_circle(pts[i], (w + 3.0) * 0.5, OUTLINE)
-		draw_circle(pts[n - 1], (w1 + 3.0) * 0.5, OUTLINE)
+			draw_line(pts[i], pts[i + 1], OUTLINE, w + 3.0, true)
+			draw_circle(pts[i], (w + 3.0) * 0.5, OUTLINE, true, -1.0, true)
+		draw_circle(pts[n - 1], (w1 + 3.0) * 0.5, OUTLINE, true, -1.0, true)
 	for i in n - 1:
 		var w = lerp(w0, w1, i / float(max(n - 2, 1)))
-		draw_line(pts[i], pts[i + 1], col, w)
-		draw_circle(pts[i], w * 0.5, col)
-	draw_circle(pts[n - 1], w1 * 0.5, col)
+		draw_line(pts[i], pts[i + 1], col, w, true)
+		draw_circle(pts[i], w * 0.5, col, true, -1.0, true)
+	draw_circle(pts[n - 1], w1 * 0.5, col, true, -1.0, true)
 
 func tube_pts(spine: Array, widths: Array) -> PackedVector2Array:
 	var left := PackedVector2Array()
@@ -284,7 +289,7 @@ func tube_shaded(spine: Array, widths: Array, col: Color, w: float = OW):
 	if w > 0:
 		var loop := tube_pts(spine, widths)
 		loop.append(loop[0])
-		draw_polyline(loop, OUTLINE, w)
+		draw_polyline(loop, OUTLINE, w, true)
 
 func band(spine: Array, widths: Array, side: float, depth: float, col: Color, inset: float = 0.0):
 	if halo_pass:
@@ -312,7 +317,7 @@ func eye(p: Vector2, r: float, iris: Color = Color(0.1, 0.1, 0.12), pupil: bool 
 	if abs(off) > 0.01 and abs(off) < R * 0.98:
 		p.y = mid + sign(off) * R * 0.98
 	if halo_pass:
-		draw_circle(p, R + 1.6 + (0.0 if shadow_pass else 2.5), _rim_col())
+		draw_circle(p, R + 1.6 + (0.0 if shadow_pass else 2.5), _rim_col(), true, -1.0, true)
 		return
 	_eyes.append([p, R, iris, pupil])
 
@@ -343,24 +348,24 @@ func _draw_eyes():
 		if _blink > 0.0 or squint:
 			_closed_eye(p, R, squint)
 			continue
-		draw_circle(p, R + 1.5, OUTLINE)
+		draw_circle(p, R + 1.5, OUTLINE, true, -1.0, true)
 		if e[3]:
-			draw_circle(p, R, Color(1.0, 0.99, 0.96))
-			draw_arc(p, R * 0.8, up(Vector2.DOWN).angle() - 1.1, up(Vector2.DOWN).angle() + 1.1, 10, Color(0.75, 0.8, 0.95, 0.6), R * 0.3)
+			draw_circle(p, R, Color(1.0, 0.99, 0.96), true, -1.0, true)
+			draw_arc(p, R * 0.8, up(Vector2.DOWN).angle() - 1.1, up(Vector2.DOWN).angle() + 1.1, 10, Color(0.75, 0.8, 0.95, 0.6), R * 0.3, true)
 			# Big iris looking ahead, a dark pupil, sparkly highlights
 			var look = p + Vector2(R * 0.14, 0)
 			var ic = iris if iris.v > 0.25 else Color(0.32, 0.22, 0.2)
-			draw_circle(look, R * 0.7, ic)
-			draw_circle(look + up(Vector2(0, R * 0.18)), R * 0.5, ic.lightened(0.25))
-			draw_circle(look, R * 0.42, Color(0.06, 0.04, 0.08))
-			draw_circle(look + light * R * 0.36, R * 0.3, Color.WHITE)
-			draw_circle(look - light * R * 0.34, R * 0.13, Color(1, 1, 1, 0.9))
+			draw_circle(look, R * 0.7, ic, true, -1.0, true)
+			draw_circle(look + up(Vector2(0, R * 0.18)), R * 0.5, ic.lightened(0.25), true, -1.0, true)
+			draw_circle(look, R * 0.42, Color(0.06, 0.04, 0.08), true, -1.0, true)
+			draw_circle(look + light * R * 0.36, R * 0.3, Color.WHITE, true, -1.0, true)
+			draw_circle(look - light * R * 0.34, R * 0.13, Color(1, 1, 1, 0.9), true, -1.0, true)
 		else:
 			# Compound eyes: one glossy coloured dome
-			draw_circle(p, R, iris)
-			draw_arc(p, R * 0.72, up(Vector2.DOWN).angle() - 1.2, up(Vector2.DOWN).angle() + 1.2, 10, iris.darkened(0.3), R * 0.5)
-			draw_circle(p + light * R * 0.4, R * 0.32, Color(1, 1, 1, 0.9))
-			draw_circle(p - light * R * 0.4, R * 0.12, Color(1, 1, 1, 0.7))
+			draw_circle(p, R, iris, true, -1.0, true)
+			draw_arc(p, R * 0.72, up(Vector2.DOWN).angle() - 1.2, up(Vector2.DOWN).angle() + 1.2, 10, iris.darkened(0.3), R * 0.5, true)
+			draw_circle(p + light * R * 0.4, R * 0.32, Color(1, 1, 1, 0.9), true, -1.0, true)
+			draw_circle(p - light * R * 0.4, R * 0.12, Color(1, 1, 1, 0.7), true, -1.0, true)
 
 # Blink (a soft smile-shaped line) or effort squint (> <) while striking
 func _closed_eye(p: Vector2, R: float, squint: bool):
@@ -369,13 +374,13 @@ func _closed_eye(p: Vector2, R: float, squint: bool):
 		var tip = p + up(Vector2(-sx * R * 0.45, 0))
 		var a = p + up(Vector2(sx * R * 0.55, -R * 0.6))
 		var b = p + up(Vector2(sx * R * 0.55, R * 0.6))
-		draw_polyline(PackedVector2Array([a, tip, b]), OUTLINE, max(2.0, R * 0.38))
+		draw_polyline(PackedVector2Array([a, tip, b]), OUTLINE, max(2.0, R * 0.38), true)
 		return
 	var pts := PackedVector2Array()
 	for k in 7:
 		var g = PI * k / 6.0
 		pts.append(p + up(Vector2(-cos(g) * R * 0.8, sin(g) * R * 0.45)))
-	draw_polyline(pts, OUTLINE, max(1.8, R * 0.32))
+	draw_polyline(pts, OUTLINE, max(1.8, R * 0.32), true)
 
 # A simple kawaii face for animals with no real eyes (cells, clams, sea
 # stars, hagfish): two shiny bead eyes, rosy cheeks and a small smile that
@@ -391,18 +396,18 @@ func _dot_face(c: Vector2, s: float):
 			_closed_eye(p, 3.0 * s, strike > 0.55)
 			continue
 		draw_colored_polygon(ellipse_pts(p, 2.9 * s, 3.7 * s, -global_rotation, 16), Color(0.12, 0.07, 0.1))
-		draw_circle(p + light * 1.8 * s, 1.3 * s, Color.WHITE)
-		draw_circle(p - light * 1.6 * s, 0.55 * s, Color(1, 1, 1, 0.8))
+		draw_circle(p + light * 1.8 * s, 1.3 * s, Color.WHITE, true, -1.0, true)
+		draw_circle(p - light * 1.6 * s, 0.55 * s, Color(1, 1, 1, 0.8), true, -1.0, true)
 	var m = c + up(Vector2(0, gap * 0.75))
 	if strike > 0.2:
 		draw_colored_polygon(ellipse_pts(m, 2.3 * s, 2.0 * s * (0.6 + strike), -global_rotation, 12), Color(0.35, 0.08, 0.14))
-		draw_circle(m + up(Vector2(0, s * 0.8 * strike)), 1.1 * s, Color(1.0, 0.5, 0.6))
+		draw_circle(m + up(Vector2(0, s * 0.8 * strike)), 1.1 * s, Color(1.0, 0.5, 0.6), true, -1.0, true)
 	else:
 		var w := PackedVector2Array()
 		for k in 9:
 			var f = k / 8.0
 			w.append(m + up(Vector2((f - 0.5) * 4.2 * s, abs(sin(f * TAU)) * 1.2 * s)))
-		draw_polyline(w, OUTLINE, max(1.3, 0.75 * s))
+		draw_polyline(w, OUTLINE, max(1.3, 0.75 * s), true)
 
 # ── Spine of a long body ──
 func spine_setup(hx: float, length: float, amp: float, k: float):
@@ -451,7 +456,7 @@ func segments(xs: Array, ws: Array, col: Color, alt: float = 0.86, rx: float = -
 		oval(sp(x), len_, ws[i], a, c, OW)
 		if not halo_pass:
 			blob(sp(x) + Vector2(len_ * 0.2, -ws[i] * 0.3).rotated(a), len_ * 0.55, ws[i] * 0.42, a, shade(c, 1.2))
-			draw_arc(sp(x), ws[i] * 0.86, a + PI * 0.6, a + PI * 1.4, 8, shade(c, 0.72), 1.2)
+			draw_arc(sp(x), ws[i] * 0.86, a + PI * 0.6, a + PI * 1.4, 8, shade(c, 0.72), 1.2, true)
 
 # Jointed leg: hip at `root`, sideways on `side`, stepping with the gait.
 # rake > 0 sweeps the leg back, < 0 forward.
@@ -490,7 +495,7 @@ func soft_glow(r: float):
 	if halo_pass:
 		return
 	for k in 3:
-		draw_circle(Vector2.ZERO, r * (1.0 - k * 0.22), Color(HALO.r, HALO.g, HALO.b, 0.045))
+		draw_circle(Vector2.ZERO, r * (1.0 - k * 0.22), Color(HALO.r, HALO.g, HALO.b, 0.045), true, -1.0, true)
 
 static func pv(a: Array) -> PackedVector2Array:
 	return PackedVector2Array(a)
@@ -944,7 +949,7 @@ func dragonfly_line():
 			if not halo_pass:
 				var loop = wing.duplicate()
 				loop.append(wing[0])
-				draw_polyline(loop, Color(0.12, 0.22, 0.3, 1.0), 1.6)
+				draw_polyline(loop, Color(0.12, 0.22, 0.3, 1.0), 1.6, true)
 				line(root, tip, Color(0.25, 0.4, 0.5, 0.8), 1.0)
 				line(root.lerp(tip, 0.2), root.lerp(tip, 0.95) + Vector2(0, 2).rotated(a), Color(0.25, 0.4, 0.5, 0.5), 0.8)
 				blob(root.lerp(tip, 0.86) + Vector2(0, -1.5).rotated(a), 2.4, 1.2, a, Color(0.12, 0.2, 0.3))
@@ -1125,7 +1130,7 @@ func fish(p: Dictionary):
 			for k in [-1.0, 0.0, 1.0]:
 				var c = spo(x, k * w)
 				if not halo_pass:
-					draw_arc(c, 2.2, sp_ang(x) - 1.2, sp_ang(x) + 1.2, 5, shade(col, 0.82), 1.0)
+					draw_arc(c, 2.2, sp_ang(x) - 1.2, sp_ang(x) + 1.2, 5, shade(col, 0.82), 1.0, true)
 	if p.get("scutes", false):
 		for i in range(3, 14):
 			var x = hx - L * i / 16.0
@@ -1321,7 +1326,7 @@ func tetrapod(p: Dictionary):
 			var x = lerp(shoulder + 2, hip - 2, i / 6.0)
 			for k in [-1.0, 0.0, 1.0]:
 				if not halo_pass:
-					draw_arc(spo(x, k * bw * 0.45), 1.8, sp_ang(x) - 1.3, sp_ang(x) + 1.3, 5, shade(col, 0.75), 1.0)
+					draw_arc(spo(x, k * bw * 0.45), 1.8, sp_ang(x) - 1.3, sp_ang(x) + 1.3, 5, shade(col, 0.75), 1.0, true)
 	if p.get("spots", false):
 		for q in [Vector2(0.15, -0.5), Vector2(0.35, 0.45), Vector2(0.6, -0.3), Vector2(0.8, 0.4), Vector2(0.5, 0.05), Vector2(1.1, -0.2), Vector2(1.35, 0.15)]:
 			var x = shoulder + 4 - q.x * (bl - 4)
@@ -1366,7 +1371,7 @@ func coiled_shell(c: Vector2, r: float, col: Color, turns: float = 2.6, stripes:
 	disc(c, r, col)
 	if halo_pass:
 		return
-	draw_circle(c + Vector2(r * 0.12, r * 0.12).rotated(rot), r * 0.86, shade(col, 0.9))
+	draw_circle(c + Vector2(r * 0.12, r * 0.12).rotated(rot), r * 0.86, shade(col, 0.9), true, -1.0, true)
 	if stripes.a > 0:
 		for k in 9:
 			var g = rot + k * TAU / 9.0
@@ -1374,14 +1379,14 @@ func coiled_shell(c: Vector2, r: float, col: Color, turns: float = 2.6, stripes:
 			for j in 5:
 				var f = j / 4.0
 				pts.append(c + Vector2.RIGHT.rotated(g + f * 0.7) * r * (0.95 - f * 0.45))
-			draw_polyline(pts, stripes, 2.4)
+			draw_polyline(pts, stripes, 2.4, true)
 	var sp_pts := PackedVector2Array()
 	for i in 48:
 		var f = i / 47.0
 		var a = rot + f * turns * TAU
 		sp_pts.append(c + Vector2.RIGHT.rotated(a) * r * (1.0 - f) * 0.94)
-	draw_polyline(sp_pts, shade(col, 0.55), 1.6)
-	draw_circle(c + Vector2(-r * 0.35, -r * 0.35).rotated(rot), r * 0.22, Color(1, 1, 1, 0.35))
+	draw_polyline(sp_pts, shade(col, 0.55), 1.6, true)
+	draw_circle(c + Vector2(-r * 0.35, -r * 0.35).rotated(rot), r * 0.22, Color(1, 1, 1, 0.35), true, -1.0, true)
 
 # Fan of arms reaching forward from `base`; streamlined at speed
 func arms(base: Vector2, a0: float, n: int, length: float, spread: float, col: Color, w: float = 2.6, suckers: bool = false, long_pair: float = 0.0):
@@ -1402,7 +1407,7 @@ func arms(base: Vector2, a0: float, n: int, length: float, spread: float, col: C
 		taper(pts, w, w * 0.35, col)
 		if suckers and not halo_pass:
 			for i in range(2, 6, 1):
-				draw_circle(pts[i], w * 0.22, shade(col, 1.45))
+				draw_circle(pts[i], w * 0.22, shade(col, 1.45), true, -1.0, true)
 
 func long_pair_tentacles(base: Vector2, a0: float, length: float, col: Color):
 	var reach = length * (1.0 + 0.5 * strike)
@@ -1493,7 +1498,7 @@ func nautilus(p: Dictionary = {}):
 		for k in 26:
 			var a = k * 2.4
 			var r = 4.0 + (k % 6) * 3.3
-			draw_circle(sp(-6) + Vector2(cos(a), sin(a)) * r, 1.6, Color(0.43, 0.51, 0.31, 0.9))
+			draw_circle(sp(-6) + Vector2(cos(a), sin(a)) * r, 1.6, Color(0.43, 0.51, 0.31, 0.9), true, -1.0, true)
 	oval(sp(13), 7, 11, sp_ang(13), shade(skin, 0.75), 1.6)
 
 func coleoid():
@@ -1580,8 +1585,8 @@ func scallop(p: Dictionary = {}):
 	if not halo_pass:
 		for k in 12:
 			var g = -1.25 + 2.5 * k / 11.0
-			draw_circle(hinge + Vector2.RIGHT.rotated(g) * (r + 2.5), 1.6, OUTLINE)
-			draw_circle(hinge + Vector2.RIGHT.rotated(g) * (r + 2.5), 1.1, c8(80, 170, 255))
+			draw_circle(hinge + Vector2.RIGHT.rotated(g) * (r + 2.5), 1.6, OUTLINE, true, -1.0, true)
+			draw_circle(hinge + Vector2.RIGHT.rotated(g) * (r + 2.5), 1.1, c8(80, 170, 255), true, -1.0, true)
 	var fan := [hinge]
 	for k in 19:
 		var g = -1.3 + 2.6 * k / 18.0
@@ -1656,7 +1661,7 @@ func octopus_line():
 		taper(pts, 5.0, 1.6, body)
 		if not halo_pass:
 			for i in range(1, 6):
-				draw_circle(pts[i], 1.0, c8(255, 220, 200))
+				draw_circle(pts[i], 1.0, c8(255, 220, 200), true, -1.0, true)
 	var pulse = 1.0 + 0.06 * sin(swim)
 	oval(sp(-10), 15 * pulse, 13 / pulse, sp_ang(-10), body)
 	head_shine(sp(-10), 15, 13, sp_ang(-10), body)
@@ -1722,13 +1727,13 @@ func giant_clam():
 		var x = -24 + k * 12.0
 		for side in [-1.0, 1.0]:
 			if not halo_pass:
-				draw_arc(Vector2(x, side * 18), 5.5, 0.0 if side < 0 else PI, PI if side < 0 else TAU, 8, shade(shell, 0.7), 1.6)
+				draw_arc(Vector2(x, side * 18), 5.5, 0.0 if side < 0 else PI, PI if side < 0 else TAU, 8, shade(shell, 0.7), 1.6, true)
 	var open = (10.0 + 1.5 * sin(t * 1.2)) * (1.0 - 0.7 * tuck)
 	oval(Vector2.ZERO, 27, open, 0, c8(40, 120, 200), 1.6)
 	if not halo_pass:
 		for k in 11:
-			draw_circle(Vector2(-22 + k * 4.4, ((k % 2) * 2 - 1) * open * 0.35), 1.4, c8(120, 240, 230))
-		draw_line(Vector2(-25, 0), Vector2(25, 0), c8(20, 60, 110), 1.2)
+			draw_circle(Vector2(-22 + k * 4.4, ((k % 2) * 2 - 1) * open * 0.35), 1.4, c8(120, 240, 230), true, -1.0, true)
+		draw_line(Vector2(-25, 0), Vector2(25, 0), c8(20, 60, 110), 1.2, true)
 	oval(Vector2(4, 0), 2.5, 1.8, 0, c8(20, 40, 60), 1.0)
 
 func shipworm():
@@ -1776,7 +1781,7 @@ func star(p: Dictionary):
 			if not halo_pass:
 				for i in range(1, 9):
 					var tn = (spine[i + 1] - spine[i - 1]).normalized()
-					draw_line(spine[i] + Vector2(-tn.y, tn.x) * widths[i] * 0.9, spine[i] - Vector2(-tn.y, tn.x) * widths[i] * 0.9, shade(col, 0.7), 1.0)
+					draw_line(spine[i] + Vector2(-tn.y, tn.x) * widths[i] * 0.9, spine[i] - Vector2(-tn.y, tn.x) * widths[i] * 0.9, shade(col, 0.7), 1.0, true)
 		else:
 			tube_shaded(spine, widths, col)
 			if p.get("groove", true):
@@ -1785,18 +1790,18 @@ func star(p: Dictionary):
 				for i in range(1, 8):
 					var tn = (spine[i + 1] - spine[i - 1]).normalized()
 					var nm = Vector2(-tn.y, tn.x)
-					draw_circle(spine[i] + nm * widths[i] * 0.5, 1.2, shade(col, 1.35))
-					draw_circle(spine[i] - nm * widths[i] * 0.5, 1.2, shade(col, 1.35))
+					draw_circle(spine[i] + nm * widths[i] * 0.5, 1.2, shade(col, 1.35), true, -1.0, true)
+					draw_circle(spine[i] - nm * widths[i] * 0.5, 1.2, shade(col, 1.35), true, -1.0, true)
 		if p.get("tipeye", false):
 			dot(spine[9], 1.6, c8(255, 80, 60))
 	disc(Vector2.ZERO, D, shade(col, 1.06))
 	if not halo_pass:
-		draw_circle(Vector2(-D * 0.25, -D * 0.25), D * 0.45, shade(col, 1.2))
+		draw_circle(Vector2(-D * 0.25, -D * 0.25), D * 0.45, shade(col, 1.2), true, -1.0, true)
 		if p.get("bumps", true):
 			for k in n:
-				draw_circle(Vector2.RIGHT.rotated(k * TAU / n) * D * 0.55, 1.3, shade(col, 1.4))
+				draw_circle(Vector2.RIGHT.rotated(k * TAU / n) * D * 0.55, 1.3, shade(col, 1.4), true, -1.0, true)
 		if p.get("madreporite", false):
-			draw_circle(Vector2(-3, 4), 2.2, c8(250, 230, 120))
+			draw_circle(Vector2(-3, 4), 2.2, c8(250, 230, 120), true, -1.0, true)
 
 # Crinoid arms: each of `n` arms (forking from five) is a feather of pinnules
 func feather_arms(n: int, L: float, col: Color, beat: float):
@@ -1816,8 +1821,8 @@ func feather_arms(n: int, L: float, col: Color, beat: float):
 				var tn = (pts[i + 1] - pts[i - 1]).normalized()
 				var nm = Vector2(-tn.y, tn.x)
 				var lw = 4.5 * (1.0 - i / 9.0)
-				draw_line(pts[i] + nm * lw - tn * 1.5, pts[i], shade(col, 1.25), 1.2)
-				draw_line(pts[i] - nm * lw - tn * 1.5, pts[i], shade(col, 1.25), 1.2)
+				draw_line(pts[i] + nm * lw - tn * 1.5, pts[i], shade(col, 1.25), 1.2, true)
+				draw_line(pts[i] - nm * lw - tn * 1.5, pts[i], shade(col, 1.25), 1.2, true)
 
 func sea_lily(p: Dictionary = {}):
 	# Crinoid: a cup with five arms forking into ten feathery arms and a
@@ -1838,7 +1843,7 @@ func sea_lily(p: Dictionary = {}):
 		for i in range(1, 12):
 			var b: Vector2 = stalk[i]
 			var a = sp_ang(b.x)
-			draw_line(b + Vector2(0, -2.2).rotated(a), b + Vector2(0, 2.2).rotated(a), shade(col, 0.6), 1.0)
+			draw_line(b + Vector2(0, -2.2).rotated(a), b + Vector2(0, 2.2).rotated(a), shade(col, 0.6), 1.0, true)
 	feather_arms(10, 34.0, col, 0.18 + 0.1 * move)
 	disc(Vector2.ZERO, 8, shade(col, 1.1))
 	dot(Vector2(-2, -2), 3, shade(col, 1.3))
@@ -1850,7 +1855,7 @@ func feather_star(p: Dictionary = {}):
 	if not halo_pass:
 		for k in 12:
 			var g = k * TAU / 12.0
-			draw_line(Vector2.RIGHT.rotated(g) * 5, Vector2.RIGHT.rotated(g + 0.2) * 11, shade(col, 0.65), 1.6)
+			draw_line(Vector2.RIGHT.rotated(g) * 5, Vector2.RIGHT.rotated(g + 0.2) * 11, shade(col, 0.65), 1.6, true)
 	feather_arms(p.get("arms", 10), 38.0 if p.get("arms", 10) <= 10 else 34.0, col, 0.3 + 0.25 * move)
 	disc(Vector2.ZERO, 6.5, shade(col, 1.1))
 
@@ -1862,20 +1867,20 @@ func early_echinoderm():
 	disc(Vector2.ZERO, 29, body)
 	if halo_pass:
 		return
-	draw_circle(Vector2(-6, -6), 16, shade(body, 1.12))
+	draw_circle(Vector2(-6, -6), 16, shade(body, 1.12), true, -1.0, true)
 	for k in 22:
 		var g = k * TAU / 22.0
-		draw_circle(Vector2.RIGHT.rotated(g) * 25, 2.2, shade(body, 0.82))
+		draw_circle(Vector2.RIGHT.rotated(g) * 25, 2.2, shade(body, 0.82), true, -1.0, true)
 	for k in 5:
 		var pts := PackedVector2Array()
 		for i in 9:
 			var f = i / 8.0
 			pts.append(Vector2.RIGHT.rotated(k * TAU / 5 + f * 0.9) * (4 + f * 18))
-		draw_polyline(pts, shade(body, 0.55), 3.0)
+		draw_polyline(pts, shade(body, 0.55), 3.0, true)
 		for i in range(1, 9):
 			var wave_ = sin(t * 4.0 + i + k + gait) * 1.2
-			draw_circle(pts[i] + Vector2(wave_, 1.5).rotated(k), 1.1, c8(255, 230, 240))
-	draw_circle(Vector2.ZERO, 4.5, shade(body, 1.25))
+			draw_circle(pts[i] + Vector2(wave_, 1.5).rotated(k), 1.1, c8(255, 230, 240), true, -1.0, true)
+	draw_circle(Vector2.ZERO, 4.5, shade(body, 1.25), true, -1.0, true)
 
 func free_moving_echinoderm():
 	star({"col": c8(210, 140, 100), "len": 26.0, "w": 12.0, "disc": 15.0, "wiggle": 0.12})
@@ -1899,11 +1904,11 @@ func spiny_echinozoan():
 		limb(pv([Vector2.RIGHT.rotated(g) * 18, Vector2.RIGHT.rotated(g) * (27 + 2.0 * tuck)]), 1.8, shade(body, 1.3))
 	disc(Vector2.ZERO, 21, body)
 	if not halo_pass:
-		draw_circle(Vector2(-5, -5), 11, shade(body, 1.15))
+		draw_circle(Vector2(-5, -5), 11, shade(body, 1.15), true, -1.0, true)
 		for k in 5:
 			for r in [6.0, 10.0, 14.0, 18.0]:
 				for s in [-1.0, 1.0]:
-					draw_circle(Vector2.RIGHT.rotated(k * TAU / 5 + s * 0.12) * r, 1.0, c8(240, 220, 250))
+					draw_circle(Vector2.RIGHT.rotated(k * TAU / 5 + s * 0.12) * r, 1.0, c8(240, 220, 250), true, -1.0, true)
 
 func sea_urchin():
 	# Sea urchin: round test bristling with long movable spines that sweep
@@ -1917,11 +1922,11 @@ func sea_urchin():
 		taper(pv([Vector2.RIGHT.rotated(g) * 13, Vector2.RIGHT.rotated(g) * ln]), 2.4, 0.9, c8(170, 110, 200))
 	disc(Vector2.ZERO, 17, body)
 	if not halo_pass:
-		draw_circle(Vector2(-4, -4), 9, shade(body, 1.2))
+		draw_circle(Vector2(-4, -4), 9, shade(body, 1.2), true, -1.0, true)
 		for k in 5:
 			for r in [5.0, 9.0, 13.0]:
 				for s in [-1.0, 1.0]:
-					draw_circle(Vector2.RIGHT.rotated(k * TAU / 5 + s * 0.15) * r, 0.9, c8(220, 200, 240))
+					draw_circle(Vector2.RIGHT.rotated(k * TAU / 5 + s * 0.15) * r, 0.9, c8(220, 200, 240), true, -1.0, true)
 
 func sea_cucumber():
 	# Sea cucumber: soft sausage body, rows of tube feet, a ring of branched
@@ -1933,7 +1938,7 @@ func sea_cucumber():
 		for i in 11:
 			var x = 28 - i * 6.0
 			for side in [-1.0, 1.0]:
-				draw_circle(spo(x, side * (15.5 + sin(gait + i) * 0.8)), 1.4, c8(240, 210, 180))
+				draw_circle(spo(x, side * (15.5 + sin(gait + i) * 0.8)), 1.4, c8(240, 210, 180), true, -1.0, true)
 	for k in 10:
 		var a = sp_ang(36) + (k - 4.5) / 4.5 * 1.4
 		var b = sp(34)
@@ -1944,7 +1949,7 @@ func sea_cucumber():
 	spine_body(36 * (1.0 - squash * 0.5), -40 * (1.0 - squash * 0.5), 14, func(f): return 13.0 * (1.0 + squash) * pow(sin(PI * clamp(f * 0.9 + 0.06, 0.0, 1.0)), 0.5) + 1.0, body)
 	if not halo_pass:
 		for q in [Vector2(20, -6), Vector2(10, 5), Vector2(0, -4), Vector2(-10, 6), Vector2(-20, -5), Vector2(-28, 3), Vector2(26, 4)]:
-			draw_circle(spo(q.x, q.y), 2.2, shade(body, 1.4))
+			draw_circle(spo(q.x, q.y), 2.2, shade(body, 1.4), true, -1.0, true)
 
 # ───────────────────────── the first cell ─────────────────────────
 func ancestral_collar_cell():
@@ -1961,18 +1966,18 @@ func ancestral_collar_cell():
 	if not halo_pass:
 		for k in range(-6, 7):
 			var a = k / 6.0
-			draw_line(Vector2(-4, a * 10), Vector2(-24, a * 17 + sin(t * 2 + k) * 0.8), Color(0.75, 1.0, 0.96, 0.9), 1.4)
+			draw_line(Vector2(-4, a * 10), Vector2(-24, a * 17 + sin(t * 2 + k) * 0.8), Color(0.75, 1.0, 0.96, 0.9), 1.4, true)
 	var pulse = 1.0 + 0.04 * sin(t * 3.0) + 0.1 * strike
 	oval(Vector2(6, 0), 21 * pulse, 17 / pulse, 0, Color(body.r, body.g, body.b, 0.95))
 	if halo_pass:
 		return
 	draw_colored_polygon(ellipse_pts(Vector2(9, -3), 14, 10, 0), cute(shade(body, 1.2)))
 	# Nucleus and drifting organelles sit at the back, leaving room for the face
-	draw_circle(Vector2(-6, 6), 5.2, Color(0.4, 0.5, 0.86, 0.85))
-	draw_circle(Vector2(-5, 7), 1.9, Color(0.62, 0.72, 1.0))
+	draw_circle(Vector2(-6, 6), 5.2, Color(0.4, 0.5, 0.86, 0.85), true, -1.0, true)
+	draw_circle(Vector2(-5, 7), 1.9, Color(0.62, 0.72, 1.0), true, -1.0, true)
 	for k in 3:
 		var g = t * 0.6 + k * 2.1
-		draw_circle(Vector2(-5 + cos(g) * 6, -2 + sin(g) * 6), 1.9 - k * 0.3, [Color(0.55, 0.92, 0.55), Color(0.98, 0.88, 0.5), Color(0.65, 0.97, 0.75)][k])
+		draw_circle(Vector2(-5 + cos(g) * 6, -2 + sin(g) * 6), 1.9 - k * 0.3, [Color(0.55, 0.92, 0.55), Color(0.98, 0.88, 0.5), Color(0.65, 0.97, 0.75)][k], true, -1.0, true)
 	draw_colored_polygon(up_ellipse(Vector2(6, 0) + up(Vector2(-8, -9)), 6, 3, -0.5), Color(1, 1, 1, 0.55))
 
 # id -> [drawing function, optional parameters]. Descendants that differ
@@ -2104,5 +2109,5 @@ func early_mollusc():
 		if not halo_pass:
 			var ring = ellipse_pts(Vector2(-3 - (1.0 - k) * 4, 0), 26 * k, 19 * k, 0)
 			ring.append(ring[0])
-			draw_polyline(ring, shade(shell, 0.78), 1.4)
+			draw_polyline(ring, shade(shell, 0.78), 1.4, true)
 	blob(Vector2(-8, -6), 8, 4, -0.3, shade(shell, 1.35))

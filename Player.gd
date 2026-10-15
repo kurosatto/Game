@@ -32,12 +32,13 @@ var current_character_clade: String = ""
 var current_living_example: String = ""
 var current_modulate: Color = Color(0.0, 0.95, 1.0)
 var current_accessory: String = "cilia"
-# Per-lineage art: assets/lineages/<id>_sheet.png (4 frames of 128px, facing up).
+# Per-lineage art: assets/lineages/<id>_sheet.png (4 frames of 256px, facing up).
 # The default player_sheet.png needs a -90 degree turn; lineage sheets need +90.
 var default_texture: Texture2D = null
 var has_lineage_art: bool = false
 # Forms drawn and animated in code (PlayerBody.gd); the sheet is only a fallback
 const PlayerBody = preload("res://PlayerBody.gd")
+const BODY_ART_SCALE := 1.35
 var body_art: Node2D = null
 var heading_offset: float = -PI/2
 var current_attack_type: String = "single"
@@ -1395,6 +1396,9 @@ func update_creature_visuals():
         body_art = PlayerBody.new()
         body_art.name = "Body"
         body_art.player = self
+        # Drawn a bit larger than the old sprites so faces and details read
+        # clearly on a phone screen
+        body_art.scale = Vector2.ONE * BODY_ART_SCALE
         $Sprite2D.add_child(body_art)
     var drawn = PlayerBody.has_form(current_character_id)
     body_art.visible = drawn
