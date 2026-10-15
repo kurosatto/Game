@@ -1045,7 +1045,8 @@ func melee_attack(dir: Vector2):
     swing.style = current_weapon
     swing.reach = reach
     swing.half_arc = half_arc
-    swing.color = current_modulate
+    # Strikes are drawn in the colour of the form's own body
+    swing.color = body_art.main_color if body_art and body_art.visible else current_modulate
     swing.rotation = dir.angle()
     add_child(swing)
 

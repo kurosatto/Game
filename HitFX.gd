@@ -45,13 +45,14 @@ static func pop(parent: Node, pos: Vector2, col: Color, from_size: float, to_siz
 
 # Flash at the shooter's mouth as a shot leaves
 static func muzzle(parent: Node, pos: Vector2, col: Color):
-	pop(parent, pos, Color(col.r, col.g, col.b, 0.9).lerp(Color.WHITE, 0.35), 34.0, 60.0, 0.09)
+	# Kept small and soft so it reads as a little puff, not a camera flash
+	pop(parent, pos, Color(col.r, col.g, col.b, 0.55).lerp(Color.WHITE, 0.2), 14.0, 30.0, 0.09)
 
 # A shot landing on something alive: a bright pop plus sparks thrown forward
 # along the shot's flight and out to the sides. strength ~1 for a normal shot.
 static func impact(parent: Node, pos: Vector2, dir: Vector2, col: Color, strength: float = 1.0):
 	ensure_resources()
-	pop(parent, pos, Color(col.r, col.g, col.b, 0.95).lerp(Color.WHITE, 0.5), 20.0, 70.0 * strength, 0.14)
+	pop(parent, pos, Color(col.r, col.g, col.b, 0.8).lerp(Color.WHITE, 0.35), 16.0, 46.0 * strength, 0.14)
 	var p = CPUParticles2D.new()
 	p.position = pos
 	p.texture = glow_texture
