@@ -1938,6 +1938,12 @@ static func describe_senses(data: Dictionary) -> String:
     var other = SENSES.get(data.get("id", ""), [1, "Touch", ""])
     return "Sight: %s · %s: %s" % [VISION_WORDS[eyes[0]], other[1], SENSE_WORDS[other[0]]]
 
+# The same as words for icons: [sight word, other sense's name, its word]
+static func sense_words(data: Dictionary) -> Array:
+    var eyes = VISION.get(data.get("id", ""), [1, ""])
+    var other = SENSES.get(data.get("id", ""), [1, "Touch", ""])
+    return [VISION_WORDS[eyes[0]], other[1], SENSE_WORDS[other[0]]]
+
 # How each form attacks, set per form by "weapon" and named by "weapon_name".
 # Ranged weapons fire Tear.gd projectiles drawn from assets/projectiles/<kind>.png;
 # speed and life scale the form's shot_speed and range. Melee weapons hit every
