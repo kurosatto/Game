@@ -16,84 +16,111 @@ S = 48
 C = S / 2
 
 
+K = 4  # drawn 4x bigger, then scaled down for smooth, soft edges
+INK = (52, 26, 44, 255)  # the same plum-brown outline as the player art
+
+
 def canvas():
-    return Image.new("RGBA", (S, S), (0, 0, 0, 0))
+    return Image.new("RGBA", (S * K, S * K), (0, 0, 0, 0))
 
 
-def glow(img, color, radius=3):
+def box(x0, y0, x1, y1):
+    return [x0 * K, y0 * K, x1 * K, y1 * K]
+
+
+def pts(*xy):
+    return [(x * K, y * K) for x, y in xy]
+
+
+def finish(img, color, radius=3):
+    img = img.resize((S, S), Image.LANCZOS)
     halo = Image.new("RGBA", img.size, (0, 0, 0, 0))
     alpha = img.split()[3].filter(ImageFilter.GaussianBlur(radius))
     halo.paste(Image.new("RGBA", img.size, color), (0, 0), alpha)
     return Image.alpha_composite(halo, img)
 
 
+def bubble(d, x0, y0, x1, y1, fill, shine=True, ink=INK, w=1.6):
+    # Outlined round blob with a glossy highlight, like the player's eyes
+    d.ellipse(box(x0, y0, x1, y1), fill=fill, outline=ink, width=int(w * K))
+    if shine:
+        cw, ch = x1 - x0, y1 - y0
+        d.ellipse(box(x0 + cw * 0.2, y0 + ch * 0.16, x0 + cw * 0.46, y0 + ch * 0.38), fill=(255, 255, 255, 235))
+        d.ellipse(box(x0 + cw * 0.62, y0 + ch * 0.62, x0 + cw * 0.74, y0 + ch * 0.74), fill=(255, 255, 255, 170))
+
+
 def vesicle():
-    # Lysosome: a lipid bilayer (two thin rings) around acidic enzyme granules
+    # Lysosome: a soft round bubble of membrane holding enzyme granules
     img = canvas(); d = ImageDraw.Draw(img)
-    d.ellipse([9, 9, 39, 39], fill=(255, 120, 185, 150))
-    d.ellipse([9, 9, 39, 39], outline=(255, 220, 240, 255), width=2)
-    d.ellipse([12, 12, 36, 36], outline=(200, 70, 150, 255), width=1)
-    for x, y in [(19, 20), (27, 18), (24, 27), (30, 28), (18, 29)]:
-        d.ellipse([x - 2, y - 2, x + 2, y + 2], fill=(130, 20, 90, 255))
-    d.ellipse([15, 14, 20, 18], fill=(255, 255, 255, 200))
-    return glow(img, (255, 90, 170, 140))
+    bubble(d, 10, 10, 38, 38, (255, 150, 200, 235), shine=False)
+    d.ellipse(box(14, 14, 34, 34), outline=(235, 95, 165, 255), width=int(1.2 * K))
+    for x, y, r in [(21, 26, 2.6), (28, 22, 2.2), (27, 30, 2.4), (32, 27, 1.8)]:
+        d.ellipse(box(x - r, y - r, x + r, y + r), fill=(185, 50, 125, 255))
+    d.ellipse(box(15, 14, 22, 20), fill=(255, 255, 255, 240))
+    d.ellipse(box(29, 31, 32, 34), fill=(255, 255, 255, 170))
+    return finish(img, (255, 110, 180, 120))
 
 
 def jet():
-    # A fast squirt of water: bright head, thinning streak behind
+    # A squirt of water: round droplet with soft wake rings behind
     img = canvas(); d = ImageDraw.Draw(img)
-    d.polygon([(4, 24), (30, 19), (30, 29)], fill=(150, 210, 255, 140))
-    d.ellipse([26, 17, 42, 31], fill=(190, 235, 255, 255))
-    d.ellipse([31, 20, 36, 24], fill=(255, 255, 255, 255))
-    return glow(img, (110, 190, 255, 150))
+    for x, r, a in [(9, 3.2, 120), (16, 4.4, 170)]:
+        d.ellipse(box(x - r, 24 - r, x + r, 24 + r), fill=(170, 225, 255, a))
+    d.polygon(pts((14, 24), (31, 17.5), (31, 30.5)), fill=(170, 225, 255, 170))
+    bubble(d, 24, 15, 42, 33, (190, 238, 255, 255))
+    return finish(img, (110, 190, 255, 130))
 
 
 def spit():
-    # Venom droplet with a short tail
+    # Venom droplet: a teardrop of green with a pointed tail
     img = canvas(); d = ImageDraw.Draw(img)
-    d.polygon([(8, 24), (28, 18), (28, 30)], fill=(190, 230, 60, 150))
-    d.ellipse([22, 15, 40, 33], fill=(205, 245, 70, 255), outline=(110, 150, 20, 255))
-    d.ellipse([28, 19, 33, 23], fill=(255, 255, 220, 230))
-    return glow(img, (180, 255, 40, 140))
+    d.polygon(pts((9, 24), (30, 16.5), (30, 31.5)), fill=INK)
+    d.polygon(pts((11.5, 24), (30, 18.2), (30, 29.8)), fill=(200, 240, 80, 255))
+    bubble(d, 22, 15, 40, 33, (205, 245, 85, 255))
+    return finish(img, (180, 255, 60, 120))
 
 
 def harpoon():
-    # Cone snail radular tooth: hollow shaft with a barbed tip
+    # Cone snail radular tooth: a hollow, barbed little dart
     img = canvas(); d = ImageDraw.Draw(img)
-    d.line([(4, 24), (36, 24)], fill=(245, 230, 200, 255), width=3)
-    d.polygon([(46, 24), (34, 19), (36, 24), (34, 29)], fill=(255, 245, 225, 255))
-    d.line([(30, 24), (26, 19)], fill=(225, 205, 170, 255), width=2)
-    d.line([(4, 24), (8, 24)], fill=(170, 90, 200, 255), width=3)
-    return glow(img, (255, 230, 180, 130), 2)
+    d.rounded_rectangle(box(5, 21.5, 36, 26.5), radius=2.5 * K, fill=(250, 238, 210, 255), outline=INK, width=int(1.4 * K))
+    d.polygon(pts((45, 24), (33, 17), (35.5, 24), (33, 31)), fill=(255, 248, 230, 255), outline=INK, width=int(1.4 * K))
+    d.line(pts((29, 22), (25, 17.5)), fill=INK, width=int(2.6 * K))
+    d.line(pts((29, 22), (25, 17.5)), fill=(250, 238, 210, 255), width=int(1.2 * K))
+    d.rounded_rectangle(box(4, 21.5, 10, 26.5), radius=2.5 * K, fill=(205, 120, 225, 255), outline=INK, width=int(1.4 * K))
+    return finish(img, (255, 230, 180, 110), 2)
 
 
 def slime():
-    # Hagfish slime / sea cucumber tubules: pale sticky blob with strands
+    # Hagfish slime / sea cucumber tubules: a wobbly sticky glob with drips
     img = canvas(); d = ImageDraw.Draw(img)
-    d.ellipse([10, 11, 38, 37], fill=(215, 245, 220, 190))
-    for a in range(0, 360, 60):
-        r = math.radians(a)
-        d.line([(C, C), (C + math.cos(r) * 19, C + math.sin(r) * 19)], fill=(235, 255, 240, 200), width=2)
-    d.ellipse([17, 15, 23, 20], fill=(255, 255, 255, 230))
-    return glow(img, (190, 255, 210, 120))
+    for a in range(0, 360, 72):
+        r = math.radians(a + 20)
+        x, y = C + math.cos(r) * 15, C + math.sin(r) * 15
+        d.ellipse(box(x - 4.2, y - 4.2, x + 4.2, y + 4.2), fill=(215, 248, 225, 255), outline=INK, width=int(1.4 * K))
+    bubble(d, 11, 11, 37, 37, (220, 250, 228, 245))
+    return finish(img, (190, 255, 210, 110))
 
 
 def silk():
-    # A thrown silk line ending in a sticky glob
+    # A thrown silk line ending in a sticky, fluffy glob
     img = canvas(); d = ImageDraw.Draw(img)
-    d.line([(3, 26), (16, 22), (28, 25), (36, 24)], fill=(245, 245, 255, 230), width=2)
-    d.line([(6, 22), (20, 26), (34, 23)], fill=(220, 220, 240, 160), width=1)
-    d.ellipse([32, 19, 42, 29], fill=(250, 250, 255, 255))
-    return glow(img, (230, 230, 255, 130), 2)
+    d.line(pts((3, 26), (12, 22), (21, 25.5), (31, 23.5)), fill=(240, 240, 255, 230), width=int(1.8 * K), joint="curve")
+    d.line(pts((5, 22), (16, 26), (28, 22.5)), fill=(215, 215, 240, 170), width=int(1.1 * K), joint="curve")
+    for x, y in [(33, 20.5), (38, 22), (35, 27.5), (39.5, 27)]:
+        d.ellipse(box(x - 4, y - 4, x + 4, y + 4), fill=(250, 250, 255, 255), outline=INK, width=int(1.3 * K))
+    d.ellipse(box(32, 19, 41, 28.5), fill=(250, 250, 255, 255))
+    d.ellipse(box(33, 19.5, 36.5, 22.5), fill=(255, 255, 255, 255))
+    return finish(img, (230, 230, 255, 110), 2)
 
 
 def spray():
-    # Hot defensive spray (bombardier beetle quinones, millipede secretions)
+    # Hot defensive spray (bombardier beetle quinones): a puff of droplets
     img = canvas(); d = ImageDraw.Draw(img)
-    for x, y, r, a in [(16, 24, 7, 120), (24, 20, 8, 170), (25, 29, 7, 160), (33, 24, 9, 230)]:
-        d.ellipse([x - r, y - r, x + r, y + r], fill=(255, 170, 50, a))
-    d.ellipse([31, 21, 37, 26], fill=(255, 240, 170, 255))
-    return glow(img, (255, 140, 30, 150))
+    for x, y, r, col in [(13, 25, 5, (255, 190, 90, 190)), (21, 20, 6, (255, 170, 60, 230)), (22, 30, 5.5, (255, 175, 70, 220))]:
+        d.ellipse(box(x - r, y - r, x + r, y + r), fill=col, outline=INK, width=int(1.3 * K))
+    bubble(d, 24, 15, 42, 33, (255, 205, 90, 255))
+    return finish(img, (255, 140, 30, 130))
 
 
 IMPORT = """[remap]

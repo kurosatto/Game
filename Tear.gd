@@ -128,7 +128,8 @@ func setup_trail(p: CPUParticles2D):
     streak.material = additive
     streak.centered = false
     streak.offset = Vector2(-STREAK_W, -STREAK_H / 2.0)
-    streak.modulate = Color(p.color.r, p.color.g, p.color.b).lerp(Color.WHITE, 0.25)
+    # A short, faint wake behind the shot rather than a laser beam
+    streak.modulate = Color(p.color.r, p.color.g, p.color.b, 0.45).lerp(Color(1, 1, 1, 0.45), 0.2)
     streak.show_behind_parent = true
     add_child(streak)
     move_child(streak, 0)
@@ -137,9 +138,9 @@ func update_streak():
     if streak == null:
         return
     # Tail length follows speed: about a sixth of a second of flight
-    var length = clamp(velocity.length() * 0.16, 50.0, 150.0)
+    var length = clamp(velocity.length() * 0.07, 20.0, 55.0)
     streak.rotation = velocity.angle()
-    streak.scale = Vector2(length / STREAK_W, 1.6)
+    streak.scale = Vector2(length / STREAK_W, 1.1)
 
 func _physics_process(delta: float):
     if is_homing and not is_enemy_tear:
