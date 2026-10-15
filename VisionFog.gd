@@ -64,8 +64,11 @@ func set_sense(rating: int, kind: String):
 # rating: 1 (blind) to 10 (best eyes alive)
 func set_vision(rating: int, instant: bool = false):
 	var r = clamp(rating, 1, 10)
-	target_radius = 300.0 + r * 100.0      # 400 px for a cell, 1300 px for a dragonfly
-	target_darkness = 0.97 - r * 0.06      # 0.91 for a cell, 0.37 for a dragonfly
+	# Kept tight so sight matters: a cell sees a little past its own body and
+	# relies on its other senses (SenseHints.gd), while even the best eyes
+	# leave the far corners of the room in shadow.
+	target_radius = 180.0 + r * 40.0       # 220 px for a cell, 580 px for a dragonfly
+	target_darkness = 0.95 - r * 0.025     # 0.93 for a cell, 0.70 for a dragonfly
 	if instant:
 		radius = target_radius
 		darkness = target_darkness
@@ -83,7 +86,7 @@ func _process(delta: float):
 	mat.set_shader_parameter("rect_size", rect.size)
 	mat.set_shader_parameter("center", local_pos)
 	mat.set_shader_parameter("radius", radius)
-	mat.set_shader_parameter("softness", radius * 0.7)
+	mat.set_shader_parameter("softness", radius * 0.6)
 	mat.set_shader_parameter("darkness", darkness)
 	var door_pts := PackedVector2Array()
 	for door in get_tree().get_nodes_in_group("doors"):
