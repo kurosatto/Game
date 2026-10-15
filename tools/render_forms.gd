@@ -4,7 +4,7 @@
 #   godot --path . --rendering-driver opengl3 -s res://tools/render_forms.gd
 # With SHOT_DIR set it saves forms_montage.png (every form, walking, head up)
 # into that folder (FORMS=id,id picks some, ZOOM=2 draws them bigger). With SHEETS=1 it rewrites assets/lineages/<id>_sheet.png
-# (4 frames of 128 px, head up) that the menu and codex show.
+# (4 frames of 256 px, head up) that the menu and codex show.
 extends SceneTree
 
 const BodyScript = preload("res://PlayerBody.gd")
@@ -62,20 +62,20 @@ func montage(ids: Array, out: String):
 
 func sheets(ids: Array):
 	var vp = SubViewport.new()
-	vp.size = Vector2i(256, 256)
+	vp.size = Vector2i(512, 512)
 	vp.transparent_bg = true
 	vp.render_target_update_mode = SubViewport.UPDATE_ALWAYS
 	root.add_child(vp)
 	var holder = Node2D.new()
-	holder.position = Vector2(128, 128)
+	holder.position = Vector2(256, 256)
 	holder.rotation = -PI / 2
-	holder.scale = Vector2(2, 2)
+	holder.scale = Vector2(4, 4)
 	vp.add_child(holder)
 	var b = BodyScript.new()
 	holder.add_child(b)
 	for id in ids:
 		b.form_id = id
-		var sheet := Image.create(512, 128, false, Image.FORMAT_RGBA8)
+		var sheet := Image.create(1024, 256, false, Image.FORMAT_RGBA8)
 		for f in 4:
 			pose(b, f, 4)
 			b.queue_redraw()
@@ -83,7 +83,7 @@ func sheets(ids: Array):
 			await RenderingServer.frame_post_draw
 			var img = vp.get_texture().get_image()
 			img.convert(Image.FORMAT_RGBA8)
-			img.resize(128, 128, Image.INTERPOLATE_LANCZOS)
-			sheet.blit_rect(img, Rect2i(0, 0, 128, 128), Vector2i(f * 128, 0))
+			img.resize(256, 256, Image.INTERPOLATE_LANCZOS)
+			sheet.blit_rect(img, Rect2i(0, 0, 256, 256), Vector2i(f * 256, 0))
 		sheet.save_png("res://assets/lineages/%s_sheet.png" % id)
 		print("SHEET ", id)
