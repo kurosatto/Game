@@ -36,6 +36,9 @@ var current_accessory: String = "cilia"
 # The default player_sheet.png needs a -90 degree turn; lineage sheets need +90.
 var default_texture: Texture2D = null
 var has_lineage_art: bool = false
+# Forms drawn and animated in code (PlayerBody.gd); the sheet is only a fallback
+const PlayerBody = preload("res://PlayerBody.gd")
+var body_art: Node2D = null
 var heading_offset: float = -PI/2
 var current_attack_type: String = "single"
 # Weapon style from data/Lineages.gd WEAPONS (ranged projectile or melee swing)
@@ -290,13 +293,15 @@ func _physics_process(delta: float):
         $Sprite2D.scale = $Sprite2D.scale.lerp(Vector2(hunker, hunker), min(1.0, delta * 20.0))
     elif move_dir != Vector2.ZERO:
         swim_time += delta * 11.0
-        var stretch_x = 1.0 + sin(swim_time) * 0.15
-        var stretch_y = 1.0 - sin(swim_time) * 0.15
+        # Drawn bodies animate their own limbs, so they only flex a little
+        var flex = 0.04 if body_art and body_art.visible else 0.15
+        var stretch_x = 1.0 + sin(swim_time) * flex
+        var stretch_y = 1.0 - sin(swim_time) * flex
         $Sprite2D.scale = Vector2(stretch_x, stretch_y)
         $Sprite2D.frame = int(fmod(swim_time, 4.0))
     else:
         swim_time += delta * 3.5
-        var pulse = 1.0 + sin(swim_time) * 0.06
+        var pulse = 1.0 + sin(swim_time) * (0.015 if body_art and body_art.visible else 0.06)
         $Sprite2D.scale = Vector2(pulse, pulse)
         $Sprite2D.frame = int(fmod(swim_time, 4.0))
     # Recoil squash on top of the swim animation, so it is seen for more than a frame
@@ -797,6 +802,8 @@ func handle_shooting():
 func shoot_tear(dir: Vector2):
     face_dir = dir
     aim_hold = 0.4
+    if body_art:
+        body_art.on_attack()
     if lineages.weapon_stats(current_weapon).melee:
         melee_attack(dir)
         return
@@ -1310,11 +1317,23 @@ static func dash_cooldown_for_speed(spd: float) -> float:
 func update_creature_visuals():
     if default_texture == null:
         default_texture = $Sprite2D.texture
+    if body_art == null:
+        body_art = PlayerBody.new()
+        body_art.name = "Body"
+        body_art.player = self
+        $Sprite2D.add_child(body_art)
+    var drawn = PlayerBody.has_form(current_character_id)
+    body_art.visible = drawn
+    body_art.set_form(current_character_id)
     var sheet_path = "res://assets/lineages/%s_sheet.png" % current_character_id
-    has_lineage_art = ResourceLoader.exists(sheet_path)
-    $Sprite2D.texture = load(sheet_path) if has_lineage_art else default_texture
+    has_lineage_art = drawn or ResourceLoader.exists(sheet_path)
+    if drawn:
+        $Sprite2D.texture = null
+    else:
+        $Sprite2D.texture = load(sheet_path) if has_lineage_art else default_texture
     $Sprite2D.hframes = 4
-    heading_offset = PI/2 if has_lineage_art else -PI/2
+    # Drawn bodies face +X; sheets face up; the old default sheet faces down
+    heading_offset = 0.0 if drawn else (PI/2 if has_lineage_art else -PI/2)
     # Lineage art carries its own colours and anatomy, so no tint or drawn accessory
     $Sprite2D.modulate = Color.WHITE if has_lineage_art else current_modulate
     queue_redraw()
