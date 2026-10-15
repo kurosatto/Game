@@ -558,9 +558,20 @@ func _on_evolution_choice_clicked(floor_num: int, choice_idx: int):
     evolution_selected.emit(floor_num, choice_idx)
 
 # ---- Pause screen info ----
-# Left of the settings: the era, what you are, your adaptations and the
-# last banner, so nothing shown in passing is lost.
-var pause_info: RichTextLabel = null
+# Left of the settings: pictures of what you are, the era's animals and your
+# adaptations. Tapping (or hovering) one shows its details in the box at the
+# bottom, so the screen reads at a glance and the facts wait until asked for.
+const PauseTile = preload("res://PauseTile.gd")
+var pause_box: PanelContainer = null
+var pause_era: Label
+var pause_dates: Label
+var pause_you: HBoxContainer
+var pause_wildlife: HBoxContainer
+var pause_adapt: HFlowContainer
+var pause_info_title: Label
+var pause_info_body: Label
+var pause_tiles: Array = []
+var pause_default: Array = ["", ""]
 
 func _create_pause_info():
     var panel = settings_modal.get_node("Panel")
@@ -568,56 +579,193 @@ func _create_pause_info():
     panel.offset_right = 600.0
     panel.offset_top = min(panel.offset_top, -270.0)
     panel.offset_bottom = max(panel.offset_bottom, 270.0)
-    var box = PanelContainer.new()
-    box.set_anchors_preset(Control.PRESET_CENTER)
-    box.offset_left = -900.0
-    box.offset_right = 0.0
-    box.offset_top = -440.0
-    box.offset_bottom = 440.0
-    box.add_theme_stylebox_override("panel", UI.panel(UI.MEMBRANE, 28, 0.96, 30.0))
-    settings_modal.add_child(box)
-    pause_info = RichTextLabel.new()
-    pause_info.bbcode_enabled = true
-    pause_info.scroll_active = true
-    pause_info.add_theme_font_size_override("normal_font_size", 20)
-    pause_info.add_theme_font_size_override("bold_font_size", 24)
-    pause_info.add_theme_color_override("default_color", UI.CREAM)
-    box.add_child(pause_info)
+    pause_box = PanelContainer.new()
+    pause_box.set_anchors_preset(Control.PRESET_CENTER)
+    pause_box.offset_left = -900.0
+    pause_box.offset_right = 0.0
+    pause_box.offset_top = -440.0
+    pause_box.offset_bottom = 440.0
+    pause_box.add_theme_stylebox_override("panel", UI.panel(UI.MEMBRANE, 28, 0.96, 28.0))
+    settings_modal.add_child(pause_box)
+    var col = VBoxContainer.new()
+    col.add_theme_constant_override("separation", 12)
+    pause_box.add_child(col)
+
+    var era_row = HBoxContainer.new()
+    era_row.add_theme_constant_override("separation", 14)
+    col.add_child(era_row)
+    pause_era = _pause_label(26, UI.SUN, true)
+    pause_era.autowrap_mode = TextServer.AUTOWRAP_OFF
+    era_row.add_child(pause_era)
+    pause_dates = _pause_label(18, UI.MUTED)
+    pause_dates.autowrap_mode = TextServer.AUTOWRAP_OFF
+    pause_dates.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+    era_row.add_child(pause_dates)
+
+    pause_you = HBoxContainer.new()
+    pause_you.add_theme_constant_override("separation", 22)
+    col.add_child(pause_you)
+
+    col.add_child(_pause_label(17, UI.LEAF, true, "ANIMALS OF THIS ERA"))
+    pause_wildlife = HBoxContainer.new()
+    pause_wildlife.add_theme_constant_override("separation", 10)
+    col.add_child(pause_wildlife)
+
+    col.add_child(_pause_label(17, UI.LEAF, true, "ADAPTATIONS"))
+    pause_adapt = HFlowContainer.new()
+    pause_adapt.add_theme_constant_override("h_separation", 10)
+    pause_adapt.add_theme_constant_override("v_separation", 10)
+    col.add_child(pause_adapt)
+
+    var spacer = Control.new()
+    spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
+    col.add_child(spacer)
+
+    # The details box: what the last tapped picture is
+    var info = PanelContainer.new()
+    var sb = UI.panel(UI.SUN, 20, 0.9, 18.0)
+    sb.set_border_width_all(2)
+    sb.shadow_size = 0
+    info.add_theme_stylebox_override("panel", sb)
+    info.custom_minimum_size = Vector2(0, 150)
+    col.add_child(info)
+    var info_col = VBoxContainer.new()
+    info_col.add_theme_constant_override("separation", 4)
+    info.add_child(info_col)
+    pause_info_title = _pause_label(21, UI.SUN, true)
+    info_col.add_child(pause_info_title)
+    pause_info_body = _pause_label(18, UI.CREAM)
+    info_col.add_child(pause_info_body)
+
+func _pause_label(px: int, colour: Color, bold: bool = false, text: String = "") -> Label:
+    var l = Label.new()
+    l.text = text
+    l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+    l.add_theme_font_size_override("font_size", px)
+    l.add_theme_color_override("font_color", colour)
+    if bold:
+        l.add_theme_font_override("font", load(UI.FONT_BOLD))
+    return l
+
+func _pause_tile(parent: Control, tex: Texture2D, frames: int, disc: float, name_text: String, title: String, body: String) -> Control:
+    var t = PauseTile.new().setup(tex, frames, disc, name_text)
+    t.info_title = title
+    t.info_body = body
+    t.picked.connect(_on_pause_tile_picked)
+    parent.add_child(t)
+    pause_tiles.append(t)
+    return t
+
+func _on_pause_tile_picked(tile: Control):
+    for t in pause_tiles:
+        if is_instance_valid(t):
+            t.selected = t == tile
+    pause_info_title.text = tile.info_title
+    pause_info_body.text = tile.info_body
+
+# An icon and a short value, for the stats beside your portrait
+func _pause_chip(parent: Control, tex: Texture2D, text: String, colour: Color = UI.CREAM):
+    var row = HBoxContainer.new()
+    row.add_theme_constant_override("separation", 6)
+    var icon = TextureRect.new()
+    icon.texture = tex
+    icon.custom_minimum_size = Vector2(34, 34)
+    icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+    icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+    row.add_child(icon)
+    var l = _pause_label(19, colour, false, text)
+    l.autowrap_mode = TextServer.AUTOWRAP_OFF
+    l.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+    row.add_child(l)
+    parent.add_child(row)
+
+func _icon(name: String) -> Texture2D:
+    var p = "res://assets/ui/icons/%s.png" % name
+    return load(p) if ResourceLoader.exists(p) else null
 
 func show_pause_info():
-    if pause_info == null:
+    if pause_box == null:
         _create_pause_info()
+    for t in pause_tiles:
+        if is_instance_valid(t):
+            t.queue_free()
+    pause_tiles.clear()
+    for c in pause_you.get_children() + pause_wildlife.get_children() + pause_adapt.get_children():
+        c.queue_free()
+
     var main = get_tree().get_first_node_in_group("main")
     var player = get_tree().get_first_node_in_group("player")
-    var t = ""
     var era = ERA_INFO.get(current_floor, {})
-    if not era.is_empty():
-        t += "[b][color=#ffcc66]%s[/color][/b]  %s\n%s\n" % [era.name, era.dates, era.fact]
-        var animals = preload("res://data/Fauna.gd").describe_floor(current_floor)
-        if animals != "":
-            t += "[color=#bdccb3]%s[/color]\n" % animals
+    pause_era.text = era.get("name", "ERA %d" % current_floor)
+    pause_dates.text = era.get("dates", "")
+
+    # You: your animated sprite (whatever art the player is drawn with) and
+    # your numbers as icons
     if main and player and main.has_method("current_form"):
         var form = main.current_form()
         if not form.is_empty():
-            t += "\n[b][color=#ffcc66]YOU ARE: %s[/color][/b]\n" % form.name
-            t += "%s\n%s\n" % [form.get("clade_path", form.clade), form.fact]
-            t += "Living today: %s\n" % form.living_example
-            t += "Attack: %s (%s)\n" % [player.current_weapon_name, lineages.weapon_stats(player.current_weapon).label]
-            var special = lineages.weapon_stats(player.current_weapon).get("special", "")
-            if special != "":
-                t += "Special: %s\n" % special
-            t += "%s\n" % lineages.describe_senses(form)
-            t += "Damage %.1f · Speed %d · Health %d/%d\n" % [player.damage, int(player.speed), player.health, player.max_health]
-        if not player.adaptations_taken.is_empty():
-            t += "\n[b][color=#9eed80]ADAPTATIONS[/color][/b]\n"
-            for id in player.adaptations_taken:
-                var a = player.adaptations.get_adaptation(id)
-                var n = player.adaptations_taken[id]
-                t += "• %s%s: %s\n" % [a.name, (" ×%d" % n) if n > 1 else "", a.effect]
-    if not last_banner.is_empty():
-        t += "\n[b][color=#ffd24d]LAST DISCOVERY: %s[/color][/b]\n%s\n" % last_banner
-    pause_info.text = t
-    pause_info.scroll_to_line(0)
+            var spr: Sprite2D = player.get_node("Sprite2D")
+            var w = lineages.weapon_stats(player.current_weapon)
+            var body = form.fact
+            if w.get("special", "") != "":
+                body += "\nAttack: %s. %s" % [player.current_weapon_name, w.special]
+            var me = _pause_tile(pause_you, spr.texture, spr.hframes, 190.0, "",
+                form.name, body)
+            me.tint = form.color.clamp()
+            me.spin = -PI / 2 + player.heading_offset
+            var side = VBoxContainer.new()
+            side.add_theme_constant_override("separation", 6)
+            side.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+            pause_you.add_child(side)
+            side.add_child(_pause_label(30, UI.SUN, true, form.name))
+            side.add_child(_pause_label(17, UI.MUTED, false, form.get("clade", "")))
+            if form.get("living_example", "") != "":
+                side.add_child(_pause_label(17, UI.CREAM, false, "Living today: " + form.living_example))
+            var chips = HFlowContainer.new()
+            chips.add_theme_constant_override("h_separation", 18)
+            chips.add_theme_constant_override("v_separation", 6)
+            side.add_child(chips)
+            _pause_chip(chips, heart_full_tex, "%d/%d" % [player.health, player.max_health], UI.CORAL)
+            _pause_chip(chips, _icon("stat_damage"), "%.1f" % player.damage)
+            _pause_chip(chips, _icon("stat_speed"), "%d" % int(player.speed), UI.AQUA)
+            var senses = lineages.sense_words(form)
+            _pause_chip(chips, _icon("stat_sight"), senses[0])
+            _pause_chip(chips, _icon("stat_sense"), senses[2], UI.LEAF)
+            _pause_chip(chips, _icon("stat_attack"), player.current_weapon_name, UI.SUN)
+
+    # The era's animals, drawn with their own sprite sheets
+    var fauna = preload("res://data/Fauna.gd")
+    var f = fauna.FLOORS.get(clampi(current_floor, 1, 5), {})
+    for key in ["fly", "pacer"] + fauna.special_types(current_floor):
+        var a: Dictionary = f[key]
+        var p = "res://assets/fauna/%s_sheet.png" % a.name.to_lower()
+        var tex: Texture2D = load(p) if ResourceLoader.exists(p) else null
+        var frames = int(round(tex.get_width() / float(tex.get_height()))) if tex else 1
+        var body = a.fact + ("\n" + a.tip if a.has("tip") else "")
+        _pause_tile(pause_wildlife, tex, frames, 128.0, a.name, a.name, body)
+
+    # Adaptations as icons, stacked ones with a count
+    if player and not player.adaptations_taken.is_empty():
+        for id in player.adaptations_taken:
+            var ad = player.adaptations.get_adaptation(id)
+            var n = player.adaptations_taken[id]
+            var t = _pause_tile(pause_adapt, _icon("adapt_" + id), 1, 92.0, "",
+                ad.name + (" ×%d" % n if n > 1 else ""), ad.effect + "\n" + ad.fact)
+            t.badge = n
+            t.tint = UI.LEAF
+            t.animate = false
+    else:
+        var none = _pause_label(18, UI.MUTED, false, "None yet. Eat to fill the biomass bar.")
+        none.autowrap_mode = TextServer.AUTOWRAP_OFF
+        pause_adapt.add_child(none)
+
+    # Until something is tapped, the box keeps the last thing that popped up
+    var touch = TouchControls.should_show()
+    pause_info_title.text = "Tap a picture to learn about it" if touch else "Point at a picture to learn about it"
+    pause_info_body.text = ""
+    if not last_banner.is_empty() and last_banner[0] != "WILDLIFE OF THIS ERA":
+        pause_info_title.text = "Last discovery: " + last_banner[0]
+        pause_info_body.text = last_banner[1]
 
 # ---- Adaptations ----
 # Shown when the biomass bar fills: three traits from data/Adaptations.gd.
