@@ -1093,6 +1093,9 @@ func take_damage(amount: float):
 	if player and is_instance_valid(player) and player.get("crit_chance") and randf() < player.crit_chance:
 		amount *= 2.0
 		player.popup_text(global_position, "×2", Color(1.0, 0.8, 0.4))
+	# Stolen stingers (item): some hits fire a nematocyst and stun
+	if player and is_instance_valid(player) and player.get("stun_chance") and randf() < player.stun_chance:
+		apply_stun(0.9)
 	if armour_blocks():
 		amount *= 0.25
 		if randf() < 0.5:
@@ -1137,8 +1140,33 @@ func die():
 	# Shockwave ring where it popped
 	HitFX.pop(get_parent(), global_position, species_burst_color().lerp(Color.WHITE, 0.4), 30.0, 170.0 * max(1.0, base_scale), 0.28)
 
+	kill_effects()
 	enemy_died.emit()
 	queue_free()
+
+# Items that act when prey dies: decomposer clouds and alarm pheromone
+func kill_effects():
+	if not player or not is_instance_valid(player) or is_boss():
+		return
+	var pos = global_position
+	var room = get_parent()
+	if player.get("alarm_freeze") and player.alarm_freeze > 0.0:
+		for e in get_tree().get_nodes_in_group("enemies"):
+			if e != self and is_instance_valid(e) and not e.dead and e.global_position.distance_to(pos) < 320.0:
+				e.apply_stun(player.alarm_freeze)
+		HitFX.pop(room, pos, Color(1.0, 0.9, 0.5), 40.0, 320.0, 0.35)
+	if player.get("decompose") and player.decompose:
+		var dmg = player.damage
+		var tree = get_tree()
+		# A beat later, so a crowded room goes off in a chain
+		tree.create_timer(0.15).timeout.connect(func():
+			if not is_instance_valid(room):
+				return
+			HitFX.pop(room, pos, Color(0.6, 0.85, 0.3), 30.0, 140.0, 0.3)
+			for e in tree.get_nodes_in_group("enemies"):
+				if is_instance_valid(e) and not e.dead and e.global_position.distance_to(pos) < 140.0:
+					e.take_damage(dmg)
+		)
 
 # Eaten prey feeds the adaptation bar: chasers are worth 1, shooters 2
 func drop_biomass():

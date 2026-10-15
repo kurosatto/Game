@@ -1,9 +1,11 @@
 # ItemPedestal.gd
 extends Area2D
 
-@export var item_id: String = "onion" # "onion", "eye", "hormones", "cells", "heart", "key"
+@export var item_id: String = "onion" # an id from data/Items.gd, or "heart", "key"
 @export var is_shop_item: bool = false
 @export var price: int = 0
+
+const Items = preload("res://data/Items.gd")
 
 var collected: bool = false
 var start_y: float = -20.0
@@ -43,19 +45,16 @@ func setup_visuals():
             if aura:
                 aura.color = Color(0.1, 1.0, 0.9, 0.7)
         
-    var tex_path = "res://assets/item_onion.png"
-    if item_id == "eye":
-        tex_path = "res://assets/item_eye.png"
-    elif item_id == "hormones":
-        tex_path = "res://assets/item_hormones.png"
-    elif item_id == "cells":
-        tex_path = "res://assets/item_cells.png"
-    elif item_id == "heart":
+    var tex_path = "res://assets/ui/icons/item_%s.png" % item_id
+    if item_id == "heart":
         tex_path = "res://assets/pickup_heart.png"
     elif item_id == "key":
         tex_path = "res://assets/pickup_key.png"
-        
+    elif not ResourceLoader.exists(tex_path):
+        tex_path = "res://assets/item_onion.png"
     $ItemSprite.texture = load(tex_path)
+    # Item icons are drawn at 96 px; pickups are 64 px sprites
+    $ItemSprite.scale = Vector2.ONE * (0.85 if tex_path.contains("/icons/") else 1.0)
     $ItemSprite.visible = true
     
     if is_shop_item and price > 0:
@@ -110,20 +109,16 @@ func apply_item_to_player(player):
 
 func get_item_name(id: String) -> String:
     match id:
-        "onion": return "Cytoplasmic Surge"
-        "eye": return "Compound Ocelli"
-        "hormones": return "Adrenal Mutagen"
-        "cells": return "Cellular Duplication"
         "heart": return "Vitality Biomass"
         "key": return "Enzymatic Key"
-    return "Unknown Mutation"
+    var it = Items.get_item(id)
+    return it.get("name", "Unknown Mutation")
 
 func get_item_description(id: String) -> String:
     match id:
-        "onion": return "Fluid rate up (faster fire rate)"
-        "eye": return "Triple bio-plasma burst"
-        "hormones": return "Damage + Movement speed up"
-        "cells": return "+1 Vitality Container & Full Heal"
         "heart": return "Restores 1 Vitality container"
         "key": return "+1 Enzymatic Key"
-    return ""
+    var it = Items.get_item(id)
+    if it.is_empty():
+        return ""
+    return it.effect + "\n" + it.fact

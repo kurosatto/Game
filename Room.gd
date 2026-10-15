@@ -614,8 +614,9 @@ func spawn_boss(floor_number: int):
 func spawn_treasure_pedestal():
     var ped = pedestal_scene.instantiate()
     ped.position = Vector2(960, 540)
-    var items = ["onion", "eye", "hormones", "cells"]
-    var chosen_item = items.pick_random()
+    # Something not yet found this run (data/Items.gd)
+    var player = get_tree().get_first_node_in_group("player")
+    var chosen_item = preload("res://data/Items.gd").roll(player.items_found if player else [])
     ped.item_id = chosen_item
     room_data.treasure_item_id = chosen_item
     add_child(ped)
@@ -641,7 +642,7 @@ func spawn_shop_items():
     var shop_defs = [
         {"item_id": "heart", "price": 3, "pos": Vector2(720, 540), "collected": false},
         {"item_id": "key", "price": 5, "pos": Vector2(960, 540), "collected": false},
-        {"item_id": ["onion", "eye", "hormones", "cells"].pick_random(), "price": 15, "pos": Vector2(1200, 540), "collected": false}
+        {"item_id": preload("res://data/Items.gd").roll([]), "price": 15, "pos": Vector2(1200, 540), "collected": false}
     ]
     room_data.shop_inventory = shop_defs.duplicate(true)
     
