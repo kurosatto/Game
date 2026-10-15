@@ -64,6 +64,18 @@ var flat_speed: float = 0.0
 var flat_fire: float = 0.0
 var item_fire_mult: float = 1.0
 var item_triple: bool = false
+# Treasure-room finds (data/Items.gd), in the order found
+var items = preload("res://data/Items.gd")
+var items_found: Array = []
+var stun_chance: float = 0.0 # Enemy.take_damage stuns this share of hits
+var photo_interval: float = 0.0 # stolen chloroplasts: seconds per half heart
+var photo_timer: float = 0.0
+var ink_on_hurt: float = 0.0
+var decompose: bool = false # kills burst into a harmful cloud (Enemy.die)
+var alarm_freeze: float = 0.0 # kills freeze animals nearby (Enemy.die)
+var ram_mult: float = 0.0 # dashing hits animals for this x damage
+var ram_hit: Array = [] # animals already rammed this dash
+var paralyse: bool = false # spine pricks stun
 
 # Adaptations (data/Adaptations.gd): eating prey fills the biomass bar, and a
 # full bar offers a pick of three traits that stack and survive evolution
@@ -199,6 +211,17 @@ func _physics_process(delta: float):
             for e in get_tree().get_nodes_in_group("enemies"):
                 if is_instance_valid(e) and e.global_position.distance_to(global_position) < body_radius(e, 30.0) + 55.0:
                     e.take_damage(prick)
+                    # Tetrodotoxin: the prick shuts its nerves down for a moment
+                    if paralyse and is_instance_valid(e) and e.has_method("apply_stun"):
+                        e.apply_stun(0.8)
+
+    # Stolen chloroplasts: slow, steady healing from sunlight
+    if photo_interval > 0.0 and health < max_health:
+        photo_timer += delta
+        if photo_timer >= photo_interval:
+            photo_timer = 0.0
+            heal(1)
+            popup_text(global_position, "+½ ♥", Color(0.55, 0.95, 0.45))
 
     if invincibility_time > 0:
         invincibility_time -= delta
@@ -263,6 +286,16 @@ func _physics_process(delta: float):
                     var push = (e.global_position - global_position).normalized()
                     if e.has_method("apply_knockback"):
                         e.apply_knockback(push * 420.0, 0.25)
+
+        # Bony head shield: ram each animal once per dash
+        if ram_mult > 0.0:
+            for e in get_tree().get_nodes_in_group("enemies"):
+                if is_instance_valid(e) and not ram_hit.has(e) and global_position.distance_to(e.global_position) < body_radius(e, 30.0) + 40.0:
+                    ram_hit.append(e)
+                    e.take_damage(damage * ram_mult)
+                    HitFX.impact(get_parent(), e.global_position, dash_direction, Color(0.95, 0.85, 0.6), 1.4)
+                    if is_instance_valid(e) and e.has_method("apply_knockback"):
+                        e.apply_knockback(dash_direction * 380.0, 0.3)
 
         # Contact dash damage (Bastion, Arthropleura, Scolopendra, Roller Titan)
         var slam_dmg = current_dash_perks.get("slam_damage", 0.0)
@@ -426,6 +459,7 @@ func perform_bio_dash():
     is_dashing = true
     dash_timer = dash_duration
     dash_cooldown = max_dash_cooldown
+    ram_hit.clear()
     
     var iframe_dur = current_dash_perks.get("invulnerable_duration", 0.28) + iframe_bonus
     invincibility_time = iframe_dur
@@ -561,6 +595,33 @@ func hide_from_animals(duration: float):
     for e in get_tree().get_nodes_in_group("enemies"):
         if is_instance_valid(e) and e.has_method("lose_track") and e.global_position.distance_to(global_position) < 380.0:
             e.lose_track()
+
+func squirt_ink(duration: float):
+    hide_from_animals(duration)
+    popup_text(global_position, "INK", Color(0.75, 0.7, 0.95))
+    var p = CPUParticles2D.new()
+    p.position = global_position
+    p.one_shot = true
+    p.explosiveness = 0.85
+    p.amount = 40
+    p.lifetime = duration
+    p.emission_shape = CPUParticles2D.EMISSION_SHAPE_SPHERE
+    p.emission_sphere_radius = 30.0
+    p.spread = 180.0
+    p.gravity = Vector2.ZERO
+    p.initial_velocity_min = 30.0
+    p.initial_velocity_max = 110.0
+    p.damping_min = 60.0
+    p.damping_max = 90.0
+    p.scale_amount_min = 8.0
+    p.scale_amount_max = 18.0
+    var fade = Gradient.new()
+    fade.set_color(0, Color(0.06, 0.03, 0.12, 0.9))
+    fade.set_color(1, Color(0.06, 0.03, 0.12, 0.0))
+    p.color_ramp = fade
+    get_parent().add_child(p)
+    p.emitting = true
+    get_tree().create_timer(duration + 0.2).timeout.connect(p.queue_free)
 
 func spawn_dash_smoke_cloud():
     hide_from_animals(1.2)
@@ -1175,6 +1236,11 @@ func adaptation_mods() -> Dictionary:
                 total.perk.append(v)
             else:
                 total[k] = total.get(k, 0.0) + v * adaptations_taken[id]
+    for id in items_found:
+        var it = items.get_item(id)
+        for k in it.get("mods", {}):
+            if k != "gift":
+                total[k] = total.get(k, 0.0) + it.mods[k]
     return total
 
 # Form stats, then items and refines, then adaptations
@@ -1203,6 +1269,13 @@ func recompute_stats():
     symbionts = m.get("symbiont", 0.0)
     thorns = m.get("thorns", 0.0)
     zap_power = m.get("zap_power", 0.0)
+    stun_chance = m.get("stun", 0.0)
+    photo_interval = m.get("photo", 0.0)
+    ink_on_hurt = m.get("ink", 0.0)
+    decompose = m.get("decompose", 0.0) > 0.0
+    alarm_freeze = m.get("alarm", 0.0)
+    ram_mult = m.get("ram", 0.0)
+    paralyse = m.get("paralyse", 0.0) > 0.0
 
     current_tear_perks = form_stats.perks.duplicate()
     for perk in m.perk:
@@ -1391,6 +1464,10 @@ func take_damage(amount: int):
     if main and main.has_method("shake_camera"):
         main.shake_camera(9.0)
         
+    # Ink sac: a dark cloud to slip away behind
+    if ink_on_hurt > 0.0 and health > 0:
+        squirt_ink(ink_on_hurt)
+
     # Retaliatory spine darts (Trilobita)
     if current_passive == "retaliatory_spines":
         for angle_deg in [0, 90, 180, 270]:
@@ -1441,6 +1518,12 @@ func apply_item_upgrade(item_id: String):
     elif item_id == "cells":
         add_max_health(2)
         heal(2)
+    if not items_found.has(item_id):
+        items_found.append(item_id)
+    # Plasmid: genes handed over by another organism
+    var gift = int(items.get_item(item_id).get("mods", {}).get("gift", 0))
+    for a in adaptations.roll(adaptations_taken, gift):
+        grant_adaptation(a.id)
     recompute_stats()
 
     health_changed.emit(health, max_health)

@@ -611,7 +611,7 @@ func _create_pause_info():
     pause_wildlife.add_theme_constant_override("separation", 10)
     col.add_child(pause_wildlife)
 
-    col.add_child(_pause_label(17, UI.LEAF, true, "ADAPTATIONS"))
+    col.add_child(_pause_label(17, UI.LEAF, true, "FINDS AND ADAPTATIONS"))
     pause_adapt = HFlowContainer.new()
     pause_adapt.add_theme_constant_override("h_separation", 10)
     pause_adapt.add_theme_constant_override("v_separation", 10)
@@ -709,10 +709,20 @@ func show_pause_info():
             var body = form.fact
             if w.get("special", "") != "":
                 body += "\nAttack: %s. %s" % [player.current_weapon_name, w.special]
-            var me = _pause_tile(pause_you, spr.texture, spr.hframes, 190.0, "",
+            # Forms drawn in code (PlayerBody.gd) have no sprite texture; their
+            # sheet in assets/lineages is rendered from the same drawing
+            var tex: Texture2D = spr.texture
+            var frames: int = spr.hframes
+            var spin: float = -PI / 2 + player.heading_offset
+            var sheet = "res://assets/lineages/%s_sheet.png" % player.current_character_id
+            if tex == null and ResourceLoader.exists(sheet):
+                tex = load(sheet)
+                frames = 4
+                spin = 0.0
+            var me = _pause_tile(pause_you, tex, frames, 190.0, "",
                 form.name, body)
             me.tint = form.color.clamp()
-            me.spin = -PI / 2 + player.heading_offset
+            me.spin = spin
             var side = VBoxContainer.new()
             side.add_theme_constant_override("separation", 6)
             side.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -744,7 +754,17 @@ func show_pause_info():
         var body = a.fact + ("\n" + a.tip if a.has("tip") else "")
         _pause_tile(pause_wildlife, tex, frames, 128.0, a.name, a.name, body)
 
-    # Adaptations as icons, stacked ones with a count
+    # Treasure finds first (on a sunny disc), then adaptations as icons,
+    # stacked ones with a count
+    if player:
+        for id in player.items_found:
+            var it = player.items.get_item(id)
+            if it.is_empty():
+                continue
+            var ti = _pause_tile(pause_adapt, _icon("item_" + id), 1, 92.0, "",
+                it.name, it.effect + "\n" + it.fact)
+            ti.tint = UI.SUN
+            ti.animate = false
     if player and not player.adaptations_taken.is_empty():
         for id in player.adaptations_taken:
             var ad = player.adaptations.get_adaptation(id)
@@ -754,7 +774,7 @@ func show_pause_info():
             t.badge = n
             t.tint = UI.LEAF
             t.animate = false
-    else:
+    elif player and player.items_found.is_empty():
         var none = _pause_label(18, UI.MUTED, false, "None yet. Eat to fill the biomass bar.")
         none.autowrap_mode = TextServer.AUTOWRAP_OFF
         pause_adapt.add_child(none)
