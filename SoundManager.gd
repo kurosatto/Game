@@ -34,6 +34,11 @@ var music_streams: Dictionary = {}
 var music_players: Array[AudioStreamPlayer] = []
 var music_active: int = 0
 var current_track: String = ""
+# Browsers keep audio locked until the player first taps, clicks or presses
+# a key, and a track started before then stays silent. On the web the music
+# waits for that first input, then starts.
+var audio_unlocked: bool = not OS.has_feature("web")
+var pending_track: String = ""
 
 func _ready():
     process_mode = Node.PROCESS_MODE_ALWAYS
@@ -79,6 +84,9 @@ func load_sounds():
 
 # Crossfade to a looping track; asking for the one already playing does nothing
 func play_music(track: String):
+    if not audio_unlocked:
+        pending_track = track
+        return
     if track == current_track or not music_streams.has(track):
         return
     current_track = track
@@ -86,6 +94,13 @@ func play_music(track: String):
     music_active = 1 - music_active
     var new_player = music_players[music_active]
     new_player.stream = music_streams[track]
+    if OS.has_feature("web"):
+        # Web audio plays each track as a browser sample, which doesn't
+        # reliably follow a volume fade (it can stay near silent): cut instead
+        old_player.stop()
+        new_player.volume_db = MUSIC_VOLUME_DB
+        new_player.play()
+        return
     new_player.volume_db = -40.0
     new_player.play()
     var tw = create_tween().set_parallel(true)
@@ -93,6 +108,15 @@ func play_music(track: String):
     if old_player.playing:
         tw.tween_property(old_player, "volume_db", -60.0, MUSIC_FADE)
         tw.chain().tween_callback(old_player.stop)
+
+func _input(event: InputEvent):
+    if audio_unlocked:
+        return
+    var pressed = (event is InputEventMouseButton or event is InputEventScreenTouch or event is InputEventKey or event is InputEventJoypadButton) and event.is_pressed()
+    if pressed:
+        audio_unlocked = true
+        if pending_track != "":
+            play_music(pending_track)
 
 # Each era has its own arrangement of the theme
 func music_for_floor(floor_num: int) -> String:
