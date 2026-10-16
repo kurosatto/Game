@@ -1,0 +1,5 @@
+SymbolsFallback.ttf is a subset of DejaVu Sans (https://dejavu-fonts.github.io),
+free license based on the Bitstream Vera license.
+EmojiFallback.ttf is a subset of Noto Color Emoji
+(https://github.com/googlefonts/noto-emoji), SIL Open Font License 1.1.
+Both were cut with fontTools' pyftsubset to the symbols the game uses.
