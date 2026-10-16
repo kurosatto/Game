@@ -9,12 +9,10 @@
 # the menu and codex.
 extends Node2D
 
-# Soft plum-brown ink rather than black keeps the look gentle and cute
-const OUTLINE := Color(0.17, 0.09, 0.15, 1.0)
+const OUTLINE := Color(0.05, 0.07, 0.12, 1.0)
 # Rim around the silhouette so the player always reads as the player
-const HALO := Color(0.66, 0.97, 1.0, 1.0)
-const OW := 2.6
-const BLUSH := Color(1.0, 0.45, 0.55, 0.42)
+const HALO := Color(0.35, 0.93, 1.0, 1.0)
+const OW := 2.0
 
 var player: Node = null
 var form_id: String = "ancestral_collar_cell"
@@ -29,13 +27,21 @@ var tuck: float = 0.0     # 1 while withdrawn or hunkered (escape moves)
 var preview: bool = false # driven by the sheet renderer instead of a player
 var _last_rot: float = 0.0
 var halo_pass: bool = false
-# Eyes are collected while the body is drawn and painted last, big and
-# glossy, so nothing covers them: [pos, radius, iris, has_pupil]
-var _eyes: Array = []
-var main_color: Color = Color(0.4, 0.8, 0.9)
+# Attack timeline: seconds since the last strike (strike above is the pose
+# it drives), plus the body's whole-body lunge, a hurt flinch and a damped
+# spring that lets the body lag behind speed changes so it moves with weight
+const ATTACK_TIME := 0.42
+var atk: float = 99.0
+var lunge: float = 0.0
+var hurt: float = 0.0
+var _last_hp: float = -1.0
+var _last_vel: Vector2 = Vector2.ZERO
+var _lag: Vector2 = Vector2.ZERO
+var _lag_v: Vector2 = Vector2.ZERO
+var _stretch: Vector2 = Vector2.ONE
+# Colour of the biggest outlined part, used to tint attack trails
+var main_color: Color = Color(0.5, 0.8, 0.9)
 var _main_area: float = 0.0
-var _blink: float = 0.0
-var _next_blink: float = 2.0
 
 # Spine of long bodies for the current drawing (see sp())
 var head_x: float = 40.0
@@ -51,58 +57,99 @@ func set_form(id: String):
 	queue_redraw()
 
 func on_attack():
-	strike = 1.0
+	atk = 0.0
+
+# 0..1 smooth ease in and out
+static func smooth(x: float) -> float:
+	x = clamp(x, 0.0, 1.0)
+	return x * x * (3.0 - 2.0 * x)
+
+# Strike pose and lunge over the attack: a short wind-up (pulled back, pose
+# closed), a fast snap open/out, a brief hold, then an eased recovery
+func _attack_curve():
+	var u = atk / ATTACK_TIME
+	if u >= 1.0:
+		strike = 0.0
+		lunge = 0.0
+		return
+	var wind = 0.1
+	var snap = 0.26
+	var hold = 0.42
+	if u < wind:
+		strike = 0.0
+		lunge = -smooth(u / wind)
+	elif u < snap:
+		var k = (u - wind) / (snap - wind)
+		k = 1.0 - (1.0 - k) * (1.0 - k) * (1.0 - k) # fast out
+		strike = k
+		lunge = lerp(-1.0, 1.6, k)
+	elif u < hold:
+		strike = 1.0
+		lunge = lerp(1.6, 1.2, (u - snap) / (hold - snap))
+	else:
+		var k = smooth((u - hold) / (1.0 - hold))
+		strike = 1.0 - k
+		lunge = 1.2 * (1.0 - k)
 
 func _process(delta: float):
 	if preview or player == null or not is_instance_valid(player):
 		queue_redraw()
 		return
 	t += delta
-	var v: float = player.velocity.length()
+	var dt: float = max(delta, 0.0001)
+	var vel: Vector2 = player.velocity
+	var v: float = vel.length()
 	var top: float = max(player.speed, 1.0)
-	move = lerp(move, clamp(v / top, 0.0, 1.6), min(1.0, delta * 8.0))
+	# Frame-rate independent easing toward each target
+	move = lerp(move, clamp(v / top, 0.0, 1.6), 1.0 - exp(-dt * 8.0))
 	swim += delta * (2.4 + 8.5 * min(move, 1.3))
 	gait += v * delta / 16.0
 	var rot: float = get_parent().global_rotation
 	var dr = wrapf(rot - _last_rot, -PI, PI)
 	_last_rot = rot
-	bend = lerp(bend, clamp(dr / max(delta, 0.001) * 0.18, -1.0, 1.0), min(1.0, delta * 7.0))
-	strike = max(0.0, strike - delta * 3.0)
-	dash = 1.0 if player.is_dashing else max(0.0, dash - delta * 4.0)
-	tuck = lerp(tuck, 1.0 if player.rooted_time > 0 else 0.0, min(1.0, delta * 10.0))
-	_next_blink -= delta
-	if _next_blink <= 0.0:
-		_blink = 0.14
-		_next_blink = randf_range(2.2, 4.8)
-	_blink = max(0.0, _blink - delta)
+	bend = lerp(bend, clamp(dr / dt * 0.18, -1.0, 1.0), 1.0 - exp(-dt * 7.0))
+	atk += delta
+	_attack_curve()
+	dash = lerp(dash, 1.0 if player.is_dashing else 0.0, 1.0 - exp(-dt * (30.0 if player.is_dashing else 6.0)))
+	tuck = lerp(tuck, 1.0 if player.rooted_time > 0 else 0.0, 1.0 - exp(-dt * 10.0))
+	# Flinch when hurt
+	var hp = float(player.health)
+	if _last_hp >= 0.0 and hp < _last_hp:
+		hurt = 1.0
+	_last_hp = hp
+	hurt = max(0.0, hurt - delta / 0.28)
+	# Body lags behind speeding up and overshoots when stopping: a spring on
+	# the drawing pulled by the acceleration, in the body's own frame
+	var acc = (vel - _last_vel) / dt
+	_last_vel = vel
+	var target = (-acc * 0.0035).rotated(-rot).limit_length(5.0)
+	_lag_v += ((target - _lag) * 160.0 - _lag_v * 16.0) * dt
+	_lag += _lag_v * dt
+	# Stretch along the body while dashing, a slight breath while still
+	var breath = sin(t * 2.6) * 0.012 * (1.0 - clamp(move, 0.0, 1.0))
+	var want = Vector2(1.0 + 0.16 * dash + breath, 1.0 - 0.1 * dash - breath) * (1.0 - 0.07 * hurt)
+	_stretch = _stretch.lerp(want, 1.0 - exp(-dt * 20.0))
 	queue_redraw()
 
 func _draw():
 	if not FORMS.has(form_id):
 		return
 	var spec: Array = FORMS[form_id]
-	# Squash and stretch: a slow breath while idle, a quick stretch toward
-	# the target on attack, and a slightly chubby build overall
-	var breath = sin(t * 3.2) * 0.03 * (1.0 - 0.6 * clamp(move, 0.0, 1.0))
-	var lunge = strike * strike
-	var sq = Vector2(0.93 * (1.0 - breath) + 0.16 * lunge, 1.05 * (1.0 + breath) - 0.08 * lunge)
+	# Whole-body motion: lunge into strikes, lag behind acceleration, shake
+	# when hurt
+	var off = Vector2(lunge * 4.0, 0) + _lag
+	if hurt > 0.0:
+		off += Vector2(sin(t * 70.0), cos(t * 53.0)) * 2.2 * hurt
 	# Soft drop shadow, always cast down the screen
 	var down = Vector2(3, 9).rotated(-global_rotation)
-	draw_set_transform(down, 0.0, sq)
+	draw_set_transform(down + off * 0.6, 0.0, _stretch)
 	halo_pass = true
 	_draw_shadow_pass(spec)
-	draw_set_transform(Vector2.ZERO, 0.0, sq)
+	draw_set_transform(off, 0.0, _stretch)
 	_draw_form(spec)
 	halo_pass = false
-	_eyes.clear()
 	_main_area = 0.0
 	_draw_form(spec)
-	if _eyes.is_empty() and FACES.has(spec[0]):
-		var f: Array = FACES[spec[0]]
-		var at_: Vector2 = sp(f[0]) if f[2] else Vector2(f[0], 0)
-		_dot_face(at_, f[1])
-	else:
-		_draw_eyes()
 
 var shadow_pass: bool = false
 func _draw_shadow_pass(spec: Array):
@@ -139,12 +186,7 @@ func _rim_w() -> float:
 	return 0.0 if shadow_pass else 3.6
 
 # Outlined filled polygon. The halo and shadow passes draw the silhouette only.
-# Pastel, slightly lighter palette for every filled shape
-static func cute(c: Color) -> Color:
-	return Color.from_hsv(c.h, clamp(c.s * 0.88 + 0.05, 0.0, 1.0), c.v + (1.0 - c.v) * 0.2, c.a)
-
 func shape(pts: PackedVector2Array, col: Color, w: float = OW) -> bool:
-	col = cute(col)
 	if pts.size() < 3 or Geometry2D.triangulate_polygon(pts).is_empty():
 		return false
 	if halo_pass:
@@ -159,7 +201,6 @@ func shape(pts: PackedVector2Array, col: Color, w: float = OW) -> bool:
 		return true
 	draw_colored_polygon(pts, col)
 	if w > 0 and col.a > 0.8:
-		# Remember the colour of the biggest outlined part: attacks reuse it
 		var r := Rect2(pts[0], Vector2.ZERO)
 		for q in pts:
 			r = r.expand(q)
@@ -175,7 +216,6 @@ func shape(pts: PackedVector2Array, col: Color, w: float = OW) -> bool:
 func fill(pts: PackedVector2Array, col: Color):
 	if halo_pass or pts.size() < 3 or Geometry2D.triangulate_polygon(pts).is_empty():
 		return
-	col = cute(col)
 	draw_colored_polygon(pts, col)
 	# A hairline in the same colour smooths the polygon's jagged edge
 	var loop := pts.duplicate()
@@ -195,7 +235,7 @@ func disc(c: Vector2, r: float, col: Color, w: float = OW):
 		return
 	if w > 0:
 		draw_circle(c, r + w * 0.5, OUTLINE, true, -1.0, true)
-	draw_circle(c, r, cute(col), true, -1.0, true)
+	draw_circle(c, r, col, true, -1.0, true)
 
 func dot(c: Vector2, r: float, col: Color):
 	if not halo_pass:
@@ -221,7 +261,6 @@ func limb(pts: PackedVector2Array, w: float, col: Color, outline: bool = true):
 		for p in pts:
 			draw_circle(p, hw * 0.5, _rim_col(), true, -1.0, true)
 		return
-	col = cute(col)
 	if outline:
 		draw_polyline(pts, OUTLINE, w + 3.0, true)
 		for p in pts:
@@ -244,7 +283,6 @@ func taper(pts: PackedVector2Array, w0: float, w1: float, col: Color, outline: b
 			draw_circle(pts[i], (w + 3.0 + _rim_w()) * 0.5, _rim_col(), true, -1.0, true)
 		draw_circle(pts[n - 1], (w1 + 3.0 + _rim_w()) * 0.5, _rim_col(), true, -1.0, true)
 		return
-	col = cute(col)
 	if outline:
 		for i in n - 1:
 			var w = lerp(w0, w1, i / float(max(n - 2, 1)))
@@ -308,106 +346,16 @@ func band(spine: Array, widths: Array, side: float, depth: float, col: Color, in
 	outer.append_array(inner)
 	fill(outer, col)
 
-# Eyes are drawn big and glossy, last of all (see _draw_eyes). A pair too
-# close to the midline is pushed apart so the big eyes sit side by side.
+# Glossy eye: outline, iris, pupil and a highlight
 func eye(p: Vector2, r: float, iris: Color = Color(0.1, 0.1, 0.12), pupil: bool = true):
-	var R = clamp(r * 2.1, 4.2, 8.5)
-	var mid = sp(p.x).y
-	var off = p.y - mid
-	if abs(off) > 0.01 and abs(off) < R * 0.98:
-		p.y = mid + sign(off) * R * 0.98
 	if halo_pass:
-		draw_circle(p, R + 1.6 + (0.0 if shadow_pass else 2.5), _rim_col(), true, -1.0, true)
+		draw_circle(p, r + 1.5 + (0.0 if shadow_pass else 2.5), _rim_col(), true, -1.0, true)
 		return
-	_eyes.append([p, R, iris, pupil])
-
-# Screen-space offset turned into this node's frame, so highlights, closed
-# eyes and smiles stay upright however the body is turned
-func up(v: Vector2) -> Vector2:
-	return v.rotated(-global_rotation)
-
-func up_ellipse(c: Vector2, rx: float, ry: float, rot: float) -> PackedVector2Array:
-	return ellipse_pts(c, rx, ry, rot - global_rotation, 14)
-
-func _draw_eyes():
-	var light = up(Vector2(-0.45, -0.55))
-	var squint = strike > 0.55
-	var n = _eyes.size()
-	# Rosy cheeks behind the front pair
-	if n >= 2:
-		for k in 2:
-			var e: Array = _eyes[k]
-			var mid = sp(e[0].x).y
-			var out = sign(e[0].y - mid)
-			var c: Vector2 = e[0] + Vector2(-e[1] * 0.9, out * e[1] * 0.75)
-			fill(ellipse_pts(c, e[1] * 0.75, e[1] * 0.5, 0.0, 14), BLUSH)
-	for e in _eyes:
-		var p: Vector2 = e[0]
-		var R: float = e[1]
-		var iris: Color = e[2]
-		if _blink > 0.0 or squint:
-			_closed_eye(p, R, squint)
-			continue
-		draw_circle(p, R + 1.5, OUTLINE, true, -1.0, true)
-		if e[3]:
-			draw_circle(p, R, Color(1.0, 0.99, 0.96), true, -1.0, true)
-			draw_arc(p, R * 0.8, up(Vector2.DOWN).angle() - 1.1, up(Vector2.DOWN).angle() + 1.1, 10, Color(0.75, 0.8, 0.95, 0.6), R * 0.3, true)
-			# Big iris looking ahead, a dark pupil, sparkly highlights
-			var look = p + Vector2(R * 0.14, 0)
-			var ic = iris if iris.v > 0.25 else Color(0.32, 0.22, 0.2)
-			draw_circle(look, R * 0.7, ic, true, -1.0, true)
-			draw_circle(look + up(Vector2(0, R * 0.18)), R * 0.5, ic.lightened(0.25), true, -1.0, true)
-			draw_circle(look, R * 0.42, Color(0.06, 0.04, 0.08), true, -1.0, true)
-			draw_circle(look + light * R * 0.36, R * 0.3, Color.WHITE, true, -1.0, true)
-			draw_circle(look - light * R * 0.34, R * 0.13, Color(1, 1, 1, 0.9), true, -1.0, true)
-		else:
-			# Compound eyes: one glossy coloured dome
-			draw_circle(p, R, iris, true, -1.0, true)
-			draw_arc(p, R * 0.72, up(Vector2.DOWN).angle() - 1.2, up(Vector2.DOWN).angle() + 1.2, 10, iris.darkened(0.3), R * 0.5, true)
-			draw_circle(p + light * R * 0.4, R * 0.32, Color(1, 1, 1, 0.9), true, -1.0, true)
-			draw_circle(p - light * R * 0.4, R * 0.12, Color(1, 1, 1, 0.7), true, -1.0, true)
-
-# Blink (a soft smile-shaped line) or effort squint (> <) while striking
-func _closed_eye(p: Vector2, R: float, squint: bool):
-	if squint:
-		var sx = sign((get_global_transform() * p).x - (get_global_transform() * Vector2.ZERO).x)
-		var tip = p + up(Vector2(-sx * R * 0.45, 0))
-		var a = p + up(Vector2(sx * R * 0.55, -R * 0.6))
-		var b = p + up(Vector2(sx * R * 0.55, R * 0.6))
-		draw_polyline(PackedVector2Array([a, tip, b]), OUTLINE, max(2.0, R * 0.38), true)
-		return
-	var pts := PackedVector2Array()
-	for k in 7:
-		var g = PI * k / 6.0
-		pts.append(p + up(Vector2(-cos(g) * R * 0.8, sin(g) * R * 0.45)))
-	draw_polyline(pts, OUTLINE, max(1.8, R * 0.32), true)
-
-# A simple kawaii face for animals with no real eyes (cells, clams, sea
-# stars, hagfish): two shiny bead eyes, rosy cheeks and a small smile that
-# opens on attack, always upright on screen.
-func _dot_face(c: Vector2, s: float):
-	var gap = 6.0 * s
-	var light = up(Vector2(-0.4, -0.5))
-	for side in [-1.0, 1.0]:
-		fill(ellipse_pts(c + up(Vector2(side * gap * 1.55, gap * 0.55)), 3.4 * s, 2.0 * s, global_rotation * -1.0, 12), BLUSH)
-	for side in [-1.0, 1.0]:
-		var p = c + up(Vector2(side * gap, -gap * 0.2))
-		if _blink > 0.0 or strike > 0.55:
-			_closed_eye(p, 3.0 * s, strike > 0.55)
-			continue
-		draw_colored_polygon(ellipse_pts(p, 2.9 * s, 3.7 * s, -global_rotation, 16), Color(0.12, 0.07, 0.1))
-		draw_circle(p + light * 1.8 * s, 1.3 * s, Color.WHITE, true, -1.0, true)
-		draw_circle(p - light * 1.6 * s, 0.55 * s, Color(1, 1, 1, 0.8), true, -1.0, true)
-	var m = c + up(Vector2(0, gap * 0.75))
-	if strike > 0.2:
-		draw_colored_polygon(ellipse_pts(m, 2.3 * s, 2.0 * s * (0.6 + strike), -global_rotation, 12), Color(0.35, 0.08, 0.14))
-		draw_circle(m + up(Vector2(0, s * 0.8 * strike)), 1.1 * s, Color(1.0, 0.5, 0.6), true, -1.0, true)
-	else:
-		var w := PackedVector2Array()
-		for k in 9:
-			var f = k / 8.0
-			w.append(m + up(Vector2((f - 0.5) * 4.2 * s, abs(sin(f * TAU)) * 1.2 * s)))
-		draw_polyline(w, OUTLINE, max(1.3, 0.75 * s), true)
+	draw_circle(p, r + 1.3, OUTLINE, true, -1.0, true)
+	draw_circle(p, r, iris, true, -1.0, true)
+	if pupil:
+		draw_circle(p + Vector2(r * 0.15, 0), r * 0.5, Color(0.04, 0.04, 0.06), true, -1.0, true)
+	draw_circle(p + Vector2(r * 0.25, -r * 0.35), max(r * 0.32, 0.8), Color(1, 1, 1, 0.9), true, -1.0, true)
 
 # ── Spine of a long body ──
 func spine_setup(hx: float, length: float, amp: float, k: float):
@@ -461,9 +409,6 @@ func segments(xs: Array, ws: Array, col: Color, alt: float = 0.86, rx: float = -
 # Jointed leg: hip at `root`, sideways on `side`, stepping with the gait.
 # rake > 0 sweeps the leg back, < 0 forward.
 func leg(root: Vector2, side: float, length: float, phase: float, rake: float, w: float, col: Color, stride: float = 0.32):
-	# Short, chunky legs read cuter than long spindly ones
-	length *= 0.8
-	w *= 1.5
 	var cyc = gait + phase
 	var amt = clamp(move * 1.3 + 0.05, 0.0, 1.0)
 	var swing = sin(cyc) * length * stride * amt
@@ -477,8 +422,6 @@ func leg(root: Vector2, side: float, length: float, phase: float, rake: float, w
 
 # Feeler from `root`: bows outwards on `side` and sways
 func antenna(root: Vector2, side: float, length: float, spread: float, col: Color, w: float = 1.4, n: int = 7):
-	length *= 0.72
-	w *= 1.45
 	var pts := PackedVector2Array()
 	var a = side * spread
 	var p = root
@@ -1971,49 +1914,17 @@ func ancestral_collar_cell():
 	oval(Vector2(6, 0), 21 * pulse, 17 / pulse, 0, Color(body.r, body.g, body.b, 0.95))
 	if halo_pass:
 		return
-	draw_colored_polygon(ellipse_pts(Vector2(9, -3), 14, 10, 0), cute(shade(body, 1.2)))
-	# Nucleus and drifting organelles sit at the back, leaving room for the face
-	draw_circle(Vector2(-6, 6), 5.2, Color(0.4, 0.5, 0.86, 0.85), true, -1.0, true)
-	draw_circle(Vector2(-5, 7), 1.9, Color(0.62, 0.72, 1.0), true, -1.0, true)
+	draw_colored_polygon(ellipse_pts(Vector2(9, -3), 14, 10, 0), shade(body, 1.2))
+	draw_circle(Vector2(9, 2), 7.5, OUTLINE, true, -1.0, true)
+	draw_circle(Vector2(9, 2), 6.5, Color(0.28, 0.38, 0.78), true, -1.0, true)
+	draw_circle(Vector2(10, 3), 2.4, Color(0.5, 0.6, 0.95), true, -1.0, true)
 	for k in 3:
 		var g = t * 0.6 + k * 2.1
-		draw_circle(Vector2(-5 + cos(g) * 6, -2 + sin(g) * 6), 1.9 - k * 0.3, [Color(0.55, 0.92, 0.55), Color(0.98, 0.88, 0.5), Color(0.65, 0.97, 0.75)][k], true, -1.0, true)
-	draw_colored_polygon(up_ellipse(Vector2(6, 0) + up(Vector2(-8, -9)), 6, 3, -0.5), Color(1, 1, 1, 0.55))
+		draw_circle(Vector2(2 + cos(g) * 9, sin(g) * 8), 2.2 - k * 0.4, [Color(0.5, 0.9, 0.5), Color(0.95, 0.85, 0.45), Color(0.6, 0.95, 0.7)][k], true, -1.0, true)
+	draw_colored_polygon(ellipse_pts(Vector2(16, -8), 5, 2.5, -0.5), Color(1, 1, 1, 0.6))
 
 # id -> [drawing function, optional parameters]. Descendants that differ
 # from their parent mostly in colour reuse its drawing with their own.
-# Animals with no real eyes get a simple bead-eyed face instead:
-# drawing function -> [x, size, x is along the swimming spine]
-const FACES = {
-	"ancestral_collar_cell": [10.0, 1.45, false],
-	"centipede": [40.0, 0.72, true],
-	"millipede": [39.0, 0.72, true],
-	"pikaia_chordate": [37.0, 0.62, true],
-	"hagfish": [41.0, 0.66, true],
-	"bivalve": [13.0, 1.15, false],
-	"scallop": [4.0, 1.15, false],
-	"true_scallop": [4.0, 1.15, false],
-	"oyster": [4.0, 1.15, false],
-	"giant_clam": [12.0, 1.1, false],
-	"burrowing_clam": [18.0, 0.8, true],
-	"moon_snail": [21.0, 0.8, false],
-	"shipworm": [24.0, 0.6, true],
-	"predatory_sea_snail": [-4.0, 0.95, true],
-	"cone_snail": [-4.0, 0.95, true],
-	"sea_slug_line": [24.0, 0.9, true],
-	"nudibranch": [24.0, 0.9, true],
-	"sea_cucumber": [26.0, 0.95, true],
-	"early_echinoderm": [0.0, 1.25, false],
-	"sea_lily": [0.0, 0.7, false],
-	"feather_star": [0.0, 0.62, false],
-	"free_moving_echinoderm": [0.0, 1.05, false],
-	"sea_star_line": [0.0, 0.9, false],
-	"sea_star": [0.0, 0.95, false],
-	"brittle_star": [0.0, 0.75, false],
-	"spiny_echinozoan": [0.0, 1.0, false],
-	"sea_urchin": [0.0, 0.85, false],
-}
-
 const FORMS = {
 	"ancestral_collar_cell": ["ancestral_collar_cell"],
 	"early_arthropod": ["early_arthropod"],

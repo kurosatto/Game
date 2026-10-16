@@ -320,6 +320,7 @@ func _physics_process(delta: float):
     recoil_velocity = recoil_velocity.move_toward(Vector2.ZERO, delta * 900.0)
 
     # Dynamic Swimming Squash & Stretch + Multi-Frame Cilia Animation
+    var prev_scale: Vector2 = $Sprite2D.scale
     if rooted_time > 0:
         # Hunkered down during an escape: drawn small and still (withdraw)
         # or puffed up (bristle, tubules)
@@ -339,9 +340,14 @@ func _physics_process(delta: float):
         $Sprite2D.scale = Vector2(pulse, pulse)
         $Sprite2D.frame = int(fmod(swim_time, 4.0))
     # Recoil squash on top of the swim animation, so it is seen for more than a frame
+    # Drawn bodies get only a light kick: PlayerBody animates the strike itself
+    var kick = 0.35 if body_art and body_art.visible else 1.0
     if shot_kick > 0.0:
-        $Sprite2D.scale *= Vector2(1.0 + 0.22 * shot_kick, 1.0 - 0.18 * shot_kick)
+        $Sprite2D.scale *= Vector2(1.0 + 0.22 * shot_kick * kick, 1.0 - 0.18 * shot_kick * kick)
         shot_kick = max(0.0, shot_kick - delta / 0.12)
+    if body_art and body_art.visible:
+        # Ease between swimming, idling and hunkering instead of snapping
+        $Sprite2D.scale = prev_scale.lerp($Sprite2D.scale, 1.0 - exp(-delta * 18.0))
 
     # Face the aim while attacking, otherwise the way we swim
     if aim_hold > 0:
