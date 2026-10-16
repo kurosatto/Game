@@ -31,6 +31,7 @@ func _ready():
     Engine.time_scale = 1.0 # in case a restart happened mid hit-stop
     player.stats_changed.connect(hud.update_inventory)
     player.dna_changed.connect(hud.update_dna)
+    player.elements_changed.connect(hud.update_elements)
     player.player_died.connect(_on_player_died)
     if hud.has_method("update_discharge_cooldown"):
         player.discharge_updated.connect(hud.update_discharge_cooldown)

@@ -85,7 +85,8 @@ static func get_adaptation(id: String) -> Dictionary:
 	for a in LIST:
 		if a.id == id:
 			return a
-	return {}
+	# Parts grown from eaten elements are adaptations too
+	return load("res://data/Biominerals.gd").get_recipe(id)
 
 # Up to count different adaptations, skipping "once" ones already taken
 static func roll(taken: Dictionary, count: int = 3) -> Array:

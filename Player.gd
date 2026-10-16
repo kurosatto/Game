@@ -4,6 +4,7 @@ extends CharacterBody2D
 signal health_changed(health, max_health)
 signal stats_changed(dna, keys)
 signal dna_changed(current_dna, max_dna, level)
+signal elements_changed(elements, growable)
 signal dash_updated(current_cooldown, max_cooldown)
 signal discharge_updated(current_cooldown, max_cooldown)
 signal player_died
@@ -78,9 +79,13 @@ var ram_mult: float = 0.0 # dashing hits animals for this x damage
 var ram_hit: Array = [] # animals already rammed this dash
 var paralyse: bool = false # spine pricks stun
 
-# Adaptations (data/Adaptations.gd): eating prey fills the biomass bar, and a
-# full bar offers a pick of three traits that stack and survive evolution
+# Adaptations (data/Adaptations.gd) stack and survive evolution. Eating prey
+# leaves the elements its body was made of (data/Biominerals.gd), which you
+# spend on the GROW screen to build hard parts and body chemistry.
 var adaptations = preload("res://data/Adaptations.gd")
+var biominerals = preload("res://data/Biominerals.gd")
+var elements: Dictionary = {} # "Ca" -> amount eaten and not yet spent
+var growable_count: int = 0
 var biomass: float = 0.0
 var adapt_level: int = 0
 var adapt_pending: bool = false
@@ -1183,9 +1188,35 @@ func melee_blast(pos: Vector2, amount: float):
     SoundManager.play_sfx("explosion", 1.3, -4.0)
 
 func emit_biomass():
-    dna_changed.emit(int(biomass), adaptations.biomass_needed(adapt_level), adapt_level + 1)
+    var n := 0
+    for r in biominerals.RECIPES:
+        if biominerals.can_grow(r, elements, adaptations_taken):
+            n += 1
+    if n > growable_count:
+        SoundManager.play_sfx("level_up", 1.4, -6.0)
+    growable_count = n
+    elements_changed.emit(elements, n)
 
 # BiomassOrb.gd calls this when an orb from a kill reaches the player
+func add_element(el: String, amount: float):
+    elements[el] = elements.get(el, 0.0) + amount * biomass_mult
+    add_biomass(amount / biominerals.YIELD)
+
+# Spend elements on a part from data/Biominerals.gd (the GROW screen)
+func grow(id: String) -> bool:
+    var r = biominerals.get_recipe(id)
+    if r.is_empty() or not biominerals.can_grow(r, elements, adaptations_taken):
+        return false
+    var cost = biominerals.cost_of(r, adaptations_taken.get(id, 0))
+    for el in cost:
+        elements[el] = elements.get(el, 0.0) - cost[el]
+    adapt_level += 1
+    grant_adaptation(id)
+    SoundManager.play_sfx("evolve", 1.2)
+    emit_biomass()
+    return true
+
+# What has been eaten, counted for gut symbionts (no longer offers picks)
 func add_biomass(amount: float):
     biomass += amount * biomass_mult
     # Gut symbionts: digestion pays back in health
@@ -1197,15 +1228,6 @@ func add_biomass(amount: float):
                 heal(1)
                 popup_text(global_position, "+½ ♥", Color(0.62, 0.93, 0.5))
     emit_biomass()
-    try_offer_adaptation()
-
-func try_offer_adaptation():
-    if adapt_pending or biomass < adaptations.biomass_needed(adapt_level):
-        return
-    var main = get_tree().get_first_node_in_group("main")
-    if main and main.has_method("offer_adaptation"):
-        adapt_pending = true
-        main.offer_adaptation()
 
 # Called by Main.gd with the id the player picked
 func apply_adaptation(id: String):
@@ -1216,8 +1238,6 @@ func apply_adaptation(id: String):
     grant_adaptation(id)
     SoundManager.play_sfx("level_up", 1.2)
     emit_biomass()
-    # Enough left over for another? Offer it once this pick has closed
-    call_deferred("try_offer_adaptation")
 
 # Adds an adaptation without spending biomass (also the menu's starting trait)
 func grant_adaptation(id: String):

@@ -13,7 +13,7 @@ const CHALLENGES = [
 	{"id": "arthropod", "name": "Jointed Legs", "goal": "Evolve into an arthropod", "unlock": "reach"},
 	{"id": "ordovician", "name": "Into the Ordovician", "goal": "Reach the third era", "unlock": "myoglobin"},
 	{"id": "untouched", "name": "Untouched", "goal": "Clear a whole era without being hit", "unlock": "body_wall"},
-	{"id": "well_fed", "name": "Well Fed", "goal": "Take 10 adaptations in one run", "unlock": "mitochondria"},
+	{"id": "well_fed", "name": "Well Fed", "goal": "Grow 10 parts in one run", "unlock": "mitochondria"},
 	{"id": "codex_10", "name": "Taxonomist", "goal": "Discover 10 lineages in the codex", "unlock": "senses"},
 	{"id": "codex_25", "name": "Systematist", "goal": "Discover 25 lineages in the codex", "unlock": "gut"},
 	{"id": "survivor", "name": "Survive the Great Dying", "goal": "Win a run", "unlock": "armour"},

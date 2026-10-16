@@ -91,8 +91,9 @@ func _ready():
     setup_settings_ui()
     if TouchControls.should_show():
         use_touch_texts()
-    # No shop, so no coin counter; kills fill the biomass bar instead
+    # No shop, so no coin counter; kills leave elements to grow parts from
     $HUDPanel/MarginContainer/HBoxContainer/Counters/Coins.visible = false
+    _setup_element_bar()
 
 func setup_settings_ui():
     settings_btn.pressed.connect(toggle_settings)
@@ -176,7 +177,15 @@ func update_music_label(val: float):
 func _unhandled_input(event: InputEvent):
     if event is InputEventKey and event.pressed and not event.echo:
         if event.keycode == KEY_ESCAPE:
-            toggle_settings()
+            if is_grow_up():
+                hide_grow_screen()
+            else:
+                toggle_settings()
+        elif event.keycode == KEY_G or event.keycode == KEY_TAB:
+            if is_grow_up():
+                hide_grow_screen()
+            else:
+                show_grow_screen()
 
 func toggle_settings():
     settings_modal.visible = not settings_modal.visible
@@ -232,6 +241,249 @@ func update_health(health: int, max_health: int):
 func update_inventory(dna: int, keys: int):
     coins_label.text = "%02d" % dna
     keys_label.text = "%02d" % keys
+
+# ---- Elements and the GROW screen (data/Biominerals.gd) ----
+# The top bar lists the elements eaten so far, with a GROW button that
+# lights up when something can be grown. The GROW screen pauses the game:
+# tap a part to read about it, then GROW it; stay to grow more, DONE to go.
+const BIOMINERALS = preload("res://data/Biominerals.gd")
+var element_label: RichTextLabel = null
+var grow_btn: Button = null
+var grow_modal: Control = null
+var grow_grid: GridContainer = null
+var grow_have: RichTextLabel = null
+var grow_title: Label = null
+var grow_body: Label = null
+var grow_go: Button = null
+var grow_selected: String = ""
+var _have: Dictionary = {}
+var _growable: int = 0
+
+func _setup_element_bar():
+    var box = $HUDPanel/MarginContainer/HBoxContainer/DnaContainer
+    dna_label.visible = false
+    dna_bar.visible = false
+    box.custom_minimum_size.x = 430
+    var row = HBoxContainer.new()
+    row.add_theme_constant_override("separation", 10)
+    box.add_child(row)
+    element_label = RichTextLabel.new()
+    element_label.bbcode_enabled = true
+    element_label.fit_content = true
+    element_label.scroll_active = false
+    element_label.autowrap_mode = TextServer.AUTOWRAP_OFF
+    element_label.custom_minimum_size = Vector2(300, 0)
+    element_label.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+    element_label.add_theme_font_size_override("normal_font_size", 17)
+    element_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    row.add_child(element_label)
+    grow_btn = Button.new()
+    grow_btn.text = "🧬 GROW"
+    grow_btn.custom_minimum_size = Vector2(110, 34)
+    grow_btn.add_theme_font_size_override("font_size", 16)
+    grow_btn.focus_mode = Control.FOCUS_NONE
+    for state in ["normal", "hover", "pressed", "disabled"]:
+        grow_btn.add_theme_stylebox_override(state, UI.button_box(state, UI.LEAF))
+    grow_btn.pressed.connect(show_grow_screen)
+    row.add_child(grow_btn)
+    update_elements({}, 0)
+
+func _element_text(have: Dictionary, size: int = 17) -> String:
+    var parts: Array = []
+    for el in BIOMINERALS.ORDER:
+        var c: Color = BIOMINERALS.ELEMENTS[el].color
+        parts.append("[color=#%s]%s[/color] %d" % [c.to_html(false), el, int(have.get(el, 0.0))])
+    return "   ".join(parts)
+
+var _grow_hinted: bool = false
+
+func update_elements(have: Dictionary, growable: int):
+    _have = have
+    _growable = growable
+    if growable > 0 and not _grow_hinted:
+        _grow_hinted = true
+        var how = "Tap GROW" if TouchControls.should_show() else "Press G or click GROW"
+        show_item_banner("🧬 READY TO GROW", "You have eaten enough elements to grow a new part. %s to choose one." % how)
+    if element_label:
+        element_label.text = _element_text(have)
+    if grow_btn:
+        grow_btn.text = ("🧬 GROW %d" % growable) if growable > 0 else "🧬 GROW"
+        grow_btn.modulate = Color(1.25, 1.25, 1.05) if growable > 0 else Color(0.75, 0.75, 0.75)
+    if grow_modal and grow_modal.visible:
+        _fill_grow_screen()
+
+func show_grow_screen():
+    if is_card_up() or (evolution_modal and evolution_modal.visible) or settings_modal.visible:
+        return
+    if grow_modal == null:
+        _create_grow_screen()
+    grow_selected = ""
+    _fill_grow_screen()
+    grow_modal.visible = true
+    get_tree().paused = true
+
+func hide_grow_screen():
+    if grow_modal:
+        grow_modal.visible = false
+    get_tree().paused = false
+
+func is_grow_up() -> bool:
+    return grow_modal != null and grow_modal.visible
+
+func _create_grow_screen():
+    grow_modal = Control.new()
+    grow_modal.set_anchors_preset(Control.PRESET_FULL_RECT)
+    grow_modal.process_mode = Node.PROCESS_MODE_ALWAYS
+    grow_modal.visible = false
+    add_child(grow_modal)
+    var bg = ColorRect.new()
+    bg.set_anchors_preset(Control.PRESET_FULL_RECT)
+    bg.color = Color(0.02, 0.05, 0.04, 0.99)
+    grow_modal.add_child(bg)
+    var col = VBoxContainer.new()
+    col.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT, Control.PRESET_MODE_MINSIZE, 40)
+    col.add_theme_constant_override("separation", 14)
+    grow_modal.add_child(col)
+    var header = Label.new()
+    header.text = "🧬 GROW FROM WHAT YOU HAVE EATEN"
+    header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+    header.add_theme_font_size_override("font_size", 34)
+    header.add_theme_color_override("font_color", UI.SUN)
+    col.add_child(header)
+    grow_have = RichTextLabel.new()
+    grow_have.bbcode_enabled = true
+    grow_have.fit_content = true
+    grow_have.scroll_active = false
+    grow_have.add_theme_font_size_override("normal_font_size", 24)
+    col.add_child(grow_have)
+    grow_grid = GridContainer.new()
+    grow_grid.columns = 4
+    grow_grid.add_theme_constant_override("h_separation", 12)
+    grow_grid.add_theme_constant_override("v_separation", 12)
+    grow_grid.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+    col.add_child(grow_grid)
+    var info = PanelContainer.new()
+    info.add_theme_stylebox_override("panel", UI.panel(UI.MEMBRANE, 22, 0.9, 18.0))
+    info.custom_minimum_size = Vector2(0, 230)
+    col.add_child(info)
+    var irow = HBoxContainer.new()
+    irow.add_theme_constant_override("separation", 20)
+    info.add_child(irow)
+    var itext = VBoxContainer.new()
+    itext.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+    irow.add_child(itext)
+    grow_title = Label.new()
+    grow_title.add_theme_font_size_override("font_size", 24)
+    grow_title.add_theme_color_override("font_color", UI.SUN)
+    itext.add_child(grow_title)
+    grow_body = Label.new()
+    grow_body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+    grow_body.add_theme_font_size_override("font_size", 19)
+    grow_body.add_theme_color_override("font_color", UI.CREAM)
+    itext.add_child(grow_body)
+    var btns = VBoxContainer.new()
+    btns.add_theme_constant_override("separation", 10)
+    irow.add_child(btns)
+    grow_go = Button.new()
+    grow_go.text = "🧬 GROW IT"
+    grow_go.custom_minimum_size = Vector2(240, 60)
+    grow_go.add_theme_font_size_override("font_size", 22)
+    for state in ["normal", "hover", "pressed", "disabled"]:
+        grow_go.add_theme_stylebox_override(state, UI.button_box(state, UI.LEAF))
+    grow_go.pressed.connect(_on_grow_pressed)
+    btns.add_child(grow_go)
+    var done = Button.new()
+    done.text = "DONE"
+    done.custom_minimum_size = Vector2(240, 60)
+    done.add_theme_font_size_override("font_size", 22)
+    for state in ["normal", "hover", "pressed", "disabled"]:
+        done.add_theme_stylebox_override(state, UI.button_box(state, UI.MEMBRANE))
+    done.pressed.connect(hide_grow_screen)
+    btns.add_child(done)
+
+func _fill_grow_screen():
+    var player = get_tree().get_first_node_in_group("player")
+    var taken: Dictionary = player.adaptations_taken if player else {}
+    grow_have.text = "[center]You have:   " + _element_text(_have, 24) + "[/center]"
+    for c in grow_grid.get_children():
+        grow_grid.remove_child(c)
+        c.queue_free()
+    for r in BIOMINERALS.RECIPES:
+        var n = taken.get(r.id, 0)
+        var maxed = r.get("once", false) and n > 0
+        var ok = BIOMINERALS.can_grow(r, _have, taken)
+        var tile = Button.new()
+        tile.custom_minimum_size = Vector2(415, 112)
+        tile.focus_mode = Control.FOCUS_NONE
+        tile.toggle_mode = false
+        var tint = UI.LEAF if ok else (UI.SUN if r.id == grow_selected else UI.MEMBRANE)
+        for state in ["normal", "hover", "pressed", "disabled"]:
+            tile.add_theme_stylebox_override(state, UI.button_box(state, tint))
+        if r.id == grow_selected:
+            tile.add_theme_stylebox_override("normal", UI.button_box("pressed", tint))
+        tile.modulate = Color(1, 1, 1, 1.0 if (ok or r.id == grow_selected) else 0.6)
+        tile.pressed.connect(func():
+            grow_selected = r.id
+            _fill_grow_screen()
+        )
+        var v = VBoxContainer.new()
+        v.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT, Control.PRESET_MODE_MINSIZE, 16)
+        v.mouse_filter = Control.MOUSE_FILTER_IGNORE
+        v.add_theme_constant_override("separation", 2)
+        tile.add_child(v)
+        var t = Label.new()
+        t.text = r.name + (" ×%d" % n if n > 0 else "")
+        t.add_theme_font_size_override("font_size", 19)
+        t.add_theme_color_override("font_color", UI.SUN if ok else UI.CREAM)
+        t.mouse_filter = Control.MOUSE_FILTER_IGNORE
+        v.add_child(t)
+        var cost = RichTextLabel.new()
+        cost.bbcode_enabled = true
+        cost.fit_content = true
+        cost.scroll_active = false
+        cost.mouse_filter = Control.MOUSE_FILTER_IGNORE
+        cost.add_theme_font_size_override("normal_font_size", 17)
+        cost.text = "GROWN" if maxed else _cost_bbcode(BIOMINERALS.cost_of(r, n))
+        v.add_child(cost)
+        var e = Label.new()
+        e.text = r.effect
+        e.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+        e.add_theme_font_size_override("font_size", 15)
+        e.add_theme_color_override("font_color", UI.LEAF)
+        e.mouse_filter = Control.MOUSE_FILTER_IGNORE
+        v.add_child(e)
+        grow_grid.add_child(tile)
+    var sel = BIOMINERALS.get_recipe(grow_selected)
+    if sel.is_empty():
+        grow_title.text = "Tap a part to see what it is made of"
+        grow_body.text = "Prey leaves behind the elements its body was built from. Hunt different animals to gather different elements. Parts lit green can be grown now."
+        grow_go.disabled = true
+    else:
+        grow_title.text = sel.name
+        var el_facts: Array = []
+        for el in sel.cost:
+            el_facts.append(BIOMINERALS.ELEMENTS[el].name + ": " + BIOMINERALS.ELEMENTS[el].fact)
+        grow_body.text = sel.fact + "\n" + sel.effect + "\n\n" + "\n".join(el_facts)
+        grow_go.disabled = not BIOMINERALS.can_grow(sel, _have, taken)
+
+func _cost_bbcode(cost: Dictionary) -> String:
+    var parts: Array = []
+    for el in BIOMINERALS.ORDER:
+        if cost.has(el):
+            var c: Color = BIOMINERALS.ELEMENTS[el].color
+            var short = int(_have.get(el, 0.0)) < cost[el]
+            parts.append("[color=#%s]%d %s[/color]" % [("ff7766" if short else c.to_html(false)), cost[el], el])
+    return "Needs " + "  ".join(parts)
+
+func _on_grow_pressed():
+    var player = get_tree().get_first_node_in_group("player")
+    if player and player.grow(grow_selected):
+        var r = BIOMINERALS.get_recipe(grow_selected)
+        last_banner = [r.name, r.effect + "\n" + r.fact]
+        _fill_grow_screen()
+        var main = get_tree().get_first_node_in_group("main")
+        if main and main.has_method("check_challenges"):
+            main.check_challenges()
 
 func update_dna(current_dna: int, max_dna: int, level: int):
     dna_label.text = "🧬 BIOMASS %d / %d" % [current_dna, max_dna]
@@ -769,13 +1021,13 @@ func show_pause_info():
         for id in player.adaptations_taken:
             var ad = player.adaptations.get_adaptation(id)
             var n = player.adaptations_taken[id]
-            var t = _pause_tile(pause_adapt, _icon("adapt_" + id), 1, 92.0, "",
+            var t = _pause_tile(pause_adapt, _icon("adapt_" + ad.get("icon", id)), 1, 92.0, "",
                 ad.name + (" ×%d" % n if n > 1 else ""), ad.effect + "\n" + ad.fact)
             t.badge = n
             t.tint = UI.LEAF
             t.animate = false
     elif player and player.items_found.is_empty():
-        var none = _pause_label(18, UI.MUTED, false, "None yet. Eat to fill the biomass bar.")
+        var none = _pause_label(18, UI.MUTED, false, "None yet. Eat prey, then GROW parts from its elements.")
         none.autowrap_mode = TextServer.AUTOWRAP_OFF
         pause_adapt.add_child(none)
 
