@@ -13,8 +13,18 @@ var config_path: String = "user://settings.cfg"
 
 func _ready():
     process_mode = Node.PROCESS_MODE_ALWAYS
+    add_symbol_fallbacks()
     load_settings()
     apply_all_settings()
+
+# Web browsers give Godot no system fonts, so the menu symbols and emoji
+# (▶ ⚙ 🏆 📖 ...) would show as boxes. Small subsets of DejaVu Sans and Noto
+# Color Emoji in assets/ui fill in for whatever Fredoka lacks.
+func add_symbol_fallbacks():
+    var extra = [load("res://assets/ui/SymbolsFallback.ttf"), load("res://assets/ui/EmojiFallback.ttf")]
+    for path in ["res://assets/ui/Fredoka-Medium.ttf", "res://assets/ui/Fredoka-SemiBold.ttf"]:
+        var font: FontFile = load(path)
+        font.fallbacks = extra
 
 func load_settings():
     var config = ConfigFile.new()
@@ -72,7 +82,8 @@ func _set_bus_volume(bus_name: String, val: float):
 func set_window_mode(index: int):
     window_mode_index = index
     # Phones always run fullscreen; the desktop window sizes don't apply
-    if OS.has_feature("mobile"):
+    # (and a browser tab can't be resized by the game)
+    if OS.has_feature("mobile") or OS.has_feature("web"):
         return
     match index:
         0: # 1280x720
