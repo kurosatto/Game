@@ -57,15 +57,15 @@ func _draw():
 			var r = params.get("r", 80.0)
 			if age < delay:
 				var k = age / delay
-				draw_circle(Vector2.ZERO, r, Color(WARN.r, WARN.g, WARN.b, 0.12 + 0.12 * k))
+				draw_circle(Vector2.ZERO, r, Color(WARN.r, WARN.g, WARN.b, 0.12 + 0.12 * k), true, -1.0, true)
 				draw_arc(Vector2.ZERO, r, 0, TAU, 40, Color(WARN.r, WARN.g, WARN.b, 0.7), 2.0)
-				draw_circle(Vector2.ZERO, r * k, Color(WARN.r, WARN.g, WARN.b, 0.18))
+				draw_circle(Vector2.ZERO, r * k, Color(WARN.r, WARN.g, WARN.b, 0.18), true, -1.0, true)
 			else:
 				var k = (age - delay) / 0.35
-				draw_circle(Vector2.ZERO, r * (1.0 + k * 0.2), Color(col.r, col.g, col.b, 0.55 * (1.0 - k)))
+				draw_circle(Vector2.ZERO, r * (1.0 + k * 0.2), Color(col.r, col.g, col.b, 0.55 * (1.0 - k)), true, -1.0, true)
 				# Cracks radiating from the impact
 				for i in 7:
 					var a = TAU * i / 7.0 + 0.4
 					var p1 = Vector2.RIGHT.rotated(a) * r * 0.25
 					var p2 = Vector2.RIGHT.rotated(a + 0.2) * r * (0.9 + 0.2 * k)
-					draw_line(p1, p2, Color(0.1, 0.07, 0.05, 0.8 * (1.0 - k)), 3.0)
+					draw_line(p1, p2, Color(0.1, 0.07, 0.05, 0.8 * (1.0 - k)), 3.0, true)

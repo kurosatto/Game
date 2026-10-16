@@ -178,14 +178,15 @@ func draw_body():
 		for i in 28:
 			var p = fmod(t * 2.2 + i / 28.0, 1.0)
 			var pos = f0 + aim * p * 760.0 + aim.orthogonal() * sin(i * 3.1 + t * 9.0) * 30.0 * p
-			draw_circle(pos, 4.0 + 7.0 * p, Color(0.85, 1.0, 1.0, 0.7 * (1.0 - p)))
+			draw_circle(pos, 4.0 + 7.0 * p, Color(0.85, 1.0, 1.0, 0.7 * (1.0 - p)), true, -1.0, true)
 	if state == "ram":
 		var f0 = to_local(funnel_pos())
 		for i in 12:
 			var p = fmod(t * 4.0 + i / 12.0, 1.0)
-			draw_circle(f0 + facing * p * 180.0 + facing.orthogonal() * sin(i * 2.0) * 20.0 * p, 3.0 + 5.0 * p, Color(0.85, 1.0, 1.0, 0.6 * (1.0 - p)))
+			draw_circle(f0 + facing * p * 180.0 + facing.orthogonal() * sin(i * 2.0) * 20.0 * p, 3.0 + 5.0 * p, Color(0.85, 1.0, 1.0, 0.6 * (1.0 - p)), true, -1.0, true)
 
 	draw_set_transform(Vector2.ZERO, facing.angle(), Vector2.ONE)
+	light_rot = facing.angle()
 	shadow(Vector2(-SHELL_LEN * 0.45, 12), SHELL_LEN * 0.55, 50)
 
 	# Tentacles under the shell's front edge first
@@ -197,12 +198,12 @@ func draw_body():
 	var fun_a = Vector2(20, 34)
 	var fun_b = Vector2(48 + funnel_pulse * 10.0, 40)
 	limb(PackedVector2Array([fun_a, fun_b]), 12.0 + funnel_pulse * 4.0, shade(FLESH, 0.85))
-	draw_circle(fun_b, 5.0, shade(FLESH, 0.5))
+	draw_circle(fun_b, 5.0, shade(FLESH, 0.5), true, -1.0, true)
 	for side in [-1.0, 1.0]:
 		var eye = Vector2(26, side * 24)
-		draw_circle(eye, 9.0, OUTLINE)
-		draw_circle(eye, 7.0, Color(0.95, 0.9, 0.6))
-		draw_circle(eye + Vector2(2, 0), 3.5, Color(0.08, 0.08, 0.1))
+		draw_circle(eye, 9.0, OUTLINE, true, -1.0, true)
+		draw_circle(eye, 7.0, Color(0.95, 0.9, 0.6), true, -1.0, true)
+		draw_circle(eye + Vector2(2, 0), 3.5, Color(0.08, 0.08, 0.1), true, -1.0, true)
 
 	# Long straight conical shell with growth lines and colour bands
 	var spine := []
@@ -219,10 +220,11 @@ func draw_body():
 		if i % 2 == 0:
 			var band := PackedVector2Array([Vector2(x - 6, -w * 0.95), Vector2(x + 6, -w * 0.95), Vector2(x + 2, w * 0.95), Vector2(x - 10, w * 0.95)])
 			draw_colored_polygon(band, Color(BAND.r, BAND.g, BAND.b, 0.55))
-		draw_line(Vector2(x + 9, -w * 0.97), Vector2(x + 5, w * 0.97), shade(SHELL, 0.7), 1.5)
+		draw_line(Vector2(x + 9, -w * 0.97), Vector2(x + 5, w * 0.97), shade(SHELL, 0.7), 1.5, true)
 	# Aperture rim where the body leaves the shell
 	draw_arc(Vector2(0, 0), 50.0, -PI * 0.5, PI * 0.5, 16, shade(SHELL, 1.2), 5.0)
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+	light_rot = 0.0
 
 func draw_tentacle(i: int):
 	var f = (i + 0.5) / TENTACLES * 2.0 - 1.0     # -1..1 across the ring

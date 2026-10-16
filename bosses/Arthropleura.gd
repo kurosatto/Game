@@ -246,9 +246,9 @@ func draw_plate(i: int):
 	# Pale lobe tips and the raised axial ridge with paired tubercles
 	for side in [-1.0, 1.0]:
 		var tip = p - d * hl * 0.4 + n * side * w * 1.0
-		draw_line(p + n * side * w * 0.65, tip, shade(LOBE, 1.1), 5.0)
-		draw_circle(p + n * side * w * 0.3, 3.5, shade(LOBE, 1.2))
-	draw_line(p + d * hl * 0.8, p - d * hl * 0.8, shade(PLATE, 1.3), 4.0)
+		draw_line(p + n * side * w * 0.65, tip, shade(LOBE, 1.1), 5.0, true)
+		draw_circle(p + n * side * w * 0.3, 3.5, shade(LOBE, 1.2), true, -1.0, true)
+	draw_line(p + d * hl * 0.8, p - d * hl * 0.8, shade(PLATE, 1.3), 4.0, true)
 
 func draw_head():
 	var d = facing
@@ -271,9 +271,9 @@ func draw_head():
 		var e0 = p + d * 14.0 + n * side * 18.0
 		var e1 = e0 + d.rotated(side * 1.0) * 14.0
 		limb(PackedVector2Array([e0, e1]), 5.0, shade(PLATE, 1.0))
-		draw_circle(e1, 7.0, OUTLINE)
-		draw_circle(e1, 5.0, Color(0.15, 0.12, 0.1))
-		draw_circle(e1 + d * 1.5 + n * side * -1.5, 2.0, Color(1, 0.95, 0.8))
+		draw_circle(e1, 7.0, OUTLINE, true, -1.0, true)
+		draw_circle(e1, 5.0, Color(0.15, 0.12, 0.1), true, -1.0, true)
+		draw_circle(e1 + d * 1.5 + n * side * -1.5, 2.0, Color(1, 0.95, 0.8), true, -1.0, true)
 	# Telegraph for the charge
 	if state == "charge_wind":
 		warn_line(Vector2.ZERO, charge_dir * 900.0, 100.0)

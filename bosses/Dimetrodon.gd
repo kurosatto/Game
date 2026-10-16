@@ -183,8 +183,8 @@ func draw_body():
 	if is_warm() or state == "to_sun" or state == "bask":
 		# The sunbeam it heads for, lit on the floor
 		var sp = to_local(sun_pos)
-		draw_circle(sp, 120.0, Color(1.0, 0.9, 0.5, 0.10 + 0.04 * sin(t * 2.0)))
-		draw_circle(sp, 80.0, Color(1.0, 0.95, 0.6, 0.10))
+		draw_circle(sp, 120.0, Color(1.0, 0.9, 0.5, 0.10 + 0.04 * sin(t * 2.0)), true, -1.0, true)
+		draw_circle(sp, 80.0, Color(1.0, 0.95, 0.6, 0.10), true, -1.0, true)
 	if state == "bite_wind":
 		warn_line(facing * 100.0, facing * 380.0, 110.0)
 	if state == "tail_wind":
@@ -192,6 +192,7 @@ func draw_body():
 
 	var up = Vector2(0, -1).rotated(-facing.angle())
 	draw_set_transform(Vector2.ZERO, facing.angle(), Vector2.ONE)
+	light_rot = facing.angle()
 	shadow(Vector2(-30, 14), 190, 64)
 
 	# Sprawling legs: upper leg out to the side, foot planted, diagonal pairs
@@ -205,8 +206,8 @@ func draw_body():
 			limb(PackedVector2Array([hip, knee, foot]), 13.0, shade(SKIN, 0.85))
 			for toe in 4:
 				var ta = (toe - 1.5) * 0.35
-				draw_line(foot, foot + Vector2(11, 0).rotated(ta), OUTLINE, 4.0)
-				draw_line(foot, foot + Vector2(10, 0).rotated(ta), TOOTH, 2.0)
+				draw_line(foot, foot + Vector2(11, 0).rotated(ta), OUTLINE, 4.0, true)
+				draw_line(foot, foot + Vector2(10, 0).rotated(ta), TOOTH, 2.0, true)
 
 	# Body, tail and neck along the swaying spine
 	var spine := []
@@ -219,8 +220,8 @@ func draw_body():
 	for i in range(3, 22, 2):
 		var p: Vector2 = spine[i]
 		var w: float = widths[i]
-		draw_line(p + Vector2(0, -w * 0.9), p + Vector2(-8, -w * 0.3), Color(STRIPE.r, STRIPE.g, STRIPE.b, 0.8), 3.0)
-		draw_line(p + Vector2(0, w * 0.9), p + Vector2(-8, w * 0.3), Color(STRIPE.r, STRIPE.g, STRIPE.b, 0.8), 3.0)
+		draw_line(p + Vector2(0, -w * 0.9), p + Vector2(-8, -w * 0.3), Color(STRIPE.r, STRIPE.g, STRIPE.b, 0.8), 3.0, true)
+		draw_line(p + Vector2(0, w * 0.9), p + Vector2(-8, w * 0.3), Color(STRIPE.r, STRIPE.g, STRIPE.b, 0.8), 3.0, true)
 
 	draw_head()
 
@@ -251,13 +252,14 @@ func draw_body():
 	shape(membrane, Color(glow.r, glow.g, glow.b, 0.9), 3.0)
 	# Darker blotches along the membrane, as many reconstructions show
 	for i in range(2, n - 2, 3):
-		draw_circle(base[i].lerp(tips[i], 0.5), 7.0, shade(glow, 0.8))
+		draw_circle(base[i].lerp(tips[i], 0.5), 7.0, shade(glow, 0.8), true, -1.0, true)
 	for i in base.size():
-		draw_line(base[i], tips[i], OUTLINE, 5.0)
-		draw_line(base[i], tips[i], SAIL_SPINE.lerp(Color(1.0, 0.8, 0.5), warmth), 2.5)
+		draw_line(base[i], tips[i], OUTLINE, 5.0, true)
+		draw_line(base[i], tips[i], SAIL_SPINE.lerp(Color(1.0, 0.8, 0.5), warmth), 2.5, true)
 	if warmth > 0.05:
 		draw_polyline(top, Color(1.0, 0.85, 0.4, warmth * (0.6 + 0.3 * sin(t * 6.0))), 4.0)
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+	light_rot = 0.0
 
 func draw_head():
 	# Deep skull; jaws part around a hinge behind the eye when it bites
@@ -268,9 +270,9 @@ func draw_head():
 		for p in [Vector2(-4, 0), Vector2(6, -22), Vector2(30, -24), Vector2(54, -14), Vector2(64, -5), Vector2(66, 0), Vector2(64, 5), Vector2(54, 14), Vector2(30, 24), Vector2(6, 22)]:
 			skull.append(hinge + p)
 		shape(skull, shade(SKIN, 1.05), 3.0)
-		draw_line(hinge + Vector2(10, 0), hinge + Vector2(60, 0), shade(SKIN, 0.75), 2.0)
-		draw_circle(hinge + Vector2(60, -4), 2.0, OUTLINE)
-		draw_circle(hinge + Vector2(60, 4), 2.0, OUTLINE)
+		draw_line(hinge + Vector2(10, 0), hinge + Vector2(60, 0), shade(SKIN, 0.75), 2.0, true)
+		draw_circle(hinge + Vector2(60, -4), 2.0, OUTLINE, true, -1.0, true)
+		draw_circle(hinge + Vector2(60, 4), 2.0, OUTLINE, true, -1.0, true)
 	if gape > 0.05:
 		var mouth := PackedVector2Array([hinge + Vector2(6, 0)])
 		mouth.append(hinge + Vector2(58, -2).rotated(-open * 0.5))
@@ -287,10 +289,10 @@ func draw_head():
 			for k in 5:
 				var tp = hinge + Vector2(22 + k * 8, jaw * (3 + k * 0.5)).rotated(rot)
 				var tl = 10.0 if k == 3 else 5.0
-				draw_line(tp, tp - Vector2(0, jaw * tl).rotated(rot), OUTLINE, 5.0)
-				draw_line(tp, tp - Vector2(0, jaw * tl).rotated(rot), TOOTH, 3.0)
+				draw_line(tp, tp - Vector2(0, jaw * tl).rotated(rot), OUTLINE, 5.0, true)
+				draw_line(tp, tp - Vector2(0, jaw * tl).rotated(rot), TOOTH, 3.0, true)
 	for side in [-1.0, 1.0]:
 		var eye = hinge + Vector2(14, side * 13)
-		draw_circle(eye, 6.0, OUTLINE)
-		draw_circle(eye, 4.5, Color(1.0, 0.8, 0.25))
-		draw_circle(eye + Vector2(1, 0), 2.0, OUTLINE)
+		draw_circle(eye, 6.0, OUTLINE, true, -1.0, true)
+		draw_circle(eye, 4.5, Color(1.0, 0.8, 0.25), true, -1.0, true)
+		draw_circle(eye + Vector2(1, 0), 2.0, OUTLINE, true, -1.0, true)
