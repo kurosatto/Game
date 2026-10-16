@@ -47,6 +47,18 @@ const JOINTS := 44
 var _chain: PackedVector2Array = PackedVector2Array()
 var _chain_draw: PackedVector2Array = PackedVector2Array()
 var _drift: Vector2 = Vector2.ZERO
+# Radial animals (sea stars, urchins) have no front: they glide any way
+# without turning, so they are drawn counter-rotated to a fixed heading.
+# `move_dir` is the way the body is travelling in the drawing's own frame.
+const RADIAL_HEADING := -PI * 0.5
+var _radial: bool = false
+var _radial_rot: float = 0.0
+var move_dir: Vector2 = Vector2.ZERO
+# Jet swimmers (squid, nautilus, scallops) move in pulses: `jet` rises to 1
+# as the mantle or valves squeeze water out, then eases back as they refill
+var _jetter: bool = false
+var jet: float = 0.0
+var _jet_phase: float = 0.0
 var _draw_off: Vector2 = Vector2.ZERO
 var _drift_v: Vector2 = Vector2.ZERO
 
@@ -71,6 +83,8 @@ static func has_form(id: String) -> bool:
 
 func set_form(id: String):
 	form_id = id
+	_radial = false
+	_jetter = false
 	_legs.clear()
 	queue_redraw()
 
@@ -155,6 +169,11 @@ func _process(delta: float):
 	var want = Vector2(1.0 + 0.16 * dash + breath, 1.0 - 0.1 * dash - breath) * (1.0 - 0.07 * hurt)
 	_stretch = _stretch.lerp(want, 1.0 - exp(-dt * 20.0))
 	_update_chain(dt)
+	# Jet pulse: a quick squeeze, then a slower refill, faster at speed
+	_jet_phase += dt * (0.9 + 1.8 * clamp(move, 0.0, 1.2))
+	var jk = fposmod(_jet_phase, 1.0)
+	var squeeze = sin(PI * jk / 0.28) if jk < 0.28 else 0.0
+	jet = squeeze * clamp(move * 1.4 + 0.15, 0.0, 1.0)
 	queue_redraw()
 
 func _update_chain(dt: float):
@@ -191,22 +210,27 @@ func _draw():
 	if not FORMS.has(form_id):
 		return
 	var spec: Array = FORMS[form_id]
-	_update_light()
 	# Whole-body motion: lunge into strikes, lag behind acceleration, shake
 	# when hurt
+	_radial_rot = wrapf(RADIAL_HEADING - global_rotation, -PI, PI) if (_radial and not preview) else 0.0
+	_update_light()
+	var vel_dir = (player.velocity / max(player.speed, 1.0)).limit_length(1.0) if (player and is_instance_valid(player) and not preview) else Vector2.ZERO
+	move_dir = vel_dir.rotated(-(global_rotation + _radial_rot))
 	var off = Vector2(lunge * 4.0, 0) + _lag
+	if _jetter:
+		off += Vector2(jet * 3.5, 0)
 	if hurt > 0.0:
 		off += Vector2(sin(t * 70.0), cos(t * 53.0)) * 2.2 * hurt
 	# Soft drop shadow, always cast down the screen
 	var down = Vector2(3, 9).rotated(-global_rotation)
 	_chain_to_draw(off)
 	_draw_off = off
-	draw_set_transform(down + off * 0.6, 0.0, _stretch)
+	draw_set_transform(down + off * 0.6, _radial_rot, _stretch)
 	halo_pass = true
 	shadow_pass = true
 	_draw_parts()
 	_draw_shadow_pass(spec)
-	draw_set_transform(off, 0.0, _stretch)
+	draw_set_transform(off, _radial_rot, _stretch)
 	_draw_parts()
 	_draw_form(spec)
 	halo_pass = false
@@ -370,7 +394,7 @@ func shape(pts: PackedVector2Array, col: Color, w: float = OW) -> bool:
 var _L := Shading.LIGHT.normalized()
 
 func _update_light():
-	_L = Shading.light_for(global_rotation)
+	_L = Shading.light_for(global_rotation + _radial_rot)
 
 static func ink(col: Color) -> Color:
 	return Shading.ink(col)
@@ -1705,8 +1729,10 @@ func nautilus(p: Dictionary = {}):
 	var shell: Color = p.get("shell", c8(240, 230, 210))
 	var skin: Color = p.get("skin", c8(220, 170, 150))
 	spine_setup(30, 70, 0.6, 1.0)
-	arms(sp(18), sp_ang(18), 14, 19, 1.7, skin, 1.6)
-	oval(sp(16), 8, 12, sp_ang(16), shade(skin, 0.9))
+	_jetter = true
+	# Jets from its funnel: the hood pumps and the tentacles bunch and flare
+	arms(sp(18), sp_ang(18), 14, 19 * (1.0 + 0.1 * jet), 1.7 - 0.9 * jet, skin, 1.6)
+	oval(sp(16), 8 * (1.0 - 0.12 * jet), 12, sp_ang(16), shade(skin, 0.9))
 	for side in [-1.0, 1.0]:
 		eye(spo(18, side * 9), 2.2, c8(30, 30, 30))
 	coiled_shell(sp(-6), 23, shell, 1.5, p.get("stripes", c8(160, 80, 40)), sp_ang(0) + PI)
@@ -1722,11 +1748,12 @@ func coleoid():
 	# mantle, side fins, ten hooked arms.
 	var body = c8(180, 120, 150)
 	spine_setup(36, 80, 2.0, 1.5)
-	arms(sp(18), sp_ang(18), 10, 28, 1.0, shade(body, 1.1), 2.8)
+	_jetter = true
+	arms(sp(18), sp_ang(18), 10, 28 * (1.0 + 0.12 * jet), 1.0 - 0.7 * jet, shade(body, 1.1), 2.8)
 	var flap = sin(swim * 1.2) * 0.3
 	for side in [-1.0, 1.0]:
 		fin_lobe(spo(-24, side * 6), sp_ang(-24) + side * (PI * 0.72 + flap), 13, 5, shade(body, 1.15), 2)
-	spine_body(16, -38, 12, func(f): return 9.5 * (1.0 - 0.75 * f * f), body)
+	spine_body(16, -38, 12, func(f): return 9.5 * (1.0 - 0.2 * jet) * (1.0 - 0.75 * f * f), body)
 	fill(pv([spo(-6, -2), spo(-36, 0), spo(-6, 2)]), shade(body, 0.7))
 	for side in [-1.0, 1.0]:
 		eye(spo(18, side * 6.5), 2.8, c8(255, 230, 120))
@@ -1795,8 +1822,11 @@ func scallop(p: Dictionary = {}):
 	# and a row of small blue eyes on the mantle edge. Swims by clapping.
 	var shell: Color = p.get("col", c8(230, 140, 100))
 	spine_setup(30, 70, 0.0, 1.0)
-	var clap = 0.5 + 0.5 * sin(swim * 1.4)
-	var r = 30.0 * (0.94 + 0.06 * clap)
+	_jetter = true
+	# Claps its valves shut to squirt water out by the hinge and hop along;
+	# seen from above the shell shortens as it snaps closed
+	var clap = 1.0 - jet
+	var r = 30.0 * (0.86 + 0.14 * clap)
 	var hinge = Vector2(-16, 0)
 	if not halo_pass:
 		for k in 12:
@@ -1843,14 +1873,17 @@ func squid_line():
 	# feeding tentacles with clubs that shoot out on attack, big eyes.
 	var body = c8(230, 120, 110)
 	spine_setup(40, 90, 2.0, 1.5)
+	_jetter = true
+	# Each jet squeezes the mantle thin and sweeps the arms together behind
 	long_pair_tentacles(sp(16), sp_ang(16), 38, shade(body, 1.1))
-	arms(sp(16), sp_ang(16), 8, 26, 1.0, shade(body, 1.1), 3.0, true)
+	arms(sp(16), sp_ang(16), 8, 26 * (1.0 + 0.12 * jet), 1.0 - 0.7 * jet, shade(body, 1.1), 3.0, true)
 	var flap = sin(swim * 1.3) * 0.35
 	for side in [-1.0, 1.0]:
 		var r = spo(-30, side * 3)
 		var fa = sp_ang(-30) + side * (PI * 0.62 + flap)
 		shape(pv([spo(-20, side * 4), r + Vector2.RIGHT.rotated(fa) * 15, spo(-42, 0)]), shade(body, 1.12))
-	spine_body(14, -42, 14, func(f): return 9.0 * (1.0 - 0.8 * pow(f, 2.2)) + 0.5, body)
+	var squeeze = 1.0 - 0.22 * jet
+	spine_body(14, -42, 14, func(f): return 9.0 * squeeze * (1.0 - 0.8 * pow(f, 2.2)) + 0.5, body)
 	if not halo_pass:
 		for k in 9:
 			dot(spo(6 - k * 5.0, ((k % 3) - 1) * 3.5), 1.3, shade(body, 0.7))
@@ -1905,7 +1938,9 @@ func land_snail():
 	# tentacles, the upper pair carrying the eyes.
 	var body = c8(170, 150, 120)
 	spine_setup(42, 84, 0.6, 1.0)
-	var stretch = sin(gait * 0.5) * 2.5
+	# Crawls on a muscular wave: the head stretches ahead, then the body
+	# catches up, and the shell rocks with each pulse
+	var stretch = sin(gait * 0.5) * (1.5 + 4.0 * clamp(move, 0.0, 1.0))
 	spine_body(42 + stretch, -40, 16, func(f): return 8.5 * pow(sin(PI * clamp(f * 0.92 + 0.06, 0.0, 1.0)), 0.45) * (1.0 - 0.35 * f) + 0.8, body)
 	var a = sp_ang(40)
 	var pull = 1.0 - tuck
@@ -1915,7 +1950,14 @@ func land_snail():
 		taper(pv([b, tip]), 2.4, 1.6, body)
 		eye(tip, 1.5)
 		taper(pv([spo(41 + stretch, side * 2), spo(46 + stretch, side * 4)]), 1.8, 1.4, body)
-	coiled_shell(sp(-6), 20, c8(190, 130, 60), 3.0, c8(110, 60, 30), a)
+	if not halo_pass:
+		# Pedal waves: darker bands running back along the foot
+		for i in 5:
+			var x = 40.0 - fposmod(gait * 4.0 + i * 16.0, 80.0)
+			var hw = 6.5 * (1.0 - abs(x) / 50.0)
+			if hw > 1.0:
+				draw_line(spo(x, -hw), spo(x, hw), Color(0, 0, 0, 0.16 * clamp(move * 2.0, 0.0, 1.0)), 3.0, true)
+	coiled_shell(sp(-6) + Vector2(-stretch * 0.3, 0), 20, c8(190, 130, 60), 3.0, c8(110, 60, 30), a + sin(gait * 0.5 + 0.8) * 0.12 * clamp(move, 0.0, 1.0))
 
 func oyster():
 	# Oyster: thick, rough, irregular valve with layered frilly growth
@@ -1983,15 +2025,28 @@ func star(p: Dictionary):
 	var thin: bool = p.get("thin", false)
 	var wig: float = p.get("wiggle", 0.15)
 	spine_setup(0, 60, 0.0, 1.0)
+	_radial = true
+	var go = clamp(move, 0.0, 1.0)
+	var mv = move_dir.angle() if move_dir.length() > 0.05 else 0.0
 	for k in n:
 		var base_a = k * TAU / n
+		# How much this arm points the way the body is going (1 leading,
+		# -1 trailing): leading arms reach and feel ahead, trailing ones drag
+		var lead = cos(wrapf(base_a - mv, -PI, PI)) * go
+		var side = sin(wrapf(base_a - mv, -PI, PI))
+		# Tube feet pass a stepping wave along each arm; a brittle star rows,
+		# its side arms sweeping back in power strokes
+		var stroke = sin(gait * 0.7 + k * 1.3)
+		var reach = 1.0 + 0.1 * lead + 0.05 * stroke * go
 		var spine := []
 		var widths := []
 		for i in 10:
 			var f = i / 9.0
-			# Arms ripple as the tube feet walk; brittle stars row with them
 			var a = base_a + sin(gait * 0.7 + k * 1.3 + f * 1.5) * wig * f * clamp(move + 0.25, 0.0, 1.0) + sin(t * 0.8 + k) * 0.04 * f
-			spine.append(Vector2.RIGHT.rotated(a) * (D * 0.5 + L * f * (1.0 - 0.25 * tuck)))
+			# Trailing arms bow back; the leading arm's tip curls up to feel
+			a += side * f * f * (0.28 * max(-lead, 0.0) + (wig * 0.9) * stroke * go * (1.0 - abs(lead)))
+			a += sin(t * 3.0 + k) * 0.12 * f * f * f * max(lead, 0.0)
+			spine.append(Vector2.RIGHT.rotated(a) * (D * 0.5 + L * f * reach * (1.0 - 0.25 * tuck)))
 			widths.append(W * (1.0 - f * (0.8 if not thin else 0.5)) + (0.8 if thin else 1.0))
 		if thin:
 			taper(pv(spine), W * 2.0, 1.4, col)
@@ -2116,6 +2171,7 @@ func spiny_echinozoan():
 	# rows of tube-foot pores.
 	var body = c8(150, 100, 160)
 	spine_setup(0, 60, 0.0, 1.0)
+	_radial = true
 	for k in 22:
 		var g = k * TAU / 22.0 + sin(t * 1.5 + k) * 0.05
 		limb(pv([Vector2.RIGHT.rotated(g) * 18, Vector2.RIGHT.rotated(g) * (27 + 2.0 * tuck)]), 1.8, shade(body, 1.3))
@@ -2133,8 +2189,15 @@ func sea_urchin():
 	var body = c8(90, 50, 110)
 	spine_setup(0, 60, 0.0, 1.0)
 	var bristle = 1.0 + 0.15 * strike + 0.2 * tuck
+	_radial = true
+	var mv = move_dir.angle() if move_dir.length() > 0.05 else 0.0
+	var go = clamp(move, 0.0, 1.0)
 	for k in 30:
-		var g = k * TAU / 30.0 + sin(gait * 0.8 + k * 0.7) * 0.12 * clamp(move + 0.2, 0.0, 1.0)
+		var g0 = k * TAU / 30.0
+		# It walks on its spines: a wave of them sweeps back past the body,
+		# tips leaning away from the way it is going
+		var g = g0 + sin(gait * 0.8 + k * 0.7) * 0.16 * clamp(move + 0.2, 0.0, 1.0)
+		g -= sin(wrapf(g0 - mv, -PI, PI)) * 0.22 * go
 		var ln = (35.0 if k % 2 else 29.0) * bristle
 		taper(pv([Vector2.RIGHT.rotated(g) * 13, Vector2.RIGHT.rotated(g) * ln]), 2.4, 0.9, c8(170, 110, 200))
 	disc(Vector2.ZERO, 17, body)
@@ -2163,7 +2226,9 @@ func sea_cucumber():
 		var tip = b + Vector2.RIGHT.rotated(a) * ln
 		limb(pv([b, tip]), 1.4, c8(240, 220, 200))
 		dot(tip, 1.6, c8(255, 235, 215))
-	spine_body(36 * (1.0 - squash * 0.5), -40 * (1.0 - squash * 0.5), 14, func(f): return 13.0 * (1.0 + squash) * pow(sin(PI * clamp(f * 0.9 + 0.06, 0.0, 1.0)), 0.5) + 1.0, body)
+	# A bulge of muscle travels head to tail as it creeps
+	var creep = clamp(move, 0.0, 1.0)
+	spine_body(36 * (1.0 - squash * 0.5), -40 * (1.0 - squash * 0.5), 14, func(f): return 13.0 * (1.0 + squash) * (1.0 + 0.16 * creep * sin(f * TAU * 1.2 - gait * 0.9)) * pow(sin(PI * clamp(f * 0.9 + 0.06, 0.0, 1.0)), 0.5) + 1.0, body)
 	if not halo_pass:
 		for q in [Vector2(20, -6), Vector2(10, 5), Vector2(0, -4), Vector2(-10, 6), Vector2(-20, -5), Vector2(-28, 3), Vector2(26, 4)]:
 			draw_circle(spo(q.x, q.y), 2.2, shade(body, 1.4), true, -1.0, true)
