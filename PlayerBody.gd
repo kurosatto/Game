@@ -39,6 +39,23 @@ var _last_vel: Vector2 = Vector2.ZERO
 var _lag: Vector2 = Vector2.ZERO
 var _lag_v: Vector2 = Vector2.ZERO
 var _stretch: Vector2 = Vector2.ONE
+# Follow-the-leader spine: joints in world space, each dragged after the one
+# in front, so a long body follows the path its head took through turns and
+# whips round after a fast change of aim, then eases straight again
+const SEG := 5.0
+const JOINTS := 44
+var _chain: PackedVector2Array = PackedVector2Array()
+var _chain_draw: PackedVector2Array = PackedVector2Array()
+var _drift: Vector2 = Vector2.ZERO
+var _draw_off: Vector2 = Vector2.ZERO
+var _drift_v: Vector2 = Vector2.ZERO
+
+# Turn a limb segment's angle `a` toward the water drag, more toward the tip
+# (g 0 at the root .. 1 at the tip)
+func trail(a: float, g: float, k: float = 0.35) -> float:
+	if _drift.length_squared() < 0.0001:
+		return a
+	return a + sin(_drift.angle() - a) * _drift.length() * k * g
 # Colour of the biggest outlined part, used to tint attack trails
 var main_color: Color = Color(0.5, 0.8, 0.9)
 var _main_area: float = 0.0
@@ -54,6 +71,7 @@ static func has_form(id: String) -> bool:
 
 func set_form(id: String):
 	form_id = id
+	_legs.clear()
 	queue_redraw()
 
 func on_attack():
@@ -103,7 +121,14 @@ func _process(delta: float):
 	# Frame-rate independent easing toward each target
 	move = lerp(move, clamp(v / top, 0.0, 1.6), 1.0 - exp(-dt * 8.0))
 	swim += delta * (2.4 + 8.5 * min(move, 1.3))
-	gait += v * delta / 16.0
+	# Walkers: the gait advances one stride per stride length walked, so the
+	# planted feet don't slide
+	if _stride_n > 0:
+		_stride_w = _stride_sum / _stride_n
+	_stride_sum = 0.0
+	_stride_n = 0
+	_dt = dt
+	gait += v * delta * (PI / max(1.6 * _stride_w, 6.0) if _stride_w > 0.0 else 1.0 / 16.0)
 	var rot: float = get_parent().global_rotation
 	var dr = wrapf(rot - _last_rot, -PI, PI)
 	_last_rot = rot
@@ -129,7 +154,38 @@ func _process(delta: float):
 	var breath = sin(t * 2.6) * 0.012 * (1.0 - clamp(move, 0.0, 1.0))
 	var want = Vector2(1.0 + 0.16 * dash + breath, 1.0 - 0.1 * dash - breath) * (1.0 - 0.07 * hurt)
 	_stretch = _stretch.lerp(want, 1.0 - exp(-dt * 20.0))
+	_update_chain(dt)
 	queue_redraw()
+
+func _update_chain(dt: float):
+	var xf := global_transform
+	var head_w: Vector2 = xf * Vector2(head_x, 0)
+	var dir_w: Vector2 = xf.x.normalized()
+	var h = dir_w.angle()
+	var spacing = SEG * xf.x.length()
+	if _chain.size() != JOINTS or _chain[0].distance_to(head_w) > spacing * 30.0:
+		_chain.resize(JOINTS)
+		for i in JOINTS:
+			_chain[i] = head_w - dir_w * spacing * i
+		return
+	_chain[0] = head_w
+	# Slowly relax toward a straight body, faster while still
+	var relax = 1.0 - exp(-dt * (2.2 + 3.0 * (1.0 - clamp(move, 0.0, 1.0))))
+	# Each joint may only turn a little from the one before it, so the body
+	# bends in smooth arcs instead of kinking
+	var last_rel = 0.0
+	for i in range(1, JOINTS):
+		var prev = _chain[i - 1]
+		var p = _chain[i].lerp(head_w - dir_w * spacing * i, relax)
+		var rel = wrapf((prev - p).angle() - h, -PI, PI)
+		rel = clamp(clamp(rel, last_rel - 0.075, last_rel + 0.075), -1.15, 1.15)
+		last_rel = rel
+		_chain[i] = prev - Vector2.from_angle(h + rel) * spacing
+	# Loose appendages (arms, feelers, flagella) are dragged by the water:
+	# a spring toward the opposite of the body's own velocity
+	var want_drift = (-player.velocity / max(player.speed, 1.0)).rotated(-global_rotation).limit_length(1.0)
+	_drift_v += ((want_drift - _drift) * 60.0 - _drift_v * 9.0) * dt
+	_drift += _drift_v * dt
 
 func _draw():
 	if not FORMS.has(form_id):
@@ -143,6 +199,8 @@ func _draw():
 		off += Vector2(sin(t * 70.0), cos(t * 53.0)) * 2.2 * hurt
 	# Soft drop shadow, always cast down the screen
 	var down = Vector2(3, 9).rotated(-global_rotation)
+	_chain_to_draw(off)
+	_draw_off = off
 	draw_set_transform(down + off * 0.6, 0.0, _stretch)
 	halo_pass = true
 	_draw_shadow_pass(spec)
@@ -159,6 +217,7 @@ func _draw_shadow_pass(spec: Array):
 	shadow_pass = false
 
 func _draw_form(spec: Array):
+	_leg_i = 0
 	if spec.size() > 1:
 		call(spec[0], spec[1])
 	else:
@@ -392,13 +451,37 @@ func eye(p: Vector2, r: float, iris: Color = Color(0.1, 0.1, 0.12), pupil: bool 
 func spine_setup(hx: float, length: float, amp: float, k: float):
 	head_x = hx
 	body_len = length
-	wave_amp = amp * (0.35 + 0.65 * clamp(move, 0.0, 1.2))
+	wave_amp = amp * (0.4 + 0.9 * clamp(move, 0.0, 1.2))
 	wave_k = k
+
+# The world-space chain in this drawing's coordinates, pinned at the snout
+func _chain_to_draw(off: Vector2):
+	_chain_draw.resize(0)
+	if preview or _chain.size() != JOINTS:
+		return
+	var inv := global_transform.affine_inverse()
+	_chain_draw.resize(JOINTS)
+	for i in JOINTS:
+		_chain_draw[i] = (inv * _chain[i] - off) / _stretch
+	var shift = Vector2(head_x, 0) - _chain_draw[0]
+	for i in JOINTS:
+		_chain_draw[i] += shift
 
 # Point on the body's midline at forward position x (head_x is the snout)
 func sp(x: float) -> Vector2:
 	var d = clamp((head_x - x) / body_len, 0.0, 1.4)
-	var y = sin(swim - d * wave_k) * wave_amp * (0.12 + 0.88 * d * d) - bend * body_len * 0.3 * d * d
+	var y = sin(swim - d * wave_k) * wave_amp * (0.12 + 0.88 * d * d)
+	var back = head_x - x
+	if _chain_draw.size() == JOINTS and back > 0.0:
+		var f = min(back / SEG, JOINTS - 1.001)
+		var i = int(f)
+		var a = _chain_draw[i]
+		var b = _chain_draw[i + 1]
+		var q = a.lerp(b, f - i)
+		if back > SEG * (JOINTS - 1):
+			q += (b - a).normalized() * (back - SEG * (JOINTS - 1))
+		var tn = (a - b).normalized()
+		return q + Vector2(-tn.y, tn.x) * y
 	return Vector2(x, y)
 
 func sp_dir(x: float) -> Vector2:
@@ -439,16 +522,78 @@ func segments(xs: Array, ws: Array, col: Color, alt: float = 0.86, rx: float = -
 
 # Jointed leg: hip at `root`, sideways on `side`, stepping with the gait.
 # rake > 0 sweeps the leg back, < 0 forward.
+# In play the feet are planted: each foot stays put on the ground while the
+# body walks over it, then lifts and swings ahead to land past its resting
+# spot, with the knee solved to reach it. The gait (driven by distance
+# walked) decides which legs are swinging, so neighbours alternate.
+var _legs: Array = []      # per leg: [planted foot (world), lift-off point (world), swinging]
+var _leg_i: int = 0
+var _stride_sum: float = 0.0
+var _stride_n: int = 0
+var _stride_w: float = 0.0  # average stride of last frame's legs, world units
+var _dt: float = 0.016
+
 func leg(root: Vector2, side: float, length: float, phase: float, rake: float, w: float, col: Color, stride: float = 0.32):
-	var cyc = gait + phase
-	var amt = clamp(move * 1.3 + 0.05, 0.0, 1.0)
-	var swing = sin(cyc) * length * stride * amt
-	var lift = max(0.0, cos(cyc)) * amt
 	var d1 = Vector2(-sin(rake), side * cos(rake))
 	var d2 = Vector2(-sin(rake * 1.7 + sign(rake) * 0.15), side * cos(rake * 1.7 + sign(rake) * 0.15))
-	var knee = root + d1 * length * 0.52 + Vector2(swing * 0.45, 0)
-	var foot = knee + d2 * length * 0.56 * (1.0 - 0.18 * lift) + Vector2(swing * 0.55, 0)
-	taper(PackedVector2Array([root, knee, foot]), w, w * 0.6, col)
+	var l1 = length * 0.52
+	var l2 = length * 0.56
+	var rest = root + d1 * l1 + d2 * l2
+	var cyc = gait + phase
+	var foot: Vector2
+	var lift := 0.0
+	if preview or _chain_draw.size() != JOINTS:
+		var amt = clamp(move * 1.3 + 0.05, 0.0, 1.0)
+		var swing = sin(cyc) * length * stride * amt
+		lift = max(0.0, cos(cyc)) * amt
+		foot = rest + Vector2(swing, 0) - d2 * l2 * 0.18 * lift
+	else:
+		var k = _leg_i
+		_leg_i += 1
+		var xf := global_transform * Transform2D(0.0, _stretch, 0.0, _draw_off)
+		var inv := xf.affine_inverse()
+		var scale_w = xf.x.length()
+		var reach = length * stride * 1.1
+		var rest_w: Vector2 = xf * rest
+		if k >= _legs.size():
+			_legs.append([rest_w, rest_w, false])
+		var st: Array = _legs[k]
+		var ph = fposmod(cyc, TAU)
+		var swinging = ph < PI and move > 0.08
+		if shadow_pass:
+			# Update once per frame, on the first pass
+			_stride_sum += reach * scale_w
+			_stride_n += 1
+			if swinging and not st[2]:
+				st[1] = st[0]
+			if swinging:
+				var ahead = (player.velocity.normalized() if player else Vector2.ZERO) * reach * scale_w * 0.9
+				st[0] = st[1].lerp(rest_w + ahead, smooth(ph / PI))
+			elif (st[0] as Vector2).distance_to(rest_w) > reach * scale_w * 0.6 and move <= 0.08:
+				# Standing: shuffle a stretched foot back under the body
+				st[0] = (st[0] as Vector2).lerp(rest_w, 1.0 - exp(-_dt * 14.0))
+			st[2] = swinging
+			# Never let a planted foot be left further than the leg can reach
+			var off_w: Vector2 = st[0] - rest_w
+			var lim = reach * scale_w * 1.5
+			if off_w.length() > lim:
+				st[0] = rest_w + off_w.limit_length(lim)
+		foot = inv * (st[0] as Vector2)
+		if swinging:
+			lift = sin(ph)
+	foot += Vector2(0, side * 1.5 * lift)
+	# Two-bone reach from hip to foot, knee bowed outward on `side`
+	var to = foot - root
+	var d = clamp(to.length(), 0.001, (l1 + l2) * 0.98)
+	var ca = clamp((l1 * l1 + d * d - l2 * l2) / (2.0 * l1 * d), -1.0, 1.0)
+	var a = acos(ca)
+	var dir = to.normalized()
+	var k1 = root + dir.rotated(a) * l1
+	var k2 = root + dir.rotated(-a) * l1
+	var knee = k1 if (k1.y - root.y) * side > (k2.y - root.y) * side else k2
+	if to.length() > l1 + l2:
+		foot = root + dir * (l1 + l2)
+	taper(PackedVector2Array([root, knee, foot]), w * (1.0 + 0.25 * lift), w * 0.6, col)
 	return foot
 
 # Feeler from `root`: bows outwards on `side` and sways
@@ -460,6 +605,7 @@ func antenna(root: Vector2, side: float, length: float, spread: float, col: Colo
 	for i in n:
 		var f = (i + 1) / float(n)
 		a += side * 0.07 + sin(t * 3.0 + side + f * 2.0) * 0.05 * f - bend * 0.04
+		a = trail(a, f, 0.2)
 		p += Vector2.RIGHT.rotated(a) * (length / n)
 		pts.append(p)
 	limb(pts, w, col, true)
@@ -1376,6 +1522,7 @@ func arms(base: Vector2, a0: float, n: int, length: float, spread: float, col: C
 		for i in 6:
 			var g = (i + 1) / 6.0
 			a += sin(t * 2.6 + k * 0.9 + g * 2.2) * 0.16 * g - bend * 0.05
+			a = trail(a, g)
 			p += Vector2.RIGHT.rotated(a) * ln / 6.0
 			pts.append(p)
 		taper(pts, w, w * 0.35, col)
@@ -1392,6 +1539,7 @@ func long_pair_tentacles(base: Vector2, a0: float, length: float, col: Color):
 		for i in 7:
 			var g = (i + 1) / 7.0
 			a += sin(t * 2.0 + side + g * 3.0) * 0.08
+			a = trail(a, g, 0.25)
 			p += Vector2.RIGHT.rotated(a) * reach / 7.0
 			pts.append(p)
 		taper(pts, 1.8, 1.2, col)
@@ -1629,7 +1777,8 @@ func octopus_line():
 		var aa = a
 		for i in 7:
 			var g = (i + 1) / 7.0
-			aa += sin(t * 2.2 + k * 0.8 + g * 2.5) * 0.28 * g
+			aa += sin(t * (2.2 + 3.0 * move) + k * 0.8 + g * 2.5) * 0.28 * g
+			aa = trail(aa, g, 0.45)
 			p += Vector2.RIGHT.rotated(aa) * (5.0 + 1.0 * strike)
 			pts.append(p)
 		taper(pts, 5.0, 1.6, body)
@@ -1934,7 +2083,7 @@ func ancestral_collar_cell():
 	var pts := PackedVector2Array()
 	for k in 16:
 		var f = k / 15.0
-		pts.append(Vector2(-12 - f * 46, sin(swim * 1.5 - f * 7.0) * (1.0 + 8.0 * f) - bend * 18.0 * f * f))
+		pts.append(sp(-12 - f * 46) + Vector2(0, sin(swim * 1.5 - f * 7.0) * (1.0 + 8.0 * f)))
 	taper(pts, 2.8, 1.2, Color(0.78, 1.0, 0.97))
 	fill(pv([Vector2(-4, -10), Vector2(-24, -17), Vector2(-24, 17), Vector2(-4, 10)]), Color(0.6, 1.0, 0.95, 0.22))
 	if not halo_pass:
