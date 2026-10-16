@@ -11,7 +11,7 @@ extends Node2D
 
 const OUTLINE := Color(0.05, 0.07, 0.12, 1.0)
 # Rim around the silhouette so the player always reads as the player
-const HALO := Color(0.35, 0.93, 1.0, 1.0)
+const HALO := Color(0.42, 0.78, 0.86, 1.0)
 const OW := 2.0
 
 var player: Node = null
@@ -135,6 +135,7 @@ func _draw():
 	if not FORMS.has(form_id):
 		return
 	var spec: Array = FORMS[form_id]
+	_update_light()
 	# Whole-body motion: lunge into strikes, lag behind acceleration, shake
 	# when hurt
 	var off = Vector2(lunge * 4.0, 0) + _lag
@@ -183,7 +184,7 @@ func _rim_col() -> Color:
 	return Color(0, 0, 0, 0.22) if shadow_pass else HALO
 
 func _rim_w() -> float:
-	return 0.0 if shadow_pass else 3.6
+	return 0.0 if shadow_pass else 2.4
 
 # Outlined filled polygon. The halo and shadow passes draw the silhouette only.
 func shape(pts: PackedVector2Array, col: Color, w: float = OW) -> bool:
@@ -199,7 +200,10 @@ func shape(pts: PackedVector2Array, col: Color, w: float = OW) -> bool:
 		else:
 			draw_polyline(rim, HALO, w + _rim_w(), true)
 		return true
-	draw_colored_polygon(pts, col)
+	if col.a > 0.8:
+		lit_poly(pts, col)
+	else:
+		draw_colored_polygon(pts, col)
 	if w > 0 and col.a > 0.8:
 		var r := Rect2(pts[0], Vector2.ZERO)
 		for q in pts:
@@ -210,8 +214,96 @@ func shape(pts: PackedVector2Array, col: Color, w: float = OW) -> bool:
 	if w > 0:
 		var loop := pts.duplicate()
 		loop.append(pts[0])
-		draw_polyline(loop, OUTLINE, w, true)
+		draw_polyline(loop, ink(col), w, true)
 	return true
+
+# ── Lighting ──
+# Every body part is shaded as a rounded volume lit from the top left of the
+# screen: a soft diffuse falloff into cool shadow, a wet specular glint and
+# a darker rim where the surface turns away, so parts read as solid, glossy
+# animal bodies instead of flat cut-outs.
+const LIGHT := Vector3(-0.42, -0.62, 0.66)
+var _L := LIGHT.normalized()
+
+func _update_light():
+	var l2 = Vector2(LIGHT.x, LIGHT.y).rotated(-global_rotation)
+	_L = Vector3(l2.x, l2.y, LIGHT.z).normalized()
+
+# Line colour: a deep shade of the part's own colour rather than flat black
+static func ink(col: Color) -> Color:
+	return Color(col.r * 0.22 + 0.03, col.g * 0.22 + 0.03, col.b * 0.26 + 0.05, 1.0)
+
+func lit(col: Color, n: Vector3) -> Color:
+	var d = n.dot(_L)
+	var diff = clamp(d * 0.5 + 0.5, 0.0, 1.0) # wrapped, soft terminator
+	diff = diff * diff * (3.0 - 2.0 * diff)
+	var shadow = Color(col.r * 0.42, col.g * 0.48, col.b * 0.62 + 0.04)
+	var light = Color(min(col.r * 1.12 + 0.04, 1.0), min(col.g * 1.1 + 0.04, 1.0), min(col.b * 1.05 + 0.03, 1.0))
+	var c = shadow.lerp(light, diff)
+	var h = (_L + Vector3(0, 0, 1)).normalized()
+	var spec = pow(max(n.dot(h), 0.0), 28.0) * 0.55
+	var rim = pow(1.0 - clamp(n.z, 0.0, 1.0), 3.0) * 0.18
+	return Color(min(c.r + spec - rim, 1.0), min(c.g + spec - rim, 1.0), min(c.b + spec - rim * 0.8, 1.0), col.a)
+
+const RINGS := [1.0, 0.86, 0.68, 0.46, 0.22]
+
+# Polygon shaded as a dome over its outline (rings shrinking to the centre)
+func lit_poly(pts: PackedVector2Array, col: Color):
+	var n = pts.size()
+	var c := Vector2.ZERO
+	for q in pts:
+		c += q
+	c /= n
+	var verts := PackedVector2Array()
+	var cols := PackedColorArray()
+	for s in RINGS:
+		var r = s * 0.94
+		var z = sqrt(max(0.0, 1.0 - r * r))
+		for q in pts:
+			var d: Vector2 = q - c
+			var dir = d.normalized() if d.length() > 0.001 else Vector2.ZERO
+			verts.append(c + d * s)
+			cols.append(lit(col, Vector3(dir.x * r, dir.y * r, z)))
+	verts.append(c)
+	cols.append(lit(col, Vector3(0, 0, 1)))
+	var idx := PackedInt32Array()
+	for k in RINGS.size() - 1:
+		for i in n:
+			var a = k * n + i
+			var b = k * n + (i + 1) % n
+			var a2 = a + n
+			var b2 = b + n
+			idx.append_array([a, b, b2, a, b2, a2])
+	var last = (RINGS.size() - 1) * n
+	var centre = verts.size() - 1
+	for i in n:
+		idx.append_array([last + i, last + (i + 1) % n, centre])
+	RenderingServer.canvas_item_add_triangle_array(get_canvas_item(), idx, verts, cols)
+
+# Long body shaded as a cylinder along its spine
+func lit_tube(spine: Array, widths: Array, col: Color):
+	var n = spine.size()
+	if n < 2:
+		return
+	var across := [-1.0, -0.7, -0.35, 0.0, 0.35, 0.7, 1.0]
+	var m = across.size()
+	var verts := PackedVector2Array()
+	var cols := PackedColorArray()
+	for i in n:
+		var a: Vector2 = spine[max(i - 1, 0)]
+		var b: Vector2 = spine[min(i + 1, n - 1)]
+		var tn = (b - a).normalized()
+		var nm = Vector2(-tn.y, tn.x)
+		for u in across:
+			var uu = u * 0.94
+			verts.append(spine[i] + nm * widths[i] * u)
+			cols.append(lit(col, Vector3(nm.x * uu, nm.y * uu, sqrt(1.0 - uu * uu))))
+	var idx := PackedInt32Array()
+	for i in n - 1:
+		for j in m - 1:
+			var a = i * m + j
+			idx.append_array([a, a + 1, a + m + 1, a, a + m + 1, a + m])
+	RenderingServer.canvas_item_add_triangle_array(get_canvas_item(), idx, verts, cols)
 
 func fill(pts: PackedVector2Array, col: Color):
 	if halo_pass or pts.size() < 3 or Geometry2D.triangulate_polygon(pts).is_empty():
@@ -234,8 +326,11 @@ func disc(c: Vector2, r: float, col: Color, w: float = OW):
 			draw_circle(c, r + w * 0.5 + (0.0 if shadow_pass else 2.5), _rim_col(), true, -1.0, true)
 		return
 	if w > 0:
-		draw_circle(c, r + w * 0.5, OUTLINE, true, -1.0, true)
-	draw_circle(c, r, col, true, -1.0, true)
+		draw_circle(c, r + w * 0.5, ink(col), true, -1.0, true)
+	if col.a > 0.8 and r > 2.5:
+		lit_poly(ellipse_pts(c, r, r, 0.0, 18), col)
+	else:
+		draw_circle(c, r, col, true, -1.0, true)
 
 func dot(c: Vector2, r: float, col: Color):
 	if not halo_pass:
@@ -262,12 +357,13 @@ func limb(pts: PackedVector2Array, w: float, col: Color, outline: bool = true):
 			draw_circle(p, hw * 0.5, _rim_col(), true, -1.0, true)
 		return
 	if outline:
-		draw_polyline(pts, OUTLINE, w + 3.0, true)
+		draw_polyline(pts, ink(col), w + 3.0, true)
 		for p in pts:
-			draw_circle(p, (w + 3.0) * 0.5, OUTLINE, true, -1.0, true)
-	draw_polyline(pts, col, w, true)
+			draw_circle(p, (w + 3.0) * 0.5, ink(col), true, -1.0, true)
+	draw_polyline(pts, lit(col, Vector3(0, 0, 1)).darkened(0.12), w, true)
 	for p in pts:
-		draw_circle(p, w * 0.5, col, true, -1.0, true)
+		draw_circle(p, w * 0.5, lit(col, Vector3(0, 0, 1)).darkened(0.12), true, -1.0, true)
+	_limb_shine(pts, w, col)
 
 # Tapered limb: each piece thinner than the last
 func taper(pts: PackedVector2Array, w0: float, w1: float, col: Color, outline: bool = true):
@@ -283,17 +379,40 @@ func taper(pts: PackedVector2Array, w0: float, w1: float, col: Color, outline: b
 			draw_circle(pts[i], (w + 3.0 + _rim_w()) * 0.5, _rim_col(), true, -1.0, true)
 		draw_circle(pts[n - 1], (w1 + 3.0 + _rim_w()) * 0.5, _rim_col(), true, -1.0, true)
 		return
+	var k = ink(col)
+	var base = lit(col, Vector3(0, 0, 1)).darkened(0.12)
 	if outline:
 		for i in n - 1:
 			var w = lerp(w0, w1, i / float(max(n - 2, 1)))
-			draw_line(pts[i], pts[i + 1], OUTLINE, w + 3.0, true)
-			draw_circle(pts[i], (w + 3.0) * 0.5, OUTLINE, true, -1.0, true)
-		draw_circle(pts[n - 1], (w1 + 3.0) * 0.5, OUTLINE, true, -1.0, true)
+			draw_line(pts[i], pts[i + 1], k, w + 3.0, true)
+			draw_circle(pts[i], (w + 3.0) * 0.5, k, true, -1.0, true)
+		draw_circle(pts[n - 1], (w1 + 3.0) * 0.5, k, true, -1.0, true)
 	for i in n - 1:
 		var w = lerp(w0, w1, i / float(max(n - 2, 1)))
-		draw_line(pts[i], pts[i + 1], col, w, true)
-		draw_circle(pts[i], w * 0.5, col, true, -1.0, true)
-	draw_circle(pts[n - 1], w1 * 0.5, col, true, -1.0, true)
+		draw_line(pts[i], pts[i + 1], base, w, true)
+		draw_circle(pts[i], w * 0.5, base, true, -1.0, true)
+	draw_circle(pts[n - 1], w1 * 0.5, base, true, -1.0, true)
+	_limb_shine(pts, (w0 + w1) * 0.5, col)
+
+# Round limbs: a shadow along the side away from the light and a thin glint
+# along the lit side
+func _limb_shine(pts: PackedVector2Array, w: float, col: Color):
+	if w < 1.6:
+		return
+	var l2 = Vector2(_L.x, _L.y).normalized()
+	var dark := PackedVector2Array()
+	var glint := PackedVector2Array()
+	for i in pts.size():
+		var a: Vector2 = pts[max(i - 1, 0)]
+		var b: Vector2 = pts[min(i + 1, pts.size() - 1)]
+		var tn = (b - a).normalized()
+		var nm = Vector2(-tn.y, tn.x)
+		var side = 1.0 if nm.dot(l2) > 0.0 else -1.0
+		glint.append(pts[i] + nm * side * w * 0.22)
+		dark.append(pts[i] - nm * side * w * 0.28)
+	var g = lit(col, Vector3(l2.x * 0.5, l2.y * 0.5, 0.86))
+	draw_polyline(dark, lit(col, Vector3(-l2.x * 0.8, -l2.y * 0.8, 0.6)), w * 0.32, true)
+	draw_polyline(glint, Color(g.r, g.g, g.b, 0.55), max(0.7, w * 0.14), true)
 
 func tube_pts(spine: Array, widths: Array) -> PackedVector2Array:
 	var left := PackedVector2Array()
@@ -319,15 +438,14 @@ func tube(spine: Array, widths: Array, col: Color, w: float = OW):
 
 # Tube with a shadowed belly side and a lit back, so round bodies read round
 func tube_shaded(spine: Array, widths: Array, col: Color, w: float = OW):
-	tube(spine, widths, col, 0.0 if not halo_pass else w)
 	if halo_pass:
+		tube(spine, widths, col, w)
 		return
-	band(spine, widths, 1.0, 0.42, shade(col, 0.78))
-	band(spine, widths, -1.0, 0.3, shade(col, 1.22), 0.25)
+	lit_tube(spine, widths, col)
 	if w > 0:
 		var loop := tube_pts(spine, widths)
 		loop.append(loop[0])
-		draw_polyline(loop, OUTLINE, w, true)
+		draw_polyline(loop, ink(col), w, true)
 
 func band(spine: Array, widths: Array, side: float, depth: float, col: Color, inset: float = 0.0):
 	if halo_pass:
