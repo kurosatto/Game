@@ -224,10 +224,23 @@ func die():
 	SoundManager.play_sfx("enemy_die", 0.6)
 	death_burst()
 	var main = get_tree().get_first_node_in_group("main")
+	drop_elements(main.floor_number if main else 1)
 	if main and main.has_method("hit_stop"):
 		main.hit_stop(0.22)
 	enemy_died.emit()
 	queue_free()
+
+# A boss is a feast: a heap of every element it was built from
+func drop_elements(floor_num: int):
+	var bm = preload("res://data/Biominerals.gd")
+	var orb_script = preload("res://BiomassOrb.gd")
+	for el in bm.BOSSES.get(floor_num, ["P"]):
+		for i in 3:
+			var orb = orb_script.new()
+			orb.value = bm.BOSS_YIELD / 3.0
+			orb.element = el
+			orb.position = position
+			get_parent().call_deferred("add_child", orb)
 
 func burst_color() -> Color:
 	return Color(1.0, 0.5, 0.4)

@@ -36,14 +36,24 @@ func wait(n: int):
 		await process_frame
 		pick_adaptation()
 
-# Take a random offered adaptation whenever the biomass bar fills
+# Grow a random affordable part (through the GROW screen) whenever there is one
 func pick_adaptation():
 	var hud = main.hud
-	if hud.is_adaptation_up():
-		var a = hud.adaptation_options.pick_random()
-		hud._on_adaptation_clicked(a.id)
-		adaptations_picked += 1
-		report("adaptation %d: %s (damage %.1f, fire %.2f, speed %.0f, hp %d)" % [adaptations_picked, a.id, main.player.damage, main.player.fire_delay, main.player.speed, main.player.max_health])
+	var p = main.player
+	if p.growable_count <= 0 or paused or hud.is_card_up() or (hud.evolution_modal and hud.evolution_modal.visible):
+		return
+	var options: Array = []
+	for r in p.biominerals.RECIPES:
+		if p.biominerals.can_grow(r, p.elements, p.adaptations_taken):
+			options.append(r.id)
+	if options.is_empty():
+		return
+	hud.show_grow_screen()
+	hud.grow_selected = options.pick_random()
+	hud._on_grow_pressed()
+	hud.hide_grow_screen()
+	adaptations_picked += 1
+	report("grew %d: %s (damage %.1f, fire %.2f, speed %.0f, hp %d) elements %s" % [adaptations_picked, hud.grow_selected, p.damage, p.fire_delay, p.speed, p.max_health, str(p.elements)])
 
 func keep_player_alive():
 	var p = main.player

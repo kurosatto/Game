@@ -203,12 +203,100 @@ func _draw():
 	_draw_off = off
 	draw_set_transform(down + off * 0.6, 0.0, _stretch)
 	halo_pass = true
+	shadow_pass = true
+	_draw_parts()
 	_draw_shadow_pass(spec)
 	draw_set_transform(off, 0.0, _stretch)
+	_draw_parts()
 	_draw_form(spec)
 	halo_pass = false
 	_main_area = 0.0
+	_draw_parts()
+	_sil.resize(0)
 	_draw_form(spec)
+	if _sil.size() >= 3:
+		_hull = Geometry2D.convex_hull(_sil)
+
+# ── Grown parts (data/Biominerals.gd) ──
+# Parts grown on the GROW screen show on the body: keratin horn on the snout,
+# hooked claws at the front, calcite spines around the outline, dark
+# magnetite teeth at the mouth. They sit on the outline of the drawing
+# (its convex hull from the last frame), so they fit every form.
+var _sil := PackedVector2Array()
+var _hull := PackedVector2Array()
+var _parts_pass: bool = false
+
+func _sil_add(pts: PackedVector2Array):
+	if not halo_pass and not _parts_pass:
+		_sil.append_array(pts)
+
+func _hull_point(dir: Vector2) -> Vector2:
+	var best = _hull[0]
+	for q in _hull:
+		if q.dot(dir) > best.dot(dir):
+			best = q
+	return best
+
+func _draw_parts():
+	if preview or player == null or not is_instance_valid(player) or _hull.size() < 4:
+		return
+	var taken: Dictionary = player.adaptations_taken
+	var n_spines = int(taken.get("calcite_spines", 0))
+	var n_horn = int(taken.get("keratin_horn", 0))
+	var n_claws = int(taken.get("keratin_claws", 0))
+	var n_teeth = int(taken.get("magnetite_teeth", 0))
+	if n_spines + n_horn + n_claws + n_teeth == 0:
+		return
+	_parts_pass = true
+	var c := Vector2.ZERO
+	for q in _hull:
+		c += q
+	c /= _hull.size()
+	if n_spines > 0:
+		var calcite = Color(0.93, 0.9, 0.8)
+		var spike = 6.0 + 2.5 * min(n_spines, 3)
+		var k := 0
+		for i in _hull.size():
+			var a: Vector2 = _hull[i]
+			var b: Vector2 = _hull[(i + 1) % _hull.size()]
+			var steps = int(a.distance_to(b) / 12.0)
+			for j in steps:
+				var p = a.lerp(b, (j + 0.5) / steps)
+				var nrm = (p - c).normalized()
+				k += 1
+				if nrm.x > 0.75:
+					continue # keep the face clear
+				var tn = Vector2(-nrm.y, nrm.x)
+				var tip = p + nrm * spike + tn * sin(t * 2.6 + k) * 0.8
+				shape(pv([p - nrm * 3.0 - tn * 2.6, tip, p - nrm * 3.0 + tn * 2.6]), calcite, 1.2)
+	if n_claws > 0:
+		var claw = Color(0.36, 0.3, 0.24)
+		var cl = 7.0 + 3.0 * min(n_claws, 3)
+		for side in [-1.0, 1.0]:
+			var p = _hull_point(Vector2(0.55, side * 0.85).normalized())
+			var snap = strike * 0.6
+			var d = Vector2(cos(side * (0.5 - snap)), sin(side * (0.5 - snap)))
+			var mid = p + d * cl * 0.6
+			var tip = mid + d.rotated(-side * 1.1) * cl * 0.55
+			taper(pv([p, mid, tip]), 3.2, 0.9, claw)
+	if n_horn > 0:
+		var keratin = Color(0.86, 0.79, 0.6)
+		var p = _hull_point(Vector2.RIGHT)
+		var hl = 10.0 + 4.0 * min(n_horn, 3)
+		var curl = Vector2(0, -hl * 0.18)
+		shape(pv([p + Vector2(-3, -4.5), p + Vector2(hl * 0.55, -2.6) + curl * 0.5, p + Vector2(hl, 0) + curl, p + Vector2(hl * 0.55, 2.2) + curl * 0.5, p + Vector2(-3, 4.5)]), keratin, 1.4)
+		if not halo_pass:
+			for r in 3:
+				var x = hl * (0.15 + 0.22 * r)
+				draw_line(p + Vector2(x, -3.6 + x * 0.14) + curl * (x / hl), p + Vector2(x, 3.4 - x * 0.12) + curl * (x / hl), ink(keratin), 0.8, true)
+	if n_teeth > 0 and not halo_pass:
+		var p = _hull_point(Vector2.RIGHT)
+		var gape = 1.0 + strike * 2.5
+		for i in 3 + min(n_teeth, 2):
+			var y = (i - (2 + min(n_teeth, 2)) / 2.0) * 2.6 * gape
+			var b = p + Vector2(-2, y)
+			draw_colored_polygon(pv([b + Vector2(0, -1.1), b + Vector2(3.2, 0), b + Vector2(0, 1.1)]), Color(0.16, 0.17, 0.2))
+	_parts_pass = false
 
 var shadow_pass: bool = false
 func _draw_shadow_pass(spec: Array):
@@ -259,6 +347,8 @@ func shape(pts: PackedVector2Array, col: Color, w: float = OW) -> bool:
 		else:
 			draw_polyline(rim, HALO, w + _rim_w(), true)
 		return true
+	if w > 0 and col.a > 0.8:
+		_sil_add(pts)
 	if col.a > 0.8:
 		lit_poly(pts, col)
 	else:
@@ -317,7 +407,10 @@ func disc(c: Vector2, r: float, col: Color, w: float = OW):
 	if w > 0:
 		draw_circle(c, r + w * 0.5, ink(col), true, -1.0, true)
 	if col.a > 0.8 and r > 2.5:
-		lit_poly(ellipse_pts(c, r, r, 0.0, 18), col)
+		var circ = ellipse_pts(c, r, r, 0.0, 18)
+		if w > 0:
+			_sil_add(circ)
+		lit_poly(circ, col)
 	else:
 		draw_circle(c, r, col, true, -1.0, true)
 
@@ -416,6 +509,7 @@ func tube_shaded(spine: Array, widths: Array, col: Color, w: float = OW):
 	lit_tube(spine, widths, col)
 	if w > 0:
 		var loop := tube_pts(spine, widths)
+		_sil_add(loop)
 		loop.append(loop[0])
 		draw_polyline(loop, ink(col), w, true)
 

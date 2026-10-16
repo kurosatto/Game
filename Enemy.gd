@@ -1168,15 +1168,20 @@ func kill_effects():
 					e.take_damage(dmg)
 		)
 
-# Eaten prey feeds the adaptation bar: chasers are worth 1, shooters 2
+# Eaten prey leaves the elements its body was made of (data/Biominerals.gd):
+# chasers are worth 1, shooters 2
 func drop_biomass():
 	var worth = 2.0 if enemy_type == "pacer" else 1.0
 	if enemy_type in SPECIAL_STATS:
 		worth = SPECIAL_STATS[enemy_type].worth
-	var count = clampi(int(worth * 2.5), 1, 7)
+	var els: Array = preload("res://data/Biominerals.gd").fauna_elements(fauna_name)
+	var units = worth * preload("res://data/Biominerals.gd").YIELD
+	var count = clampi(int(ceil(units * 2.0)), 1, 4)
+	var first = randi() % els.size()
 	for i in count:
 		var orb = biomass_orb_script.new()
-		orb.value = worth / count
+		orb.value = units / count
+		orb.element = els[(first + i) % els.size()]
 		orb.position = position
 		get_parent().add_child(orb)
 
