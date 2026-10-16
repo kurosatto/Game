@@ -268,28 +268,63 @@ static func ellipse_pts(c: Vector2, rx: float, ry: float, rot: float = 0.0, n: i
 		pts.append(c + Vector2(cos(a) * rx, sin(a) * ry).rotated(rot))
 	return pts
 
-# Outline then fill, like the outlined pixel art elsewhere in the game
+# ── Lighting (shared with the player forms, see Shading.gd) ──
+# Bosses draw rotated toward `facing` with draw_set_transform; they set
+# light_rot to the same angle so the light stays fixed on screen.
+var light_rot: float = 0.0
+
+func light_dir() -> Vector3:
+	return Shading.light_for(global_rotation + light_rot)
+
+func lit(col: Color, n: Vector3) -> Color:
+	return Shading.lit(col, n, light_dir())
+
+# True when every edge of the outline faces the centroid, so the shading
+# rings shrunk toward it stay inside the shape
+static func star_shaped(pts: PackedVector2Array) -> bool:
+	var c := Vector2.ZERO
+	for q in pts:
+		c += q
+	c /= pts.size()
+	var sign := 0.0
+	for i in pts.size():
+		var cr = (pts[i] - c).cross(pts[(i + 1) % pts.size()] - c)
+		if abs(cr) < 0.001:
+			continue
+		if sign == 0.0:
+			sign = signf(cr)
+		elif signf(cr) != sign:
+			return false
+	return true
+
+# Shaded fill with an outline in a deep shade of its own colour
 func shape(pts: PackedVector2Array, fill: Color, width: float = 3.0) -> bool:
 	if pts.size() < 3 or Geometry2D.triangulate_polygon(pts).is_empty():
 		return false
-	draw_colored_polygon(pts, fill)
+	if fill.a > 0.8 and star_shaped(pts):
+		Shading.lit_poly(get_canvas_item(), pts, fill, light_dir())
+	else:
+		draw_colored_polygon(pts, lit(fill, Vector3(0, 0, 1)) if fill.a > 0.8 else fill)
 	if width > 0:
 		var loop := pts.duplicate()
 		loop.append(pts[0])
-		draw_polyline(loop, OUTLINE, width)
+		draw_polyline(loop, Shading.ink(fill) if fill.a > 0.8 else OUTLINE, width, true)
 	return true
 
 func oval(c: Vector2, rx: float, ry: float, rot: float, fill: Color, width: float = 3.0):
 	shape(ellipse_pts(c, rx, ry, rot), fill, width)
 
 func limb(pts: PackedVector2Array, w: float, col: Color, outline: bool = true):
+	var ink = Shading.ink(col)
 	if outline:
-		draw_polyline(pts, OUTLINE, w + 4.0)
+		draw_polyline(pts, ink, w + 4.0, true)
 		for p in pts:
-			draw_circle(p, (w + 4.0) * 0.5, OUTLINE)
-	draw_polyline(pts, col, w)
+			draw_circle(p, (w + 4.0) * 0.5, ink, true, -1.0, true)
+	var base = lit(col, Vector3(0, 0, 1)).darkened(0.12)
+	draw_polyline(pts, base, w, true)
 	for p in pts:
-		draw_circle(p, w * 0.5, col)
+		draw_circle(p, w * 0.5, base, true, -1.0, true)
+	Shading.limb_shine(self, pts, w, col, light_dir())
 
 # A body along a spine: points with a half-width at each, closed into one
 # outlined polygon. Used for horns, tails, tentacles and trunks.
@@ -309,6 +344,13 @@ func tube_pts(spine: Array, widths: Array) -> PackedVector2Array:
 	return left
 
 func tube(spine: Array, widths: Array, fill: Color, width: float = 3.0):
+	if fill.a > 0.8 and spine.size() >= 2:
+		Shading.lit_tube(get_canvas_item(), spine, widths, fill, light_dir())
+		if width > 0:
+			var loop := tube_pts(spine, widths)
+			loop.append(loop[0])
+			draw_polyline(loop, Shading.ink(fill), width, true)
+		return
 	if not shape(tube_pts(spine, widths), fill, width):
 		# Bent too tightly to fill as one polygon: draw it as a thick limb
 		var avg = 0.0
@@ -316,15 +358,9 @@ func tube(spine: Array, widths: Array, fill: Color, width: float = 3.0):
 			avg += w
 		limb(PackedVector2Array(spine), 2.0 * avg / max(widths.size(), 1), fill, width > 0)
 
-# A tube with a shadowed side and a highlight, so round bodies read as round
+# Round bodies are lit as cylinders by tube() now
 func tube_shaded(spine: Array, widths: Array, fill: Color, width: float = 3.0):
-	tube(spine, widths, fill, 0.0)
-	shade_band(spine, widths, -1.0, 0.45, shade(fill, 0.72))
-	shade_band(spine, widths, 1.0, 0.25, shade(fill, 1.25), 0.35)
-	if width > 0:
-		var loop := tube_pts(spine, widths)
-		loop.append(loop[0])
-		draw_polyline(loop, OUTLINE, width)
+	tube(spine, widths, fill, width)
 
 func shade_band(spine: Array, widths: Array, side: float, depth: float, col: Color, inset: float = 0.0):
 	var outer := PackedVector2Array()
@@ -347,12 +383,12 @@ func warn_alpha() -> float:
 	return 0.25 + 0.2 * sin(t * 18.0)
 
 func warn_circle(c: Vector2, r: float):
-	draw_circle(c, r, Color(WARN.r, WARN.g, WARN.b, warn_alpha() * 0.6))
+	draw_circle(c, r, Color(WARN.r, WARN.g, WARN.b, warn_alpha() * 0.6), true, -1.0, true)
 	draw_arc(c, r, 0, TAU, 40, Color(WARN.r, WARN.g, WARN.b, 0.8), 3.0)
 
 func warn_line(a: Vector2, b: Vector2, w: float):
-	draw_line(a, b, Color(WARN.r, WARN.g, WARN.b, warn_alpha() * 0.6), w)
-	draw_line(a, b, Color(WARN.r, WARN.g, WARN.b, 0.7), 2.0)
+	draw_line(a, b, Color(WARN.r, WARN.g, WARN.b, warn_alpha() * 0.6), w, true)
+	draw_line(a, b, Color(WARN.r, WARN.g, WARN.b, 0.7), 2.0, true)
 
 func warn_sector(c: Vector2, r: float, ang: float, half: float):
 	var pts := PackedVector2Array([c])
