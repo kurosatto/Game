@@ -654,6 +654,31 @@ func spawn_shop_items():
         ped.price = item_def["price"]
         add_child(ped)
 
+# Safety net for doors that stay shut with nothing left to fight: forget
+# enemies that were freed without dying, and fetch back any that slipped
+# out through a wall, so the room always clears once the last one is down
+var _watch_timer: float = 0.0
+
+func _process(delta: float):
+    if room_data == null or room_data.cleared or active_enemies.is_empty():
+        return
+    _watch_timer -= delta
+    if _watch_timer > 0.0:
+        return
+    _watch_timer = 0.5
+    # Inside the walls (128 px thick, wider rooms on wide screens)
+    var inside = Rect2(150 - side_margin, 150, 1620 + side_margin * 2, 780)
+    var alive: Array = []
+    for e in active_enemies:
+        if is_instance_valid(e) and not e.is_queued_for_deletion() and not e.get("dead"):
+            alive.append(e)
+            if not inside.grow(60.0).has_point(e.position):
+                e.position = e.position.clamp(inside.position, inside.end)
+    if alive.size() != active_enemies.size():
+        active_enemies = alive
+        if active_enemies.is_empty():
+            clear_room()
+
 func _on_enemy_died(enemy):
     active_enemies.erase(enemy)
     
