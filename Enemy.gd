@@ -778,6 +778,10 @@ func process_burrower(delta: float):
 			if burrow_timer <= 0 or to_p.length() <= 70.0:
 				burrow_state = "rise"
 				burrow_timer = 0.6
+				# It tunnels through anything: surface on open floor, not in a rock
+				var room = get_parent()
+				if room and room.has_method("free_spot"):
+					position = room.free_spot(position)
 				if dust: dust.amount = 40
 		"rise":
 			if burrow_timer <= 0:

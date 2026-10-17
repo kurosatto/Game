@@ -30,7 +30,12 @@ func _process(delta: float):
 		# Bumping a shut door: say why it is shut
 		for body in get_overlapping_bodies():
 			if body.is_in_group("player"):
-				_show_hint("DOOR SHUT", "Defeat every creature in this room to open the doors")
+				var room = get_parent()
+				var left = room.active_enemies.size() if room and "active_enemies" in room else 0
+				var desc = "Defeat every creature in this room to open the doors"
+				if left > 0:
+					desc = "%d creature%s left in this room" % [left, "" if left == 1 else "s"]
+				_show_hint("DOOR SHUT", desc)
 				break
 	if trigger_cooldown > 0:
 		trigger_cooldown -= delta
