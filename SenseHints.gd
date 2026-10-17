@@ -44,14 +44,18 @@ func _draw():
 	var clarity = 0.35 + sense * 0.06          # arrow opacity at its strongest
 	var ring = clamp(radius * 0.8, 110.0, 320.0)
 	var pulse = 0.85 + 0.15 * sin(time * 4.0)
-	for e in get_tree().get_nodes_in_group("enemies"):
-		if not (e is Node2D) or not e.is_inside_tree():
-			continue
+	var enemies = get_tree().get_nodes_in_group("enemies").filter(func(e): return e is Node2D and e.is_inside_tree() and not e.get("dead"))
+	# The last two in a room are always pointed out, however far away, so a
+	# straggler hiding in the dark can't keep the doors shut
+	var last_ones = enemies.size() <= 2
+	for e in enemies:
 		var pos = to_local * e.get_global_transform_with_canvas().origin
 		var d = center.distance_to(pos)
-		if d < radius * 0.9 or d > radius + reach:
+		if d < radius * 0.9 or (d > radius + reach and not last_ones):
 			continue
-		var strength = clarity * (1.0 - max(0.0, d - radius) / reach) * pulse
+		var strength = clarity * (1.0 - clamp(max(0.0, d - radius) / reach, 0.0, 1.0)) * pulse
+		if last_ones:
+			strength = max(strength, 0.75 * pulse)
 		var dir = (pos - center) / d
 		var size = 10.0 + sense * 1.2
 		if e.has_method("is_boss") and e.is_boss():
