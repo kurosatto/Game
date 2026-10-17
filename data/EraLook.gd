@@ -18,7 +18,7 @@ extends RefCounted
 
 const ERAS = [
 	{ # 1 Ediacaran: still teal shallows over pink microbial mats
-		"tint": Color(0.84, 0.95, 1.0), "boss_tint": Color(0.72, 0.80, 1.0),
+		"tint": Color(0.84, 0.95, 1.0), "ink_light": 0.55, "boss_tint": Color(0.72, 0.80, 1.0),
 		"light": Color(0.55, 1.0, 0.85), "light_mode": 0, "light_power": 0.11,
 		"motes": Color(0.6, 1.0, 0.9, 0.28), "mote_kind": "plankton",
 		"shafts": Color(0.75, 1.0, 0.95, 0.07), "bubbles": true,
@@ -26,7 +26,7 @@ const ERAS = [
 		"door_light": Color(0.5, 1.0, 0.85),
 	},
 	{ # 2 Cambrian: sunlit sand, turquoise water, colourful sponges
-		"tint": Color(0.95, 1.0, 1.0), "boss_tint": Color(0.70, 0.90, 0.95),
+		"tint": Color(0.95, 1.0, 1.0), "ink_light": 0.72, "boss_tint": Color(0.70, 0.90, 0.95),
 		"light": Color(0.9, 1.0, 0.85), "light_mode": 0, "light_power": 0.15,
 		"motes": Color(0.9, 1.0, 0.85, 0.26), "mote_kind": "plankton",
 		"shafts": Color(1.0, 0.97, 0.85, 0.08), "bubbles": true,
@@ -34,7 +34,7 @@ const ERAS = [
 		"door_light": Color(1.0, 0.95, 0.75),
 	},
 	{ # 3 Ordovician: deep blue reef with pink and cream corals
-		"tint": Color(0.84, 0.90, 1.0), "boss_tint": Color(0.70, 0.86, 0.90),
+		"tint": Color(0.84, 0.90, 1.0), "ink_light": 0.47, "boss_tint": Color(0.70, 0.86, 0.90),
 		"light": Color(0.6, 0.75, 1.0), "light_mode": 0, "light_power": 0.1,
 		"motes": Color(0.75, 0.85, 1.0, 0.28), "mote_kind": "plankton",
 		"shafts": Color(0.65, 0.8, 1.0, 0.07), "bubbles": true,
@@ -42,7 +42,7 @@ const ERAS = [
 		"door_light": Color(0.75, 0.8, 1.0),
 	},
 	{ # 4 Carboniferous: peat swamp under tree ferns, golden light
-		"tint": Color(0.92, 0.94, 0.86), "boss_tint": Color(0.80, 0.88, 0.70),
+		"tint": Color(0.92, 0.94, 0.86), "ink_light": 0.3, "boss_tint": Color(0.80, 0.88, 0.70),
 		"light": Color(1.0, 0.88, 0.6), "light_mode": 1, "light_power": 0.08,
 		"motes": Color(0.85, 1.0, 0.6, 0.26), "mote_kind": "spores",
 		"shafts": Color(1.0, 0.9, 0.6, 0.06), "bubbles": false,
@@ -50,7 +50,7 @@ const ERAS = [
 		"door_light": Color(1.0, 0.9, 0.55),
 	},
 	{ # 5 End-Permian: red beds, ash and distant volcanic glow
-		"tint": Color(0.96, 0.88, 0.86), "boss_tint": Color(1.0, 0.76, 0.64),
+		"tint": Color(0.96, 0.88, 0.86), "ink_light": 0.47, "boss_tint": Color(1.0, 0.76, 0.64),
 		"light": Color(1.0, 0.6, 0.35), "light_mode": 2, "light_power": 0.08,
 		"motes": Color(0.85, 0.8, 0.78, 0.3), "mote_kind": "ash",
 		"shafts": Color(1.0, 0.7, 0.45, 0.06), "bubbles": false,
