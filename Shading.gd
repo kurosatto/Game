@@ -5,7 +5,7 @@
 # diffuse falloff into cool shadow, a wet specular glint and a darker rim
 # where the surface turns away, so parts read as solid, glossy bodies rather
 # than flat cut-outs. Parts are drawn as vertex-coloured triangle meshes.
-class_name Shading
+# Loaded with preload() where used, so it never depends on the editor's class cache
 extends RefCounted
 
 # Screen-space light: from the top left, above the water

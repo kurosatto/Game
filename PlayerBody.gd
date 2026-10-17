@@ -9,6 +9,8 @@
 # the menu and codex.
 extends Node2D
 
+# Shared lighting (preloaded: works even before the editor has rescanned)
+const Shading = preload("res://Shading.gd")
 const OUTLINE := Color(0.05, 0.07, 0.12, 1.0)
 # Rim around the silhouette so the player always reads as the player: a
 # margin of bare paper that sets the sketch apart from the room (InkFilter.gd)

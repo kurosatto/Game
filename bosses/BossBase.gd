@@ -9,6 +9,8 @@ extends CharacterBody2D
 signal enemy_died
 signal boss_health_changed(current, max_value, boss_title)
 
+# Shared lighting (preloaded: works even before the editor has rescanned)
+const Shading = preload("res://Shading.gd")
 # Open floor of the boss room, inside the walls and clear of the door gaps
 const ARENA = Rect2(190, 190, 1540, 700)
 const OUTLINE = Color(0.05, 0.07, 0.12, 1.0)

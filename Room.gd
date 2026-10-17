@@ -585,7 +585,7 @@ func spawn_enemy(pos: Vector2, type: String, floor_number: int):
     var count = 4 if type == "swarm" else 1
     for i in count:
         var enemy = enemy_scene.instantiate()
-        enemy.position = pos + (Vector2.RIGHT.rotated(TAU * i / count) * 50.0 if count > 1 else Vector2.ZERO)
+        enemy.position = free_spot(pos + (Vector2.RIGHT.rotated(TAU * i / count) * 50.0 if count > 1 else Vector2.ZERO))
         enemy.enemy_type = type
         enemy.setup_enemy(floor_number)
         add_child(enemy)
@@ -654,38 +654,62 @@ func spawn_shop_items():
         ped.price = item_def["price"]
         add_child(ped)
 
-# Safety net for doors that stay shut with nothing left to fight: forget
-# enemies that were freed without dying, and fetch back any that slipped
-# out through a wall, so the room always clears once the last one is down
+# The open floor inside the walls (side margins included)
+func interior_rect(pad: float = 0.0) -> Rect2:
+    return Rect2(128 - side_margin + pad, 128 + pad, 1664 + side_margin * 2.0 - pad * 2.0, 824 - pad * 2.0)
+
+func spot_is_free(pos: Vector2, radius: float = 40.0) -> bool:
+    if not interior_rect(radius).has_point(pos):
+        return false
+    for c in get_children():
+        if c.is_in_group("obstacles") and not c.is_queued_for_deletion() and c.position.distance_to(pos) < 44.0 + radius:
+            return false
+    return true
+
+# Nearest open floor to pos, so nothing starts (or ends up) inside a rock or
+# a wall where shots cannot reach it and the room could never be cleared
+func free_spot(pos: Vector2, radius: float = 40.0) -> Vector2:
+    if spot_is_free(pos, radius):
+        return pos
+    for ring in range(1, 10):
+        var steps = 8 * ring
+        for s in steps:
+            var cand = pos + Vector2.RIGHT.rotated(TAU * s / steps) * ring * 48.0
+            if spot_is_free(cand, radius):
+                return cand
+    var r = interior_rect(radius)
+    return Vector2(clampf(pos.x, r.position.x, r.end.x), clampf(pos.y, r.position.y, r.end.y))
+
+# Safety net for "defeat every creature" rooms: forget animals that are gone,
+# pull back any stuck in a rock or outside the walls, and open the doors once
+# nobody is left, whichever way the last one went
 var _watch_timer: float = 0.0
 
 func _process(delta: float):
-    if room_data == null or room_data.cleared or active_enemies.is_empty():
+    # Boss rooms too: if the boss is gone (or never spawned) the doors still open
+    if room_data == null or room_data.cleared or not room_data.type in [1, 3]:
         return
     _watch_timer -= delta
     if _watch_timer > 0.0:
         return
     _watch_timer = 0.5
-    # Inside the walls (128 px thick, wider rooms on wide screens)
-    var inside = Rect2(150 - side_margin, 150, 1620 + side_margin * 2, 780)
-    var alive: Array = []
+    active_enemies = active_enemies.filter(func(e): return is_instance_valid(e) and not e.is_queued_for_deletion() and not e.dead)
     for e in active_enemies:
-        if is_instance_valid(e) and not e.is_queued_for_deletion() and not e.get("dead"):
-            alive.append(e)
-            if not inside.grow(60.0).has_point(e.position):
-                e.position = e.position.clamp(inside.position, inside.end)
-    if alive.size() != active_enemies.size():
-        active_enemies = alive
-        if active_enemies.is_empty():
-            clear_room()
+        # Bosses keep themselves inside their arena
+        if e.is_boss() or e.is_burrowed():
+            continue
+        if not spot_is_free(e.position, 8.0):
+            e.position = free_spot(e.position)
+    if active_enemies.is_empty():
+        clear_room()
 
 func _on_enemy_died(enemy):
     active_enemies.erase(enemy)
-    
+
     if randf() < 0.35:
         spawn_random_pickup(enemy.global_position)
-        
-    if active_enemies.size() == 0:
+
+    if active_enemies.size() == 0 and not room_data.cleared:
         clear_room()
 
 func spawn_random_pickup(pos: Vector2):
