@@ -59,5 +59,7 @@ func _draw():
 		var tip = center + dir * (ring + size)
 		var side = dir.orthogonal() * size * 0.7
 		var back = tip - dir * size
-		var c = Color(color.r, color.g, color.b, strength)
+		# Drawn over the paper fog, so mostly brown ink with a hint of the sense's colour
+		var inked = color.lerp(Color(0.3, 0.18, 0.1), 0.65)
+		var c = Color(inked.r, inked.g, inked.b, strength)
 		draw_polyline(PackedVector2Array([back + side, tip, back - side]), c, 4.0, true)

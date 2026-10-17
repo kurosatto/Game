@@ -12,7 +12,9 @@ uniform vec2 center = vec2(960.0, 540.0);
 uniform float radius = 400.0;
 uniform float softness = 300.0;
 uniform float darkness = 0.85;
-uniform vec3 fog_color : source_color = vec3(0.0, 0.02, 0.05);
+// Unseen parts of the room are blank sketchbook paper (see InkFilter.gd)
+uniform vec3 fog_color : source_color = vec3(0.93, 0.87, 0.74);
+float hash(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
 // Doorways stay visible even to a nearly blind form, so exits can be found
 uniform vec2 doors[8];
 uniform int door_count = 0;
@@ -24,7 +26,11 @@ void fragment() {
 	for (int i = 0; i < door_count; i++) {
 		a = min(a, smoothstep(door_radius * 0.6, door_radius, distance(p, doors[i])));
 	}
-	COLOR = vec4(fog_color, a * darkness);
+	vec3 col = fog_color + (hash(FRAGCOORD.xy) - 0.5) * 0.05;
+	// A faint brown edge where the sketch stops, like a vignette of ink
+	float rim = smoothstep(0.0, 0.5, a) * (1.0 - smoothstep(0.5, 1.0, a));
+	col = mix(col, vec3(0.55, 0.42, 0.3), rim * 0.35);
+	COLOR = vec4(col, a * darkness);
 }
 """
 
@@ -43,6 +49,8 @@ func _ready():
 	# Above the world, below the HUD (layer 2), touch controls and transitions
 	layer = 1
 	follow_viewport_enabled = false
+	# The ink-sketch pass reads everything drawn so far, so it goes first
+	add_child(preload("res://InkFilter.gd").new())
 	rect = ColorRect.new()
 	rect.set_anchors_preset(Control.PRESET_FULL_RECT)
 	rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
