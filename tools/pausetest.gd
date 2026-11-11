@@ -46,6 +46,19 @@ func _initialize():
 	var kept = main.player.aim_assist(Vector2.UP)
 	check(kept == Vector2.UP, "aim assist leaves a shot far from any animal alone")
 	e.queue_free()
+	# A heart you stand on at full health is taken once you are hurt
+	var pl = main.player
+	pl.health = pl.max_health
+	var heart = load("res://Pickup.tscn").instantiate()
+	heart.pickup_type = "heart"
+	heart.position = pl.global_position
+	main.current_room_node.add_child(heart)
+	for i in 10: await physics_frame
+	check(is_instance_valid(heart) and not heart.taken, "a heart stays put at full health")
+	pl.health -= 2
+	for i in 10: await physics_frame
+	check(pl.health == pl.max_health, "standing on it, the heart is eaten once hurt")
+	pl.invincibility_time = 0.0
 	main.player.take_damage(999)
 	await process_frame
 	check(hud.game_over_screen.visible and not hud.end_screen_ready(), "game over waits before a tap restarts")

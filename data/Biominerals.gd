@@ -49,7 +49,7 @@ const RECIPES = [
 		"fact": "Molluscs lay down shell as layers of aragonite, a form of calcium carbonate, bound in protein.",
 		"effect": "Big hits do 1 less damage", "mods": {"armour": 1}},
 	{"id": "calcite_lenses", "name": "Calcite Eye Lenses", "cost": {"Ca": 3, "P": 1}, "icon": "senses",
-		"fact": "Trilobites saw through lenses of clear calcite crystal, the only animals known to use rock for eyes.",
+		"fact": "Trilobites saw through lenses of clear calcite crystal; chitons and brittle stars still see through mineral lenses today.",
 		"effect": "+1 vision, +1 to your best other sense", "mods": {"vision": 1, "sense": 1}},
 	{"id": "bone", "name": "Bone", "cost": {"P": 4, "Ca": 3}, "icon": "body_wall",
 		"fact": "Bone is hydroxyapatite, a calcium phosphate, threaded with collagen; it first armoured jawless fish.",
