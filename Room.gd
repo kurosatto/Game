@@ -169,7 +169,7 @@ func save_room_state():
     # 1. Save all active pickups currently in the room
     room_data.saved_pickups.clear()
     for child in get_children():
-        if child.is_in_group("pickups") and is_instance_valid(child):
+        if child.is_in_group("pickups") and is_instance_valid(child) and not child.is_queued_for_deletion():
             room_data.saved_pickups.append({
                 "type": child.pickup_type,
                 "pos": child.position

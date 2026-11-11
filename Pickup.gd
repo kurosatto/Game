@@ -81,6 +81,8 @@ func spawn_collect_sparkle():
     p.emitting = true
     get_tree().create_timer(0.6).timeout.connect(p.queue_free)
 
+var taken: bool = false
+
 func _physics_process(delta: float):
     # Attract to player if close (magnet effect)
     if not player:
@@ -93,6 +95,11 @@ func _physics_process(delta: float):
             if (pickup_type == "heart" or pickup_type == "heart_half") and player.health >= player.max_health:
                 return # Don't attract if full health
                 
+            # Already touching (e.g. a heart you stood on while at full
+            # health, then got hurt): body_entered won't fire again
+            if dist < 36.0:
+                _on_body_entered(player)
+                return
             var dir = (player.global_position - global_position).normalized()
             var speed = (magnet_range - dist) * 4.0 + 80.0
             global_position += dir * speed * delta
@@ -100,7 +107,7 @@ func _physics_process(delta: float):
 func _on_body_entered(body: Node):
     if not is_instance_valid(body):
         return
-    if body.is_in_group("player"):
+    if body.is_in_group("player") and not taken:
         var collected = false
         
         if pickup_type == "coin":
@@ -119,5 +126,6 @@ func _on_body_entered(body: Node):
             collected = true
             
         if collected:
+            taken = true
             spawn_collect_sparkle()
             queue_free()
