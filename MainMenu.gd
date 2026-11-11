@@ -249,6 +249,14 @@ func open_overlay(title: String, scrolling: bool = true) -> VBoxContainer:
 	scroll.add_child(list)
 	return list
 
+# Android back button: leave the open page, or close the game from the menu
+func _notification(what: int):
+	if what == NOTIFICATION_WM_GO_BACK_REQUEST:
+		if overlay:
+			close_overlay()
+		else:
+			get_tree().quit()
+
 func close_overlay():
 	if overlay:
 		overlay.queue_free()

@@ -1520,6 +1520,8 @@ func apply_slow(duration: float, mult: float, label: String = ""):
     slow_mult = mult
 
 func heal(amount: int):
+    if health <= 0:
+        return # too late: the game over screen is up
     health = min(max_health, health + amount)
     SoundManager.play_sfx("heart_pickup", 1.0)
     health_changed.emit(health, max_health)

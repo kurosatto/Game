@@ -13,6 +13,8 @@ config_version=5
 config/name="Evo Roguelike"
 run/main_scene="res://MainMenu.tscn"
 config/icon="res://icon.png"
+; The Android back button pauses the run instead of closing the app
+config/quit_on_go_back=false
 config/features=PackedStringArray("4.7", "Forward Plus")
 
 [autoload]
