@@ -22,8 +22,8 @@ var shoot_stick := {
 }
 # Action buttons above the shoot stick: action name -> on-screen label
 var buttons := [
-    {"action": "dash", "label": "DASH", "touch": -1, "color": Color(0.45, 0.9, 0.85)},
-    {"action": "discharge", "label": "ZAP", "touch": -1, "color": Color(1.0, 0.8, 0.4)},
+    {"action": "dash", "label": "DASH", "touch": -1, "color": Color(0.22, 0.42, 0.40)},
+    {"action": "discharge", "label": "ZAP", "touch": -1, "color": Color(0.66, 0.44, 0.12)},
 ]
 
 var canvas: Control
@@ -180,9 +180,11 @@ func _notification(what: int):
     if what == NOTIFICATION_APPLICATION_FOCUS_OUT or what == NOTIFICATION_APPLICATION_PAUSED:
         release_all()
 
+# Inked in sepia like the world beneath them (InkFilter.gd): earthy greens
+# and reds that read on paper, with dark ink labels
 func _on_canvas_draw():
-    _draw_stick(move_stick, Color(0.62, 0.93, 0.5))
-    _draw_stick(shoot_stick, Color(1.0, 0.47, 0.4))
+    _draw_stick(move_stick, Color(0.30, 0.42, 0.16))
+    _draw_stick(shoot_stick, Color(0.58, 0.20, 0.12))
 
     var font = canvas.get_theme_default_font() # the rounded UI font
     var fs = 26
@@ -199,7 +201,7 @@ func _on_canvas_draw():
             if player and player.has_method("dash_label"):
                 label = player.dash_label()
         var tw = font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
-        canvas.draw_string(font, bc + Vector2(-tw / 2.0, fs * 0.35), label, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(0.98, 0.94, 0.84, 0.95))
+        canvas.draw_string(font, bc + Vector2(-tw / 2.0, fs * 0.35), label, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(0.27, 0.16, 0.09, 0.95))
 
 func _draw_stick(stick: Dictionary, col: Color):
     var active = stick.touch != -1

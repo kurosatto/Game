@@ -361,7 +361,7 @@ func _create_grow_screen():
     add_child(grow_modal)
     var bg = ColorRect.new()
     bg.set_anchors_preset(Control.PRESET_FULL_RECT)
-    bg.color = Color(0.02, 0.05, 0.04, 0.99)
+    bg.color = Color(UI.BACKDROP, 0.99)
     grow_modal.add_child(bg)
     var col = VBoxContainer.new()
     col.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT, Control.PRESET_MODE_MINSIZE, 40)
@@ -776,7 +776,7 @@ func _create_evolution_modal():
     var bg = ColorRect.new()
     bg.name = "Backdrop"
     bg.set_anchors_preset(Control.PRESET_FULL_RECT)
-    bg.color = Color(0.02, 0.05, 0.04, 0.96)
+    bg.color = Color(UI.BACKDROP, 0.96)
     evolution_modal.add_child(bg)
     
     var center_box = VBoxContainer.new()
@@ -1277,7 +1277,7 @@ func _open_card(color: Color, width: float) -> VBoxContainer:
 
     var bg = ColorRect.new()
     bg.set_anchors_preset(Control.PRESET_FULL_RECT)
-    bg.color = Color(0.02, 0.05, 0.04, 0.8)
+    bg.color = Color(UI.BACKDROP, 0.8)
     bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
     intro_card.add_child(bg)
 

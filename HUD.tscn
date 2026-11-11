@@ -6,9 +6,9 @@
 [ext_resource type="Texture2D" path="res://assets/pickup_key.png" id="4_key"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_panel"]
-bg_color = Color(0.055, 0.1, 0.09, 0.84)
+bg_color = Color(0.16, 0.11, 0.075, 0.84)
 border_width_bottom = 4
-border_color = Color(0.58, 0.8, 0.55, 0.75)
+border_color = Color(0.82, 0.68, 0.48, 0.75)
 corner_radius_bottom_right = 32
 corner_radius_bottom_left = 32
 corner_detail = 12
@@ -18,33 +18,33 @@ shadow_offset = Vector2(0, 4)
 anti_aliasing = true
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_dna"]
-bg_color = Color(0.62, 0.93, 0.5, 1)
+bg_color = Color(0.72, 0.84, 0.5, 1)
 corner_radius_top_left = 8
 corner_radius_top_right = 8
 corner_radius_bottom_right = 8
 corner_radius_bottom_left = 8
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_discharge"]
-bg_color = Color(0.45, 0.9, 0.85, 1)
+bg_color = Color(0.55, 0.82, 0.8, 1)
 corner_radius_top_left = 8
 corner_radius_top_right = 8
 corner_radius_bottom_right = 8
 corner_radius_bottom_left = 8
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_discharge_bg"]
-bg_color = Color(0, 0.04, 0.03, 0.7)
+bg_color = Color(0.06, 0.04, 0.02, 0.7)
 corner_radius_top_left = 8
 corner_radius_top_right = 8
 corner_radius_bottom_right = 8
 corner_radius_bottom_left = 8
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_settings"]
-bg_color = Color(0.06, 0.11, 0.1, 0.96)
+bg_color = Color(0.17, 0.115, 0.08, 0.96)
 border_width_left = 4
 border_width_top = 4
 border_width_right = 4
 border_width_bottom = 4
-border_color = Color(0.58, 0.8, 0.55, 0.85)
+border_color = Color(0.82, 0.68, 0.48, 0.85)
 corner_radius_top_left = 28
 corner_radius_top_right = 28
 corner_radius_bottom_right = 28
@@ -403,7 +403,7 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-color = Color(0.03, 0.07, 0.06, 0.95)
+color = Color(0.1, 0.065, 0.04, 0.95)
 
 [node name="Center" type="VBoxContainer" parent="VictoryScreen"]
 layout_mode = 1
