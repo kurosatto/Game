@@ -38,13 +38,12 @@ func build_background():
 	room.set_anchors_preset(Control.PRESET_FULL_RECT)
 	room.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
 	room.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	room.modulate = Color(0.5, 0.62, 0.56, 1.0)
 	add_child(room)
 	# Darker edges pull the eye to the title and buttons
 	var grad = Gradient.new()
-	grad.set_color(0, Color(0.0, 0.03, 0.02, 0.0))
-	grad.set_color(1, Color(0.0, 0.03, 0.02, 0.75))
-	grad.add_point(0.45, Color(0.0, 0.03, 0.02, 0.15))
+	grad.set_color(0, Color(0.27, 0.16, 0.09, 0.0))
+	grad.set_color(1, Color(0.27, 0.16, 0.09, 0.55))
+	grad.add_point(0.45, Color(0.27, 0.16, 0.09, 0.08))
 	var vtex = GradientTexture2D.new()
 	vtex.gradient = grad
 	vtex.fill = GradientTexture2D.FILL_RADIAL
@@ -68,7 +67,6 @@ func build_background():
 	mat.set_shader_parameter("rect_size", Vector2(1920, 1080))
 	light.material = mat
 	add_child(light)
-	add_child(vignette)
 	# Discovered lineages drift past; the starting cell if nothing yet
 	var found: Array = codex.load_discovered()
 	if found.is_empty():
@@ -89,6 +87,10 @@ func build_background():
 		s.rotation = dir.angle() + PI / 2
 		add_child(s)
 		drifters.append({"node": s, "vel": dir * randf_range(25.0, 60.0), "t": randf() * 4.0})
+	# The same sepia ink sketch as the game (InkFilter.gd), then a soft
+	# darkening at the edges to pull the eye to the title and buttons
+	add_child(preload("res://InkFilter.gd").new())
+	add_child(vignette)
 
 func _process(delta: float):
 	var size_now = get_viewport_rect().size
@@ -181,6 +183,15 @@ func build_menu():
 		codex.load_discovered().size(), lineages.TREE.size(), done, progress.CHALLENGES.size()], 20, UI.MUTED)
 	stats.add_theme_constant_override("outline_size", 6)
 	menu_box.add_child(stats)
+	var runs = progress.run_stats()
+	if runs.count > 0:
+		var best = "Furthest: era %d of 5 as %s" % [runs.best_era, runs.best_form.to_lower().capitalize()]
+		var tally = "%d run%s" % [runs.count, "" if runs.count == 1 else "s"]
+		if runs.wins > 0:
+			tally += ", %d survived to the end" % runs.wins
+		var run_line = label(best + "  ·  " + tally, 20, UI.MUTED)
+		run_line.add_theme_constant_override("outline_size", 6)
+		menu_box.add_child(run_line)
 
 	# The title drifts gently, like something floating in the shallows
 	var tw = title.create_tween().set_loops().set_trans(Tween.TRANS_SINE)

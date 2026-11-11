@@ -63,3 +63,28 @@ static func set_start_trait(id: String):
 	var config = _load()
 	config.set_value("progress", "start_trait", id)
 	config.save(SAVE_PATH)
+
+# Each finished run (death or victory): counts runs and wins and keeps the
+# furthest era reached with the form that got there, for the main menu.
+# Returns true when this run went further than any before.
+static func record_run(era: int, form_name: String, won: bool) -> bool:
+	var config = _load()
+	config.set_value("runs", "count", int(config.get_value("runs", "count", 0)) + 1)
+	if won:
+		config.set_value("runs", "wins", int(config.get_value("runs", "wins", 0)) + 1)
+	var best = int(config.get_value("runs", "best_era", 0))
+	var record = era > best
+	if record:
+		config.set_value("runs", "best_era", era)
+		config.set_value("runs", "best_form", form_name)
+	config.save(SAVE_PATH)
+	return record
+
+static func run_stats() -> Dictionary:
+	var config = _load()
+	return {
+		"count": int(config.get_value("runs", "count", 0)),
+		"wins": int(config.get_value("runs", "wins", 0)),
+		"best_era": int(config.get_value("runs", "best_era", 0)),
+		"best_form": str(config.get_value("runs", "best_form", "")),
+	}
