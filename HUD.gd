@@ -588,9 +588,9 @@ func _on_minimap_draw():
         var draw_pos = center_screen + Vector2(offset_grid.x * step.x, offset_grid.y * step.y) - (cell_size / 2.0)
         var rect = Rect2(draw_pos, cell_size)
         
-        var room_col = Color(0.2, 0.3, 0.25, 0.65)
+        var room_col = Color(0.36, 0.27, 0.18, 0.65)
         if is_visited:
-            room_col = Color(0.42, 0.6, 0.42, 0.95)
+            room_col = Color(0.70, 0.58, 0.40, 0.95)
         var blob = UI.bar_box(room_col)
         blob.set_corner_radius_all(6)
         if is_current:
