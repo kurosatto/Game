@@ -85,7 +85,7 @@ func _process(delta: float):
         camera.offset = Vector2.ZERO
         
     # Check restart key
-    if hud.game_over_screen.visible or hud.victory_screen.visible:
+    if (hud.game_over_screen.visible or hud.victory_screen.visible) and hud.end_screen_ready():
         if Input.is_key_pressed(KEY_R):
             get_tree().paused = false
             get_tree().reload_current_scene()
@@ -93,9 +93,17 @@ func _process(delta: float):
 func _input(event: InputEvent):
     # Tap anywhere to restart on touch screens (no R key on a phone)
     if event is InputEventScreenTouch and event.pressed:
-        if hud.game_over_screen.visible or hud.victory_screen.visible:
+        if (hud.game_over_screen.visible or hud.victory_screen.visible) and hud.end_screen_ready():
             get_tree().paused = false
             get_tree().reload_current_scene()
+
+func _notification(what: int):
+    if what == NOTIFICATION_WM_GO_BACK_REQUEST:
+        hud.back_pressed()
+    elif what == NOTIFICATION_APPLICATION_PAUSED or what == NOTIFICATION_APPLICATION_FOCUS_OUT:
+        # Switching apps or tabs mid-fight shouldn't cost the run
+        if get_tree().get_script() == null and player.health > 0:
+            hud.auto_pause()
 
 func shake_camera(amount: float):
     # Phones are held close to the eyes; keep the shake gentler there
@@ -312,13 +320,19 @@ func _on_room_transition_requested(direction: Vector2i):
         is_transitioning = false
     )
 
+var advancing: bool = false
+
 func advance_floor():
+    # The trapdoor can report the player more than once during the fade
+    if advancing:
+        return
     if floor_number >= 5:
         hud.show_victory(player.get_evolution_summary())
         player.set_physics_process(false)
         return
         
     floor_number += 1
+    advancing = true
     
     transition_rect.visible = true
     transition_rect.color.a = 0.0
@@ -338,6 +352,7 @@ func advance_floor():
     tween.tween_property(transition_rect, "color:a", 0.0, 0.4)
     tween.tween_callback(func():
         transition_rect.visible = false
+        advancing = false
         player.set_physics_process(true)
         if get_tree().get_script() == null:
             hud.show_era_card(floor_number, current_form())

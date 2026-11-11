@@ -188,6 +188,10 @@ func _unhandled_input(event: InputEvent):
                 show_grow_screen()
 
 func toggle_settings():
+    # Over an evolution card, a how-to-play card or an end screen the pause
+    # screen would unpause the game behind that card when it closes
+    if not settings_modal.visible and other_screen_up():
+        return
     settings_modal.visible = not settings_modal.visible
     get_tree().paused = settings_modal.visible
     if settings_modal.visible:
@@ -313,7 +317,7 @@ func update_elements(have: Dictionary, growable: int):
         _fill_grow_screen()
 
 func show_grow_screen():
-    if is_card_up() or (evolution_modal and evolution_modal.visible) or settings_modal.visible:
+    if other_screen_up() or settings_modal.visible:
         return
     if grow_modal == null:
         _create_grow_screen()
@@ -616,10 +620,42 @@ func show_item_banner(title: String, desc: String, near_top: bool = false):
 var banner_tween: Tween = null
 var last_banner: Array = []
 
+# Anything besides the pause screen that holds the game: cards, the grow
+# screen, the evolution and adaptation picks, and the end screens
+func other_screen_up() -> bool:
+    return is_card_up() or is_grow_up() or (evolution_modal != null and evolution_modal.visible) \
+        or game_over_screen.visible or victory_screen.visible
+
+# The phone went to the background (or the window lost focus): pause the run
+func auto_pause():
+    if not settings_modal.visible and not other_screen_up():
+        toggle_settings()
+
+# Android back button: close what is open, or pause
+func back_pressed():
+    if game_over_screen.visible or victory_screen.visible:
+        get_tree().paused = false
+        get_tree().change_scene_to_file("res://MainMenu.tscn")
+    elif is_grow_up():
+        hide_grow_screen()
+    elif settings_modal.visible or not other_screen_up():
+        toggle_settings()
+
+# When the end screen came up; a tap restarts only after a moment, so a
+# thumb still stabbing at the attack stick doesn't skip it
+var end_shown_at: int = 0
+
+func end_screen_ready() -> bool:
+    return Time.get_ticks_msec() - end_shown_at > 1200
+
 func show_game_over():
+    if settings_modal.visible:
+        toggle_settings()
+    end_shown_at = Time.get_ticks_msec()
     game_over_screen.visible = true
     
 func show_victory(summary: Dictionary = {}):
+    end_shown_at = Time.get_ticks_msec()
     victory_screen.visible = true
     var label = $VictoryScreen/Center/Label
     var sublabel = $VictoryScreen/Center/SubLabel
