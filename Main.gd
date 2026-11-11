@@ -329,6 +329,7 @@ func advance_floor():
     if advancing:
         return
     if floor_number >= 5:
+        record_run(true)
         hud.show_victory(player.get_evolution_summary())
         player.set_physics_process(false)
         return
@@ -373,6 +374,7 @@ func on_boss_defeated(f_num: int):
     SoundManager.play_music(SoundManager.music_for_floor(f_num))
     if f_num >= 5:
         # Ultimate Final Boss Defeated!
+        record_run(true)
         hud.show_victory(player.get_evolution_summary())
         player.set_physics_process(false)
         return
@@ -434,8 +436,19 @@ func update_ambient_lighting(target_type: int = -1):
         r_type = get_room_type(current_room_pos)
     $CanvasModulate.color = get_room_theme_color(r_type)
 
+# Furthest era and run count for the main menu (not from tools/*.gd runs)
+var run_recorded: bool = false
+
+func record_run(won: bool) -> bool:
+    if get_tree().get_script() != null or run_recorded:
+        return false
+    run_recorded = true
+    return progress.record_run(floor_number, player.current_character_name, won)
+
 func _on_player_died():
+    var record = record_run(false)
     hud.show_game_over({
+        "record": record,
         "floor": floor_number,
         "form": player.current_character_name,
         "kills": player.kills,

@@ -684,6 +684,8 @@ func show_game_over(run: Dictionary = {}):
         str(run.get("form", "")).to_lower().capitalize(), era.get("name", "").to_lower().capitalize(), run.get("floor", 1)]
     lines += "\n%d animals eaten · %d rooms cleared this era · %d of %d lineages in your codex" % [
         run.get("kills", 0), run.get("rooms", 0), codex.load_discovered().size(), lineages.TREE.size()]
+    if run.get("record", false) and run.get("floor", 1) > 1:
+        lines += "\nYour furthest run yet!"
     lines += "\nAbout 99% of all species that ever lived are extinct. You are in good company."
     sub.text = lines + "\n\n" + how
     sub.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
