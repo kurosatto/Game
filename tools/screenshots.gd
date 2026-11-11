@@ -91,6 +91,7 @@ func _initialize():
 	main.hud.toggle_settings()
 	await snap("3_settings")
 	main.hud.toggle_settings()
-	main.hud.show_game_over()
+	main.player.kills = 23
+	main._on_player_died()
 	await snap("4_gameover")
 	quit()

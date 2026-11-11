@@ -177,7 +177,9 @@ func update_music_label(val: float):
 func _unhandled_input(event: InputEvent):
     if event is InputEventKey and event.pressed and not event.echo:
         if event.keycode == KEY_ESCAPE:
-            if is_grow_up():
+            if game_over_screen.visible or victory_screen.visible:
+                back_pressed()
+            elif is_grow_up():
                 hide_grow_screen()
             else:
                 toggle_settings()
@@ -505,7 +507,7 @@ func use_touch_texts():
     $SettingsModal/Panel/Margin/VBox/DisplaySection.visible = false
     $GameOverScreen/Center/SubLabel.text = "Your genetic lineage was severed.
 Tap to Mutate Anew"
-    $VictoryScreen/Center/RestartLabel.text = "Tap to Restart Genetic Lineage"
+    $VictoryScreen/Center/RestartLabel.text = "Tap to play again  ·  Back for the main menu"
 
 func update_discharge_cooldown(current_cd: float, max_cd: float):
     if not is_instance_valid(ability_label) or not is_instance_valid(ability_bar):
@@ -648,15 +650,37 @@ var end_shown_at: int = 0
 func end_screen_ready() -> bool:
     return Time.get_ticks_msec() - end_shown_at > 1200
 
-func show_game_over():
+func show_game_over(run: Dictionary = {}):
     if settings_modal.visible:
         toggle_settings()
+    item_banner.visible = false # it would show through the dimmed screen
     end_shown_at = Time.get_ticks_msec()
     game_over_screen.visible = true
+    var touch = TouchControls.should_show()
+    var how = "Tap to try again  ·  Back for the main menu" if touch else "R or tap to try again  ·  Esc for the main menu"
+    var sub = $GameOverScreen/Center/SubLabel
+    if run.is_empty():
+        sub.text = "Your genetic lineage was severed.\n" + how
+        return
+    var era: Dictionary = ERA_INFO.get(clampi(run.get("floor", 1), 1, 5), {})
+    var lines = "Your %s lineage died out in the %s, era %d of 5." % [
+        str(run.get("form", "")).to_lower().capitalize(), era.get("name", "").to_lower().capitalize(), run.get("floor", 1)]
+    lines += "\n%d animals eaten · %d rooms cleared this era · %d of %d lineages in your codex" % [
+        run.get("kills", 0), run.get("rooms", 0), codex.load_discovered().size(), lineages.TREE.size()]
+    lines += "\nAbout 99% of all species that ever lived are extinct. You are in good company."
+    sub.text = lines + "\n\n" + how
+    sub.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+    $GameOverScreen/Center.offset_left = -560.0
+    $GameOverScreen/Center.offset_right = 560.0
+    $GameOverScreen/Center.offset_top = -160.0
+    $GameOverScreen/Center.offset_bottom = 160.0
     
 func show_victory(summary: Dictionary = {}):
     end_shown_at = Time.get_ticks_msec()
     victory_screen.visible = true
+    item_banner.visible = false
+    if not TouchControls.should_show():
+        $VictoryScreen/Center/RestartLabel.text = "R or tap to play again  ·  Esc for the main menu"
     var label = $VictoryScreen/Center/Label
     var sublabel = $VictoryScreen/Center/SubLabel
     if summary.is_empty():

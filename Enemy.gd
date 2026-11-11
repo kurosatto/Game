@@ -1131,6 +1131,8 @@ func die():
 	SoundManager.play_sfx("enemy_die", 0.6 if is_boss() else 1.0)
 	if not is_boss():
 		drop_biomass()
+		if player and is_instance_valid(player) and "kills" in player:
+			player.kills += 1
 
 	# Spawn colorful death burst particles
 	spawn_death_particles()

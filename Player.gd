@@ -24,6 +24,7 @@ signal creature_changed(character_name, clade, color)
 var dna_biomass: int = 0 # old coin count; unused since the shop was removed
 var keys: int = 0
 var evolution_choices: Array = [] # Tracks chosen path index per floor [0 or 1, ...]
+var kills: int = 0 # animals eaten this run (Enemy.die), shown at game over
 var evolution_history: Array = [] # [{ "floor": 1, "title": "...", "clade": "...", "choice": 0 }]
 
 # Active Creature State (Transforms on every floor into a distinct character)
