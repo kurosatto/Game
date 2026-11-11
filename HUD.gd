@@ -141,8 +141,25 @@ func setup_settings_ui():
         SettingsManager.set_music_volume(val)
         update_music_label(val)
     )
+    var shake = _add_toggle("📳 Screen shake", SettingsManager.screen_shake,
+        func(on): SettingsManager.screen_shake = on, music_section)
+    if TouchControls.should_show():
+        _add_toggle("🎯 Aim assist (shots bend onto nearby animals)", SettingsManager.aim_assist,
+            func(on): SettingsManager.aim_assist = on, shake)
 
 var music_label: Label
+
+# On/off rows under the volume sliders
+func _add_toggle(text: String, on: bool, set_value: Callable, after: Control) -> CheckButton:
+    var t = CheckButton.new()
+    t.text = text
+    t.button_pressed = on
+    t.add_theme_font_size_override("font_size", 16)
+    t.toggled.connect(set_value)
+    var vbox = $SettingsModal/Panel/Margin/VBox
+    vbox.add_child(t)
+    vbox.move_child(t, after.get_index() + 1)
+    return t
 
 # Red edges that flash when the player is hurt
 var hurt_vignette: TextureRect

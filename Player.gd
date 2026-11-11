@@ -864,7 +864,10 @@ func handle_shooting():
     shoot_dir.y = Input.get_action_strength("shoot_down") - Input.get_action_strength("shoot_up")
     
     if shoot_dir != Vector2.ZERO:
-        shoot_tear(shoot_dir.normalized())
+        var aim = shoot_dir.normalized()
+        if TouchControls.should_show() and SettingsManager.aim_assist:
+            aim = aim_assist(aim)
+        shoot_tear(aim)
     # On touch screens taps are also reported as left clicks, so mouse aiming
     # would fire at the move-stick thumb; TouchControls drives shooting there
     elif not TouchControls.should_show() and Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):
@@ -872,6 +875,31 @@ func handle_shooting():
         var to_mouse = (mouse_pos - global_position).normalized()
         if to_mouse != Vector2.ZERO:
             shoot_tear(to_mouse)
+
+# Thumbs aim roughly: on touch screens a shot within a narrow cone of an
+# animal bends onto it (the nearest one in the cone, within range)
+const AIM_ASSIST_CONE := 0.3 # radians, about 17 degrees each side
+const AIM_ASSIST_RANGE := 900.0
+
+func aim_assist(dir: Vector2) -> Vector2:
+    var best_dir := dir
+    var best_score := INF
+    for e in get_tree().get_nodes_in_group("enemies"):
+        if not is_instance_valid(e) or e.get("dead") or (e.has_method("is_burrowed") and e.is_burrowed()):
+            continue
+        var to_e: Vector2 = e.global_position - global_position
+        var dist = to_e.length()
+        if dist < 1.0 or dist > AIM_ASSIST_RANGE:
+            continue
+        var off = absf(dir.angle_to(to_e))
+        if off > AIM_ASSIST_CONE:
+            continue
+        # Prefer what is closest to the aim line, then what is near
+        var score = off * 600.0 + dist
+        if score < best_score:
+            best_score = score
+            best_dir = to_e / dist
+    return best_dir
 
 func shoot_tear(dir: Vector2):
     face_dir = dir

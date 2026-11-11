@@ -8,6 +8,8 @@ var brightness: float = 1.2 # Default bright & vibrant
 var sfx_volume: float = 1.0
 var music_volume: float = 0.8
 var window_mode_index: int = 1 # Default 1920x1080 (Full HD)
+var aim_assist: bool = true # touch shots bend onto a nearby animal (Player.aim_assist)
+var screen_shake: bool = true
 
 var config_path: String = "user://settings.cfg"
 
@@ -34,6 +36,8 @@ func load_settings():
         sfx_volume = config.get_value("audio", "sfx_volume", 1.0)
         music_volume = config.get_value("audio", "music_volume", 0.8)
         window_mode_index = config.get_value("display", "window_mode", 1)
+        aim_assist = config.get_value("controls", "aim_assist", true)
+        screen_shake = config.get_value("graphics", "screen_shake", true)
 
 func save_settings():
     var config = ConfigFile.new()
@@ -41,6 +45,8 @@ func save_settings():
     config.set_value("audio", "sfx_volume", sfx_volume)
     config.set_value("audio", "music_volume", music_volume)
     config.set_value("display", "window_mode", window_mode_index)
+    config.set_value("controls", "aim_assist", aim_assist)
+    config.set_value("graphics", "screen_shake", screen_shake)
     config.save(config_path)
 
 func apply_all_settings():
