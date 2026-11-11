@@ -190,7 +190,7 @@ func draw_node(p: String, n: Dictionary):
 		var frame = int(fmod(time * 5.0 + pos.x, 4.0)) if n.known else 0
 		var src = Rect2(frame * fw, 0, fw, tex.get_height())
 		var s = 92.0
-		var mod = Color.WHITE if n.known else Color(0.02, 0.05, 0.04, 0.92)
+		var mod = Color.WHITE if n.known else Color(0.10, 0.065, 0.04, 0.92)
 		draw_texture_rect_region(tex, Rect2(centre - Vector2(s, s) * 0.5, Vector2(s, s)), src, mod)
 	if not n.known:
 		draw_string(font_bold, centre + Vector2(-NODE_R, 14), "?", HORIZONTAL_ALIGNMENT_CENTER, NODE_R * 2, 40, Color(UI.MEMBRANE, 0.55))
@@ -368,7 +368,7 @@ func select(path: String):
 		at.atlas = tex
 		at.region = Rect2(0, 0, tex.get_width() / 4.0, tex.get_height())
 		info_icon.texture = at
-	info_icon.modulate = Color.WHITE if n.known else Color(0.02, 0.05, 0.04, 0.95)
+	info_icon.modulate = Color.WHITE if n.known else Color(0.10, 0.065, 0.04, 0.95)
 	if n.known:
 		info_name.text = pretty(form.name)
 		info_clade.text = form.clade_path

@@ -30,7 +30,7 @@ func _ready():
 
 func build_background():
 	var bg = ColorRect.new()
-	bg.color = Color(0.02, 0.05, 0.04)
+	bg.color = UI.BACKDROP
 	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
 	add_child(bg)
 	var room = TextureRect.new()
@@ -131,16 +131,16 @@ func build_menu():
 	var title = label("Evo Roguelike", 104, ACCENT)
 	title.add_theme_font_override("font", UI.font(650))
 	title.add_theme_constant_override("outline_size", 18)
-	title.add_theme_color_override("font_outline_color", Color(0.05, 0.12, 0.08))
+	title.add_theme_color_override("font_outline_color", Color(0.20, 0.12, 0.06))
 	title.add_theme_constant_override("shadow_offset_y", 6)
-	title.add_theme_color_override("font_shadow_color", Color(0, 0.03, 0.02, 0.5))
+	title.add_theme_color_override("font_shadow_color", Color(0.10, 0.06, 0.02, 0.5))
 	menu_box.add_child(title)
 	var sub_font = UI.font(500)
 	sub_font.spacing_glyph = 8
 	var sub = label("PRIMORDIAL GENESIS", 30, UI.LEAF)
 	sub.add_theme_font_override("font", sub_font)
 	sub.add_theme_constant_override("outline_size", 8)
-	sub.add_theme_color_override("font_outline_color", Color(0.02, 0.07, 0.05))
+	sub.add_theme_color_override("font_outline_color", Color(0.10, 0.065, 0.04))
 	menu_box.add_child(sub)
 	var gap = Control.new()
 	gap.custom_minimum_size = Vector2(0, 10)

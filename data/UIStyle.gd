@@ -12,17 +12,20 @@ extends RefCounted
 const FONT_MEDIUM = "res://assets/ui/Fredoka-Medium.ttf"
 const FONT_BOLD = "res://assets/ui/Fredoka-SemiBold.ttf"
 
-# Palette
-const INK = Color(0.055, 0.10, 0.09)      # panel fill: deep kelp water
-const INK_SOFT = Color(0.09, 0.16, 0.14)  # raised fill: buttons, bars
-const MEMBRANE = Color(0.58, 0.80, 0.55)  # panel rims: moss green
-const CREAM = Color(0.98, 0.94, 0.84)     # body text
-const MUTED = Color(0.74, 0.80, 0.70)     # secondary text
-const SUN = Color(1.0, 0.80, 0.40)        # headings, highlights
-const LEAF = Color(0.62, 0.93, 0.50)      # good things: perks, biomass
-const AQUA = Color(0.45, 0.90, 0.85)      # energy: the zap charge
-const CORAL = Color(1.0, 0.47, 0.40)      # danger: bosses, damage
-const SHADE = Color(0.0, 0.03, 0.02, 0.55) # soft shadow under panels
+# Palette: a naturalist's sketchbook to match the sepia ink world
+# (InkFilter.gd). Dark ink-wash panels with paper-coloured text, tan rims
+# like the edge of a page, amber headings; green and red stay for good and bad.
+const INK = Color(0.16, 0.11, 0.075)      # panel fill: dark sepia wash
+const INK_SOFT = Color(0.23, 0.16, 0.105) # raised fill: buttons, bars
+const MEMBRANE = Color(0.82, 0.68, 0.48)  # panel rims: parchment tan
+const CREAM = Color(0.97, 0.92, 0.81)     # body text: paper
+const MUTED = Color(0.80, 0.72, 0.60)     # secondary text
+const SUN = Color(0.98, 0.76, 0.38)       # headings, highlights
+const LEAF = Color(0.72, 0.84, 0.50)      # good things: perks, biomass
+const AQUA = Color(0.55, 0.82, 0.80)      # energy: the zap charge
+const CORAL = Color(0.95, 0.50, 0.40)     # danger: bosses, damage
+const SHADE = Color(0.05, 0.03, 0.01, 0.55) # soft shadow under panels
+const BACKDROP = Color(0.10, 0.065, 0.04) # full-screen dimming behind cards
 
 # A rounded membrane panel. tint colours the rim and warms the fill a little.
 static func panel(tint: Color = MEMBRANE, radius: int = 28, alpha: float = 0.94, margin: float = 32.0) -> StyleBoxFlat:
@@ -87,7 +90,7 @@ static func bar_box(color: Color, alpha: float = 1.0) -> StyleBoxFlat:
 	return s
 
 static func bar_track() -> StyleBoxFlat:
-	var s = bar_box(Color(0.0, 0.04, 0.03), 0.7)
+	var s = bar_box(Color(0.06, 0.04, 0.02), 0.7)
 	s.border_color = Color(MEMBRANE.r, MEMBRANE.g, MEMBRANE.b, 0.35)
 	s.set_border_width_all(2)
 	s.expand_margin_left = 2
@@ -109,7 +112,7 @@ static func make_theme() -> Theme:
 	t.default_font_size = 22
 
 	t.set_color("font_color", "Label", CREAM)
-	t.set_color("font_outline_color", "Label", Color(0, 0.03, 0.02, 0.8))
+	t.set_color("font_outline_color", "Label", Color(0.08, 0.05, 0.02, 0.8))
 	t.set_color("default_color", "RichTextLabel", CREAM)
 	t.set_font("bold_font", "RichTextLabel", font(650))
 
