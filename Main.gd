@@ -106,6 +106,8 @@ func _notification(what: int):
             hud.auto_pause()
 
 func shake_camera(amount: float):
+    if not SettingsManager.screen_shake:
+        return
     # Phones are held close to the eyes; keep the shake gentler there
     if TouchControls.should_show():
         amount *= 0.6

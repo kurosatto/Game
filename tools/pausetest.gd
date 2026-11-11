@@ -33,6 +33,19 @@ func _initialize():
 	hud.show_grow_screen()
 	hud.back_pressed()
 	check(not hud.is_grow_up() and not paused, "back closes the grow screen")
+	# Touch aim assist: a shot 10 degrees off an animal bends onto it
+	var e = load("res://Enemy.tscn").instantiate()
+	e.enemy_type = "fly"
+	e.process_mode = Node.PROCESS_MODE_DISABLED
+	main.current_room_node.add_child(e)
+	e.setup_enemy(1)
+	e.global_position = main.player.global_position + Vector2.RIGHT.rotated(deg_to_rad(10)) * 400
+	await process_frame
+	var bent = main.player.aim_assist(Vector2.RIGHT)
+	check(absf(bent.angle() - deg_to_rad(10)) < 0.01, "aim assist bends a near miss onto the animal")
+	var kept = main.player.aim_assist(Vector2.UP)
+	check(kept == Vector2.UP, "aim assist leaves a shot far from any animal alone")
+	e.queue_free()
 	main.player.take_damage(999)
 	await process_frame
 	check(hud.game_over_screen.visible and not hud.end_screen_ready(), "game over waits before a tap restarts")
