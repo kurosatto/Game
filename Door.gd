@@ -49,7 +49,7 @@ func _process(delta: float):
 				break
 		
 	if key_badge:
-		key_badge.visible = is_locked
+		key_badge.visible = is_locked and _room_cleared()
 		if is_locked:
 			# Bob just inside the doorway, upright whatever wall it is on
 			key_badge.global_rotation = 0.0
@@ -144,6 +144,11 @@ func _on_body_entered(body: Node):
 			_show_hint("LOCKED", "A key lies in one of this floor's other rooms")
 			trigger_cooldown = 2.0
 			return
+		if is_locked and not _room_cleared():
+			# A key is not a way out of a fight
+			_show_hint("DOOR SHUT", "Defeat every creature in this room first")
+			trigger_cooldown = 1.0
+			return
 		if is_locked:
 			if body.keys > 0:
 				body.add_key(-1)
@@ -153,6 +158,12 @@ func _on_body_entered(body: Node):
 		elif is_open:
 			trigger_cooldown = 1.0
 			door_entered.emit(direction)
+
+func _room_cleared() -> bool:
+	var room = get_parent()
+	if room and "room_data" in room and room.room_data:
+		return room.room_data.cleared
+	return true
 
 func _show_hint(title: String, desc: String):
 	if hint_cooldown > 0:

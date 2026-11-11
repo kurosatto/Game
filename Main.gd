@@ -433,4 +433,9 @@ func update_ambient_lighting(target_type: int = -1):
     $CanvasModulate.color = get_room_theme_color(r_type)
 
 func _on_player_died():
-    hud.show_game_over()
+    hud.show_game_over({
+        "floor": floor_number,
+        "form": player.current_character_name,
+        "kills": player.kills,
+        "rooms": dungeon_rooms.values().filter(func(r): return r.cleared and r.type == 1).size(),
+    })
