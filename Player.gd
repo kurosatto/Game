@@ -1190,7 +1190,7 @@ func apply_venom(enemy: Node, per_tick: float):
 
 func melee_electric_arc(from_pos: Vector2, already_hit: Array):
     for e in get_tree().get_nodes_in_group("enemies"):
-        if is_instance_valid(e) and not already_hit.has(e) and e.global_position.distance_to(from_pos) < 260.0:
+        if is_instance_valid(e) and not already_hit.has(e) and not e.get("dead") and not (e.has_method("is_burrowed") and e.is_burrowed()) and e.global_position.distance_to(from_pos) < 260.0:
             e.take_damage(2.5)
             spawn_electric_spark_line(from_pos, e.global_position)
             break
