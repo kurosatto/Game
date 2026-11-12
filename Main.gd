@@ -369,6 +369,10 @@ func display_item_banner(title: String, desc: String):
     hud.show_item_banner(title, desc)
 
 func on_boss_defeated(f_num: int):
+    # A poison tick or acid pool can finish the boss after you have died:
+    # the game over screen stands, no victory or evolution on top of it
+    if player.health <= 0:
+        return
     if f_num == 1:
         complete_challenge("ediacaran")
     if not hit_this_floor:
