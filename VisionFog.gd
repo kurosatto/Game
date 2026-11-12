@@ -60,6 +60,8 @@ func _ready():
 	mat.shader = shader
 	rect.material = mat
 	add_child(rect)
+	# Doorways drawn over the fog and ink so exits always show
+	add_child(preload("res://DoorMarks.gd").new())
 	hints = preload("res://SenseHints.gd").new()
 	hints.fog = self
 	add_child(hints)
