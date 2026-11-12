@@ -58,6 +58,10 @@ func _ready():
         add_child(mp)
         music_players.append(mp)
 
+# SFX and Music come from default_bus_layout.tres. Don't rely on adding them
+# here: in the web build AudioServer.add_bus() moves the new bus to the front
+# of the browser's copy of the bus list, wiring Master, SFX and Music into a
+# loop that never reaches the speakers, so the game is silent.
 func _ensure_bus(bus_name: String):
     if AudioServer.get_bus_index(bus_name) != -1:
         return
