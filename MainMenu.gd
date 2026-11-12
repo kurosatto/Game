@@ -179,8 +179,8 @@ func build_menu():
 		q.add_theme_font_size_override("font_size", 22)
 		col.add_child(q)
 	var done = progress.completed().size()
-	var stats = label("Codex %d / %d lineages  ·  Challenges %d / %d" % [
-		codex.load_discovered().size(), lineages.TREE.size(), done, progress.CHALLENGES.size()], 20, UI.MUTED)
+	var stats = label("Codex %d / %d lineages  ·  Fossils %d / 25  ·  Challenges %d / %d" % [
+		codex.load_discovered().size(), lineages.TREE.size(), codex.load_eaten().size(), done, progress.CHALLENGES.size()], 20, UI.MUTED)
 	stats.add_theme_constant_override("outline_size", 6)
 	menu_box.add_child(stats)
 	var runs = progress.run_stats()
@@ -324,12 +324,76 @@ func show_codex():
 	var found: Array = codex.load_discovered()
 	var area = open_overlay("📖 CODEX  %d / %d" % [found.size(), lineages.TREE.size()], false)
 	add_overlay_button(area, "☰  LIST", show_codex_list)
+	add_overlay_button(area, "🦴  FOSSILS", show_fossils)
 	var hint = label("Drag to explore  ·  pinch to zoom  ·  tap a form to read about it", 18, UI.MUTED)
 	area.add_child(hint)
 	var tree = preload("res://CodexTree.gd").new()
 	tree.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	tree.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	area.add_child(tree)
+
+# The fossil record: every era animal and boss, grouped by era. Eaten ones
+# show their picture and the real biology; the rest are dark silhouettes.
+const FAUNA = preload("res://data/Fauna.gd")
+const ERA_NAMES = ["Ediacaran", "Cambrian", "Ordovician", "Carboniferous", "Permian"]
+
+func show_fossils():
+	var eaten: Array = codex.load_eaten()
+	var total := 0
+	for era in range(1, 6):
+		total += FAUNA.era_species(era).size() + 1
+	var list = open_overlay("🦴 FOSSIL RECORD  %d / %d" % [eaten.size(), total])
+	add_overlay_button(list.get_parent(), "📖  CODEX", show_codex)
+	list.add_child(label("Every animal you eat is added here, with what is known about it.", 19, UI.MUTED))
+	for era in range(1, 6):
+		var head = label(ERA_NAMES[era - 1].to_upper() + " PERIOD", 26, UI.SUN)
+		head.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+		list.add_child(head)
+		var species: Array = FAUNA.era_species(era).duplicate()
+		var boss: Dictionary = FAUNA.BOSSES[era].duplicate()
+		boss["boss"] = true
+		species.append(boss)
+		for f in species:
+			list.add_child(fossil_row(f, eaten.has(f.name), ERA_NAMES[era - 1]))
+
+func fossil_row(f: Dictionary, known: bool, era_name: String) -> Control:
+	var card = PanelContainer.new()
+	card.add_theme_stylebox_override("panel", UI.panel(UI.SUN if f.get("boss", false) else UI.MEMBRANE, 18, 0.7, 12.0))
+	var row = HBoxContainer.new()
+	row.add_theme_constant_override("separation", 18)
+	card.add_child(row)
+	var pic = TextureRect.new()
+	pic.custom_minimum_size = Vector2(96, 96)
+	pic.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	pic.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	var path = "res://assets/fauna/%s_sheet.png" % f.name.to_lower()
+	if ResourceLoader.exists(path):
+		var sheet: Texture2D = load(path)
+		var frame = AtlasTexture.new()
+		frame.atlas = sheet
+		frame.region = Rect2(0, 0, sheet.get_height(), sheet.get_height())
+		pic.texture = frame
+	if not known:
+		pic.modulate = Color(0.10, 0.065, 0.04, 0.95)
+	if pic.texture:
+		row.add_child(pic)
+	else:
+		# Bosses are drawn in code (bosses/*.gd), so no sheet: a fossil mark
+		var mark = label("🦴" if known else "?", 54, UI.SUN if known else UI.MUTED)
+		mark.custom_minimum_size = Vector2(96, 96)
+		mark.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		row.add_child(mark)
+	var col = VBoxContainer.new()
+	col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(col)
+	var title = f.name + ("  ·  ERA BOSS" if f.get("boss", false) else "")
+	var n = label(title if known else "?  " + ("Era boss" if f.get("boss", false) else "Unknown animal"), 22, UI.SUN if known else UI.MUTED)
+	n.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	col.add_child(n)
+	var body = label(f.fact if known else "Not yet eaten. It lived in the %s." % era_name, 18, UI.CREAM if known else UI.MUTED)
+	body.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	col.add_child(body)
+	return card
 
 # Puts an extra button next to BACK in the overlay's top bar
 func add_overlay_button(area: Control, text: String, on_press: Callable):

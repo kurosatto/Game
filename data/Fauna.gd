@@ -96,3 +96,20 @@ static func describe_floor(floor_num: int, short: bool = false) -> String:
 		else:
 			text += "\n%s: %s %s" % [f[t].name, f[t].fact, f[t].tip]
 	return text
+
+# The era bosses for the fossil record (bosses/*.gd draw and run them)
+const BOSSES = {
+	1: {"name": "Stentor", "fact": "A trumpet-shaped single cell up to 2 mm long, still common in ponds today. Cut into pieces, each piece can regrow a whole cell."},
+	2: {"name": "Anomalocaris", "fact": "A Cambrian radiodont about 40 cm long, one of the first big predators, with spiny grasping limbs and a ring of plates for a mouth."},
+	3: {"name": "Cameroceras", "fact": "An Ordovician endocerid nautiloid with a long, straight, chambered shell; the largest may have reached several metres."},
+	4: {"name": "Arthropleura", "fact": "A Carboniferous relative of millipedes up to 2.6 m long, the largest land arthropod known."},
+	5: {"name": "Dimetrodon", "fact": "A Permian sail-backed synapsid: not a dinosaur but closer kin to mammals, with a skull opening like ours."},
+}
+
+# Every species of an era in the order the fossil record lists them
+static func era_species(floor_num: int) -> Array:
+	var f = FLOORS.get(clampi(floor_num, 1, 5), {})
+	var out: Array = [f.fly, f.pacer]
+	for t in special_types(floor_num):
+		out.append(f[t])
+	return out

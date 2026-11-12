@@ -361,6 +361,10 @@ func advance_floor():
             hud.show_era_card(floor_number, current_form())
     )
 
+# A species eaten for the first time joins the fossil record (main menu)
+func note_new_fossil(species: String):
+    player.popup_text(player.global_position + Vector2(0, -60), "🦴 NEW FOSSIL: " + species.to_upper(), Color(0.98, 0.76, 0.38))
+
 func display_item_banner(title: String, desc: String):
     hud.show_item_banner(title, desc)
 
