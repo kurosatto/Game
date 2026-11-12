@@ -160,6 +160,30 @@ static func make_theme() -> Theme:
 		t.set_stylebox(s, "VScrollBar", bar_box(MEMBRANE, 0.6 if s == "grabber" else 0.9))
 	return t
 
+# Creature pictures shown outside the inked world (codex, menus, pause
+# screen) get the same sepia look as InkFilter.gd: brightness mapped from
+# brown ink to paper, with a pale wash of the original colour
+const SEPIA_SHADER = """
+shader_type canvas_item;
+uniform vec3 ink : source_color = vec3(0.27, 0.16, 0.09);
+uniform vec3 paper : source_color = vec3(0.96, 0.90, 0.78);
+uniform float wash = 0.22;
+void fragment() {
+	vec4 c = COLOR;
+	float l = smoothstep(0.04, 0.85, dot(c.rgb, vec3(0.299, 0.587, 0.114)));
+	COLOR = vec4(mix(mix(ink, paper, l), c.rgb, wash), c.a);
+}
+"""
+static var _sepia: ShaderMaterial = null
+
+static func sepia_material() -> ShaderMaterial:
+	if _sepia == null:
+		var sh = Shader.new()
+		sh.code = SEPIA_SHADER
+		_sepia = ShaderMaterial.new()
+		_sepia.shader = sh
+	return _sepia
+
 # "#rrggbb" for BBCode
 static func hex(c: Color) -> String:
 	return "#" + c.to_html(false)

@@ -82,6 +82,7 @@ func build_background():
 		# Sheets are drawn at 256 px a frame; drift past at 128
 		s.scale = Vector2.ONE * 128.0 / s.texture.get_height()
 		s.modulate = Color(1, 1, 1, 0.7)
+		s.material = UI.sepia_material()
 		s.position = Vector2(randf_range(100, 1820), randf_range(150, 950))
 		var dir = Vector2.RIGHT.rotated(randf() * TAU)
 		s.rotation = dir.angle() + PI / 2
@@ -378,6 +379,8 @@ func fossil_row(f: Dictionary, known: bool, era_name: String) -> Control:
 		pic.texture = frame
 	if not known:
 		pic.modulate = Color(0.10, 0.065, 0.04, 0.95)
+	else:
+		pic.material = UI.sepia_material()
 	if pic.texture:
 		row.add_child(pic)
 	else:

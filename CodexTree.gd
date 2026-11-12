@@ -39,6 +39,7 @@ var pinch_dist := 0.0
 var pick_box: StyleBoxFlat
 var info: PanelContainer
 var info_icon: TextureRect
+var icon_layer: Control
 var info_name: Label
 var info_clade: Label
 var info_body: Label
@@ -53,6 +54,14 @@ func _ready():
 	pick_box.bg_color = Color(UI.INK, 0.85)
 	pick_box.set_corner_radius_all(16)
 	layout_tree()
+	# Known forms' pictures are drawn on a layer with the sepia shader, so
+	# the tree's coloured branches and bubbles keep their colour
+	icon_layer = Control.new()
+	icon_layer.set_anchors_preset(Control.PRESET_FULL_RECT)
+	icon_layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	icon_layer.material = UI.sepia_material()
+	icon_layer.draw.connect(_draw_icons)
+	add_child(icon_layer)
 	build_info_panel()
 	resized.connect(fit_view)
 
@@ -135,6 +144,30 @@ func zoom_at(point: Vector2, factor: float):
 func _process(delta: float):
 	time += delta
 	queue_redraw()
+	if icon_layer:
+		icon_layer.queue_redraw()
+
+func _draw_icons():
+	icon_layer.draw_set_transform(offset, 0.0, Vector2(zoom, zoom))
+	for p in nodes:
+		var n = nodes[p]
+		if n.known:
+			draw_icon(icon_layer, n)
+
+# A form's walking sprite in its bubble (unknown ones as dark silhouettes)
+func draw_icon(target: CanvasItem, n: Dictionary):
+	var tex = sheet(n.form.id)
+	if tex == null:
+		return
+	var pos: Vector2 = n.pos
+	var bob = sin(time * 1.6 + pos.x * 0.013) * 3.0 if n.known else 0.0
+	var centre = pos + Vector2(0, bob)
+	var fw = tex.get_width() / 4.0
+	var frame = int(fmod(time * 5.0 + pos.x, 4.0)) if n.known else 0
+	var src = Rect2(frame * fw, 0, fw, tex.get_height())
+	var s = 92.0
+	var mod = Color.WHITE if n.known else Color(0.10, 0.065, 0.04, 0.92)
+	target.draw_texture_rect_region(tex, Rect2(centre - Vector2(s, s) * 0.5, Vector2(s, s)), src, mod)
 
 func _draw():
 	draw_set_transform(offset, 0.0, Vector2(zoom, zoom))
@@ -184,14 +217,8 @@ func draw_node(p: String, n: Dictionary):
 		draw_circle(centre, NODE_R + 12, Color(UI.SUN, 0.35 + 0.15 * sin(time * 5.0)))
 	draw_circle(centre, NODE_R, Color(UI.INK.lerp(tint, 0.18 if n.known else 0.0), 0.95))
 	draw_arc(centre, NODE_R, 0, TAU, 48, Color(tint, 0.95) if n.known else Color(UI.MEMBRANE, 0.3), 4.0, true)
-	var tex = sheet(form.id)
-	if tex:
-		var fw = tex.get_width() / 4.0
-		var frame = int(fmod(time * 5.0 + pos.x, 4.0)) if n.known else 0
-		var src = Rect2(frame * fw, 0, fw, tex.get_height())
-		var s = 92.0
-		var mod = Color.WHITE if n.known else Color(0.10, 0.065, 0.04, 0.92)
-		draw_texture_rect_region(tex, Rect2(centre - Vector2(s, s) * 0.5, Vector2(s, s)), src, mod)
+	if not n.known:
+		draw_icon(self, n) # known ones go on icon_layer, in sepia
 	if not n.known:
 		draw_string(font_bold, centre + Vector2(-NODE_R, 14), "?", HORIZONTAL_ALIGNMENT_CENTER, NODE_R * 2, 40, Color(UI.MEMBRANE, 0.55))
 	var title = pretty(form.name) if n.known else "???"
@@ -369,6 +396,7 @@ func select(path: String):
 		at.region = Rect2(0, 0, tex.get_width() / 4.0, tex.get_height())
 		info_icon.texture = at
 	info_icon.modulate = Color.WHITE if n.known else Color(0.10, 0.065, 0.04, 0.95)
+	info_icon.material = UI.sepia_material() if n.known else null
 	if n.known:
 		info_name.text = pretty(form.name)
 		info_clade.text = form.clade_path
