@@ -367,7 +367,10 @@ func fossil_row(f: Dictionary, known: bool, era_name: String) -> Control:
 	pic.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	pic.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	var path = "res://assets/fauna/%s_sheet.png" % f.name.to_lower()
-	if ResourceLoader.exists(path):
+	var icon = "res://assets/fossils/%s.png" % f.name.to_lower() # bosses, tools/fossil_icons.gd
+	if ResourceLoader.exists(icon):
+		pic.texture = load(icon)
+	elif ResourceLoader.exists(path):
 		var sheet: Texture2D = load(path)
 		var frame = AtlasTexture.new()
 		frame.atlas = sheet
@@ -378,7 +381,7 @@ func fossil_row(f: Dictionary, known: bool, era_name: String) -> Control:
 	if pic.texture:
 		row.add_child(pic)
 	else:
-		# Bosses are drawn in code (bosses/*.gd), so no sheet: a fossil mark
+		# No picture for it: a fossil mark
 		var mark = label("🦴" if known else "?", 54, UI.SUN if known else UI.MUTED)
 		mark.custom_minimum_size = Vector2(96, 96)
 		mark.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
