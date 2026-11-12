@@ -148,7 +148,7 @@ func _physics_process(delta: float):
         var closest: Node2D = null
         var closest_dist: float = 420.0
         for e in enemies:
-            if is_instance_valid(e):
+            if is_instance_valid(e) and not e.get("dead") and not (e.has_method("is_burrowed") and e.is_burrowed()):
                 var d = global_position.distance_to(e.global_position)
                 if d < closest_dist:
                     closest_dist = d
@@ -326,7 +326,7 @@ func spawn_caustic_pool(pos: Vector2):
 func trigger_electric_arc(source_enemy: Node):
     var enemies = get_tree().get_nodes_in_group("enemies")
     for enemy in enemies:
-        if enemy != source_enemy and is_instance_valid(enemy):
+        if enemy != source_enemy and is_instance_valid(enemy) and not enemy.get("dead") and not (enemy.has_method("is_burrowed") and enemy.is_burrowed()):
             if enemy.global_position.distance_to(global_position) < 260.0:
                 enemy.take_damage(2.5)
                 # Visual electric spark line
