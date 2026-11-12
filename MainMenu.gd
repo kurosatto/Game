@@ -13,12 +13,23 @@ const UI = preload("res://data/UIStyle.gd")
 const ACCENT = UI.SUN
 const SOFT = UI.CREAM
 const LOCKED = Color(0.45, 0.5, 0.45)
+# Sepia ink and paper, as in InkFilter.gd
+const TITLE_INK = Color(0.27, 0.16, 0.09)
+const PAPER = Color(0.94, 0.88, 0.75)
 
 var menu_box: VBoxContainer
 var trait_btn: Button
 var trait_info: Label
 var overlay: Control = null
 var drifters: Array = []
+var scenery: Array = []
+# [art, x and y as a fraction of the screen, scale]: kept clear of the
+# title and the button panel in the middle
+const SCENERY = [
+	["tall", 0.14, 0.30, 1.4], ["tall_2", 0.87, 0.27, 1.4],
+	["mound", 0.17, 0.78, 1.2], ["fossil", 0.83, 0.74, 1.2],
+	["rock_2", 0.06, 0.55, 1.1], ["mound_2", 0.94, 0.52, 1.1],
+]
 
 func _ready():
 	get_tree().paused = false
@@ -33,27 +44,16 @@ func build_background():
 	bg.color = UI.BACKDROP
 	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
 	add_child(bg)
+	# The first era's floor, lit and inked exactly as the game draws it
+	# (Room.gd + Main.gd CanvasModulate + InkFilter at that era's ink_light)
+	var look: Dictionary = preload("res://data/EraLook.gd").get_look(1)
 	var room = TextureRect.new()
 	room.texture = load("res://assets/eras/ediacaran/room.png")
 	room.set_anchors_preset(Control.PRESET_FULL_RECT)
 	room.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
 	room.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	room.modulate = look.tint * (SettingsManager.brightness / 1.2)
 	add_child(room)
-	# Darker edges pull the eye to the title and buttons
-	var grad = Gradient.new()
-	grad.set_color(0, Color(0.27, 0.16, 0.09, 0.0))
-	grad.set_color(1, Color(0.27, 0.16, 0.09, 0.55))
-	grad.add_point(0.45, Color(0.27, 0.16, 0.09, 0.08))
-	var vtex = GradientTexture2D.new()
-	vtex.gradient = grad
-	vtex.fill = GradientTexture2D.FILL_RADIAL
-	vtex.fill_from = Vector2(0.5, 0.5)
-	vtex.fill_to = Vector2(1.1, 1.1)
-	var vignette = TextureRect.new()
-	vignette.texture = vtex
-	vignette.stretch_mode = TextureRect.STRETCH_SCALE
-	vignette.set_anchors_preset(Control.PRESET_FULL_RECT)
-	vignette.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	# Sunlight rippling over the sea floor, as in the first era
 	var light = ColorRect.new()
 	light.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -62,11 +62,24 @@ func build_background():
 	shader.code = preload("res://data/EraLook.gd").FLOOR_LIGHT_SHADER
 	var mat = ShaderMaterial.new()
 	mat.shader = shader
-	mat.set_shader_parameter("tint", Color(0.55, 1.0, 0.85))
-	mat.set_shader_parameter("strength", 0.09)
+	mat.set_shader_parameter("tint", look.light)
+	mat.set_shader_parameter("strength", look.light_power)
 	mat.set_shader_parameter("rect_size", Vector2(1920, 1080))
 	light.material = mat
 	add_child(light)
+	# Ediacaran scenery on the open floor around the buttons, like a room
+	var view = get_viewport_rect().size
+	for p in SCENERY:
+		var tex_path = "res://assets/eras/ediacaran/%s.png" % p[0]
+		if not ResourceLoader.exists(tex_path):
+			continue
+		var prop = Sprite2D.new()
+		prop.texture = load(tex_path)
+		prop.position = Vector2(p[1] * view.x, p[2] * view.y)
+		prop.scale = Vector2.ONE * p[3]
+		prop.modulate = room.modulate
+		add_child(prop)
+		scenery.append({"node": prop, "t": randf() * TAU})
 	# Discovered lineages drift past; the starting cell if nothing yet
 	var found: Array = codex.load_discovered()
 	if found.is_empty():
@@ -88,13 +101,18 @@ func build_background():
 		s.rotation = dir.angle() + PI / 2
 		add_child(s)
 		drifters.append({"node": s, "vel": dir * randf_range(25.0, 60.0), "t": randf() * 4.0})
-	# The same sepia ink sketch as the game (InkFilter.gd), then a soft
-	# darkening at the edges to pull the eye to the title and buttons
-	add_child(preload("res://InkFilter.gd").new())
-	add_child(vignette)
+	# The same sepia ink sketch as the game (InkFilter.gd). The paper level
+	# is tuned by eye so the bare floor is as pale as the first room in play
+	var ink = preload("res://InkFilter.gd").new()
+	ink.fixed_light = 0.32
+	add_child(ink)
 
 func _process(delta: float):
 	var size_now = get_viewport_rect().size
+	# Fronds sway in the current like the room scenery
+	for p in scenery:
+		p.t += delta
+		p.node.rotation = sin(p.t * 0.9) * 0.05
 	for d in drifters:
 		var s: Sprite2D = d.node
 		d.t += delta
@@ -129,19 +147,18 @@ func build_menu():
 	menu_box.add_theme_constant_override("separation", 18)
 	add_child(menu_box)
 
-	var title = label("Evo Roguelike", 104, ACCENT)
+	# Title and subtitle are inked onto the sketchbook page like the rooms
+	var title = label("Evo Roguelike", 104, TITLE_INK)
 	title.add_theme_font_override("font", UI.font(650))
-	title.add_theme_constant_override("outline_size", 18)
-	title.add_theme_color_override("font_outline_color", Color(0.20, 0.12, 0.06))
-	title.add_theme_constant_override("shadow_offset_y", 6)
-	title.add_theme_color_override("font_shadow_color", Color(0.10, 0.06, 0.02, 0.5))
+	title.add_theme_constant_override("outline_size", 16)
+	title.add_theme_color_override("font_outline_color", PAPER)
 	menu_box.add_child(title)
 	var sub_font = UI.font(500)
 	sub_font.spacing_glyph = 8
-	var sub = label("PRIMORDIAL GENESIS", 30, UI.LEAF)
+	var sub = label("PRIMORDIAL GENESIS", 30, Color(0.45, 0.30, 0.17))
 	sub.add_theme_font_override("font", sub_font)
 	sub.add_theme_constant_override("outline_size", 8)
-	sub.add_theme_color_override("font_outline_color", Color(0.10, 0.065, 0.04))
+	sub.add_theme_color_override("font_outline_color", PAPER)
 	menu_box.add_child(sub)
 	var gap = Control.new()
 	gap.custom_minimum_size = Vector2(0, 10)
@@ -183,6 +200,8 @@ func build_menu():
 	var stats = label("Codex %d / %d lineages  ·  Fossils %d / 25  ·  Challenges %d / %d" % [
 		codex.load_discovered().size(), lineages.TREE.size(), codex.load_eaten().size(), done, progress.CHALLENGES.size()], 20, UI.MUTED)
 	stats.add_theme_constant_override("outline_size", 6)
+	stats.add_theme_color_override("font_color", Color(0.38, 0.25, 0.14))
+	stats.add_theme_color_override("font_outline_color", PAPER)
 	menu_box.add_child(stats)
 	var runs = progress.run_stats()
 	if runs.count > 0:
@@ -192,6 +211,8 @@ func build_menu():
 			tally += ", %d survived to the end" % runs.wins
 		var run_line = label(best + "  ·  " + tally, 20, UI.MUTED)
 		run_line.add_theme_constant_override("outline_size", 6)
+		run_line.add_theme_color_override("font_color", Color(0.38, 0.25, 0.14))
+		run_line.add_theme_color_override("font_outline_color", PAPER)
 		menu_box.add_child(run_line)
 
 	# The title drifts gently, like something floating in the shallows

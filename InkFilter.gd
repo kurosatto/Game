@@ -65,6 +65,8 @@ void fragment() {
 
 const EraLook = preload("res://data/EraLook.gd")
 var mat: ShaderMaterial
+# Paper level to use outside a run (the main menu); below 0 follows the era
+var fixed_light: float = -1.0
 
 func _ready():
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -78,9 +80,11 @@ func _ready():
 # Each era's floor is a different brightness, so each sets where bare paper
 # starts (EraLook "ink_light"): dark swamps still read as paper, not ink
 func _process(_delta: float):
-	var main = get_tree().current_scene
-	if main == null or not ("floor_number" in main):
-		return
-	var light: float = EraLook.get_look(main.floor_number).get("ink_light", 0.45)
+	var light: float = fixed_light
+	if light < 0.0:
+		var main = get_tree().current_scene
+		if main == null or not ("floor_number" in main):
+			return
+		light = EraLook.get_look(main.floor_number).get("ink_light", 0.45)
 	mat.set_shader_parameter("light_lum", light)
 	mat.set_shader_parameter("dark_lum", light * 0.12)
