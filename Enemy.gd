@@ -1133,6 +1133,8 @@ func die():
 		drop_biomass()
 		if player and is_instance_valid(player) and "kills" in player:
 			player.kills += 1
+		if preload("res://data/Codex.gd").note_eaten(fauna_name):
+			_announce_fossil(fauna_name)
 
 	# Spawn colorful death burst particles
 	spawn_death_particles()
@@ -1149,6 +1151,12 @@ func die():
 	kill_effects()
 	enemy_died.emit()
 	queue_free()
+
+# First time a species is eaten: a note that it joined the fossil record
+func _announce_fossil(species: String):
+	var main = get_tree().get_first_node_in_group("main")
+	if main and main.has_method("note_new_fossil"):
+		main.note_new_fossil(species)
 
 # Items that act when prey dies: decomposer clouds and alarm pheromone
 func kill_effects():

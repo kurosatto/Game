@@ -227,6 +227,7 @@ func die():
 	death_burst()
 	var main = get_tree().get_first_node_in_group("main")
 	drop_elements(main.floor_number if main else 1)
+	preload("res://data/Codex.gd").note_eaten(boss_title.split(" ")[0].capitalize())
 	if main and main.has_method("hit_stop"):
 		main.hit_stop(0.22)
 	enemy_died.emit()
