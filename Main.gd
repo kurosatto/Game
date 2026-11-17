@@ -155,7 +155,7 @@ func complete_challenge(id: String):
         var c = progress.get_challenge(id)
         var a = player.adaptations.get_adaptation(c.unlock)
         SoundManager.play_sfx("level_up", 0.9)
-        hud.show_item_banner("🏆 CHALLENGE: " + c.name, "%s. New starting trait on the main menu: %s." % [c.goal, a.name], true)
+        hud.show_item_banner("CHALLENGE: " + c.name, "%s. New starting trait on the main menu: %s." % [c.goal, a.name], true)
 
 # Codex, form and adaptation challenges, checked whenever they could change
 func check_challenges():
@@ -363,7 +363,7 @@ func advance_floor():
 
 # A species eaten for the first time joins the fossil record (main menu)
 func note_new_fossil(species: String):
-    player.popup_text(player.global_position + Vector2(0, -60), "🦴 NEW FOSSIL: " + species.to_upper(), Color(0.98, 0.76, 0.38))
+    player.popup_text(player.global_position + Vector2(0, -60), "NEW FOSSIL: " + species.to_upper(), Color(0.98, 0.76, 0.38))
 
 func display_item_banner(title: String, desc: String):
     hud.show_item_banner(title, desc)

@@ -20,6 +20,8 @@ var selected: bool = false
 var info_title: String = ""
 var info_body: String = ""
 
+var sepia: bool = true # draw the picture in sepia ink like the world
+var pic: Node2D = null # child layer the picture is drawn on, with the sepia shader
 var disc: float = 100.0
 var time: float = 0.0
 var font: Font
@@ -39,12 +41,19 @@ func _ready():
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	time = randf() * 4.0
 	mouse_entered.connect(func(): picked.emit(self))
+	pic = Node2D.new()
+	if sepia:
+		pic.material = UI.sepia_material()
+	pic.draw.connect(_draw_picture)
+	add_child(pic)
 
 func _process(delta: float):
 	if not is_visible_in_tree():
 		return
 	time += delta
 	queue_redraw()
+	if pic:
+		pic.queue_redraw()
 
 func _gui_input(event: InputEvent):
 	var tap = (event is InputEventScreenTouch and event.pressed) or \
@@ -52,6 +61,19 @@ func _gui_input(event: InputEvent):
 	if tap:
 		picked.emit(self)
 		accept_event()
+
+# The picture itself, on the pic layer above the disc
+func _draw_picture():
+	if texture == null:
+		return
+	var c = Vector2(size.x * 0.5, disc * 0.5)
+	var fw = texture.get_width() / float(hframes)
+	var frame = int(fmod(time * 5.0, hframes)) if animate else 0
+	var src = Rect2(frame * fw, 0, fw, texture.get_height())
+	var s = disc * (0.86 if hframes > 1 else 0.66)
+	var bob = sin(time * 1.8) * disc * 0.025 if hframes > 1 else 0.0
+	pic.draw_set_transform(c + Vector2(0, bob), spin, Vector2.ONE)
+	pic.draw_texture_rect_region(texture, Rect2(-Vector2(s, s) * 0.5, Vector2(s, s)), src)
 
 func _draw():
 	var c = Vector2(size.x * 0.5, disc * 0.5)
@@ -62,15 +84,6 @@ func _draw():
 		draw_circle(c, r + 4.0, Color(UI.SUN, 0.35 + 0.15 * sin(time * 5.0)))
 	draw_circle(c, r, Color(UI.INK.lerp(tint, 0.16), 0.95))
 	draw_arc(c, r, 0, TAU, 48, Color(UI.SUN if selected else tint, 0.95), 3.0, true)
-	if texture:
-		var fw = texture.get_width() / float(hframes)
-		var frame = int(fmod(time * 5.0, hframes)) if animate else 0
-		var src = Rect2(frame * fw, 0, fw, texture.get_height())
-		var s = disc * (0.86 if hframes > 1 else 0.66)
-		var bob = sin(time * 1.8) * disc * 0.025 if hframes > 1 else 0.0
-		draw_set_transform(c + Vector2(0, bob), spin, Vector2.ONE)
-		draw_texture_rect_region(texture, Rect2(-Vector2(s, s) * 0.5, Vector2(s, s)), src)
-		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 	if badge > 1:
 		var b = c + Vector2(r * 0.72, r * 0.72)
 		draw_circle(b, 15.0, UI.SUN)

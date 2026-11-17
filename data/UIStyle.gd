@@ -184,6 +184,11 @@ static func sepia_material() -> ShaderMaterial:
 		_sepia.shader = sh
 	return _sepia
 
+# A form's own colour (data/Lineages.gd, often bright) pulled toward the
+# parchment rim, so cards and discs keep a hint of it without neon edges
+static func ink_tint(c: Color) -> Color:
+	return Color(c.clamp().lerp(MEMBRANE, 0.55), 1.0)
+
 # "#rrggbb" for BBCode
 static func hex(c: Color) -> String:
 	return "#" + c.to_html(false)

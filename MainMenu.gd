@@ -187,7 +187,7 @@ func build_menu():
 	var pair = HBoxContainer.new()
 	pair.add_theme_constant_override("separation", 16)
 	col.add_child(pair)
-	for b in [button("🏆  CHALLENGES", show_challenges), button("📖  CODEX", show_codex)]:
+	for b in [button("CHALLENGES", show_challenges), button("CODEX", show_codex)]:
 		b.custom_minimum_size = Vector2(292, 76)
 		b.add_theme_font_size_override("font_size", 26)
 		pair.add_child(b)
@@ -229,15 +229,15 @@ func update_trait_text():
 	var current = progress.start_trait()
 	var unlocked = progress.unlocked_traits()
 	if unlocked.is_empty():
-		trait_btn.text = "🔒  STARTING TRAIT: complete a challenge"
+		trait_btn.text = "STARTING TRAIT: complete a challenge"
 		trait_btn.disabled = true
 		trait_info.text = "Each challenge unlocks a trait to begin runs with."
 	elif current == "":
-		trait_btn.text = "🧬  STARTING TRAIT: none (tap to choose)"
+		trait_btn.text = "STARTING TRAIT: none (tap to choose)"
 		trait_info.text = "%d unlocked. Tap to cycle; see CHALLENGES for what each does." % unlocked.size()
 	else:
 		var a = adaptations.get_adaptation(current)
-		trait_btn.text = "🧬  STARTING TRAIT: " + a.name
+		trait_btn.text = "STARTING TRAIT: " + a.name
 		trait_info.text = a.effect + ".  " + a.fact
 
 func cycle_trait():
@@ -308,7 +308,7 @@ func row(parent: Container, title: String, body: String, color: Color):
 	parent.add_child(HSeparator.new())
 
 func show_challenges():
-	var list = open_overlay("🏆 CHALLENGES")
+	var list = open_overlay("CHALLENGES")
 	for c in progress.CHALLENGES:
 		var done = progress.is_complete(c.id)
 		var t = label(("✓ " if done else "○ ") + c.name, 26, UI.LEAF if done else UI.CREAM)
@@ -328,7 +328,7 @@ func trait_card(a: Dictionary, unlocked: bool, chosen: bool) -> Control:
 	var col = VBoxContainer.new()
 	col.add_theme_constant_override("separation", 4)
 	card.add_child(col)
-	var head = "🧬 Starting trait: " if unlocked else "🔒 Unlocks starting trait: "
+	var head = "Starting trait: " if unlocked else "Unlocks starting trait: "
 	var n = label(head + a.name + ("  (chosen)" if chosen else ""), 22, UI.SUN if unlocked else UI.CREAM)
 	n.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	col.add_child(n)
@@ -344,9 +344,9 @@ func trait_card(a: Dictionary, unlocked: bool, chosen: bool) -> Control:
 # same forms as plain text rows.
 func show_codex():
 	var found: Array = codex.load_discovered()
-	var area = open_overlay("📖 CODEX  %d / %d" % [found.size(), lineages.TREE.size()], false)
+	var area = open_overlay("CODEX  %d / %d" % [found.size(), lineages.TREE.size()], false)
 	add_overlay_button(area, "☰  LIST", show_codex_list)
-	add_overlay_button(area, "🦴  FOSSILS", show_fossils)
+	add_overlay_button(area, "FOSSILS", show_fossils)
 	var hint = label("Drag to explore  ·  pinch to zoom  ·  tap a form to read about it", 18, UI.MUTED)
 	area.add_child(hint)
 	var tree = preload("res://CodexTree.gd").new()
@@ -364,8 +364,8 @@ func show_fossils():
 	var total := 0
 	for era in range(1, 6):
 		total += FAUNA.era_species(era).size() + 1
-	var list = open_overlay("🦴 FOSSIL RECORD  %d / %d" % [eaten.size(), total])
-	add_overlay_button(list.get_parent(), "📖  CODEX", show_codex)
+	var list = open_overlay("FOSSIL RECORD  %d / %d" % [eaten.size(), total])
+	add_overlay_button(list.get_parent(), "CODEX", show_codex)
 	list.add_child(label("Every animal you eat is added here, with what is known about it.", 19, UI.MUTED))
 	for era in range(1, 6):
 		var head = label(ERA_NAMES[era - 1].to_upper() + " PERIOD", 26, UI.SUN)
@@ -406,7 +406,7 @@ func fossil_row(f: Dictionary, known: bool, era_name: String) -> Control:
 		row.add_child(pic)
 	else:
 		# No picture for it: a fossil mark
-		var mark = label("🦴" if known else "?", 54, UI.SUN if known else UI.MUTED)
+		var mark = label("✓" if known else "?", 54, UI.SUN if known else UI.MUTED)
 		mark.custom_minimum_size = Vector2(96, 96)
 		mark.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		row.add_child(mark)
@@ -432,14 +432,14 @@ func add_overlay_button(area: Control, text: String, on_press: Callable):
 
 func show_codex_list():
 	var found: Array = codex.load_discovered()
-	var list = open_overlay("📖 CODEX  %d / %d" % [found.size(), lineages.TREE.size()])
-	add_overlay_button(list.get_parent(), "🌳  TREE", show_codex)
+	var list = open_overlay("CODEX  %d / %d" % [found.size(), lineages.TREE.size()])
+	add_overlay_button(list.get_parent(), "TREE", show_codex)
 	# Tree order: the path keys sort parents before children
 	var paths: Array = lineages.TREE.keys()
 	paths.sort_custom(func(a, b): return a.split(",").size() < b.split(",").size() or (a.split(",").size() == b.split(",").size() and a < b))
 	for p in paths:
 		var f = lineages.TREE[p]
 		if found.has(f.id):
-			row(list, f.name, "%s\n%s\nLiving today: %s" % [f.clade_path, f.fact, f.living_example], f.color)
+			row(list, f.name, "%s\n%s\nLiving today: %s" % [f.clade_path, f.fact, f.living_example], UI.ink_tint(f.color))
 		else:
 			row(list, "??? (undiscovered)", "Evolve into this lineage to record it.", LOCKED)

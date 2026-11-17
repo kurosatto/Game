@@ -66,7 +66,9 @@ func kill_enemies():
 	# Burrowers can't be hit underground, so keep trying until they surface
 	for i in 40:
 		var alive = get_nodes_in_group("enemies").filter(func(e): return is_instance_valid(e) and not e.is_queued_for_deletion())
-		if alive.is_empty():
+		# A room drawing a second wave (Room.start_wave) isn't done yet
+		var room = main.current_room_node
+		if alive.is_empty() and not (is_instance_valid(room) and room.get("wave_pending")):
 			return
 		for e in alive:
 			e.take_damage(99999.0)

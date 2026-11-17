@@ -149,10 +149,10 @@ func setup_settings_ui():
         SettingsManager.set_music_volume(val)
         update_music_label(val)
     )
-    var shake = _add_toggle("📳 Screen shake", SettingsManager.screen_shake,
+    var shake = _add_toggle("Screen shake", SettingsManager.screen_shake,
         func(on): SettingsManager.screen_shake = on, music_section)
     if TouchControls.should_show():
-        _add_toggle("🎯 Aim assist (shots bend onto nearby animals)", SettingsManager.aim_assist,
+        _add_toggle("Aim assist (shots bend onto nearby animals)", SettingsManager.aim_assist,
             func(on): SettingsManager.aim_assist = on, shake)
 
 var music_label: Label
@@ -197,7 +197,7 @@ func flash_hurt():
     tw.tween_property(hurt_vignette, "modulate:a", 0.0, 0.45).set_ease(Tween.EASE_OUT)
 
 func update_music_label(val: float):
-    music_label.text = "🎵 Music Volume: %d%%" % int(val * 100)
+    music_label.text = "Music Volume: %d%%" % int(val * 100)
 
 func _unhandled_input(event: InputEvent):
     if event is InputEventKey and event.pressed and not event.echo:
@@ -233,7 +233,7 @@ func _on_brightness_changed(val: float):
     update_brightness_label(val)
 
 func update_brightness_label(val: float):
-    brightness_label.text = "🔆 Brightness: %d%%" % int(val * 100)
+    brightness_label.text = "Brightness: %d%%" % int(val * 100)
 
 func _on_display_mode_selected(index: int):
     SettingsManager.set_window_mode(index)
@@ -243,7 +243,7 @@ func _on_volume_changed(val: float):
     update_volume_label(val)
 
 func update_volume_label(val: float):
-    volume_label.text = "🔊 SFX Volume: %d%%" % int(val * 100)
+    volume_label.text = "SFX Volume: %d%%" % int(val * 100)
 
 func clear_hearts():
     for child in hearts_container.get_children():
@@ -310,7 +310,7 @@ func _setup_element_bar():
     element_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
     row.add_child(element_label)
     grow_btn = Button.new()
-    grow_btn.text = "🧬 GROW"
+    grow_btn.text = "GROW"
     grow_btn.custom_minimum_size = Vector2(110, 34)
     grow_btn.add_theme_font_size_override("font_size", 16)
     grow_btn.focus_mode = Control.FOCUS_NONE
@@ -335,11 +335,11 @@ func update_elements(have: Dictionary, growable: int):
     if growable > 0 and not _grow_hinted:
         _grow_hinted = true
         var how = "Tap GROW" if TouchControls.should_show() else "Press G or click GROW"
-        show_item_banner("🧬 READY TO GROW", "You have eaten enough elements to grow a new part. %s to choose one." % how)
+        show_item_banner("READY TO GROW", "You have eaten enough elements to grow a new part. %s to choose one." % how)
     if element_label:
         element_label.text = _element_text(have)
     if grow_btn:
-        grow_btn.text = ("🧬 GROW %d" % growable) if growable > 0 else "🧬 GROW"
+        grow_btn.text = ("GROW %d" % growable) if growable > 0 else "GROW"
         grow_btn.modulate = Color(1.25, 1.25, 1.05) if growable > 0 else Color(0.75, 0.75, 0.75)
     if grow_modal and grow_modal.visible:
         _fill_grow_screen()
@@ -378,7 +378,7 @@ func _create_grow_screen():
     col.add_theme_constant_override("separation", 14)
     grow_modal.add_child(col)
     var header = Label.new()
-    header.text = "🧬 GROW FROM WHAT YOU HAVE EATEN"
+    header.text = "GROW FROM WHAT YOU HAVE EATEN"
     header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
     header.add_theme_font_size_override("font_size", 34)
     header.add_theme_color_override("font_color", UI.SUN)
@@ -418,7 +418,7 @@ func _create_grow_screen():
     btns.add_theme_constant_override("separation", 10)
     irow.add_child(btns)
     grow_go = Button.new()
-    grow_go.text = "🧬 GROW IT"
+    grow_go.text = "GROW IT"
     grow_go.custom_minimum_size = Vector2(240, 60)
     grow_go.add_theme_font_size_override("font_size", 22)
     for state in ["normal", "hover", "pressed", "disabled"]:
@@ -474,6 +474,7 @@ func _fill_grow_screen():
             ic.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
             ic.size_flags_vertical = Control.SIZE_SHRINK_CENTER
             ic.mouse_filter = Control.MOUSE_FILTER_IGNORE
+            ic.material = UI.sepia_material() # inked like the world
             if not ok:
                 ic.modulate = Color(1, 1, 1, 0.55)
             row.add_child(ic)
@@ -537,7 +538,7 @@ func _on_grow_pressed():
             main.check_challenges()
 
 func update_dna(current_dna: int, max_dna: int, level: int):
-    dna_label.text = "🧬 BIOMASS %d / %d" % [current_dna, max_dna]
+    dna_label.text = "BIOMASS %d / %d" % [current_dna, max_dna]
     dna_bar.max_value = max_dna
     dna_bar.value = current_dna
 
@@ -559,12 +560,12 @@ func update_discharge_cooldown(current_cd: float, max_cd: float):
         return
     if current_cd <= 0.0:
         ability_bar.value = 1.0
-        ability_label.text = "⚡ ZAP: READY" if TouchControls.should_show() else "⚡ [E / MMB] DISCHARGE: READY"
+        ability_label.text = "ZAP: READY" if TouchControls.should_show() else "[E / MMB] DISCHARGE: READY"
         ability_label.add_theme_color_override("font_color", UI.AQUA)
     else:
         var ratio = 1.0 - (current_cd / max(0.001, max_cd))
         ability_bar.value = ratio
-        ability_label.text = ("⚡ ZAP RECHARGING (%.1fs)" if TouchControls.should_show() else "⚡ [E] RECHARGING (%.1fs)") % current_cd
+        ability_label.text = ("ZAP RECHARGING (%.1fs)" if TouchControls.should_show() else "[E] RECHARGING (%.1fs)") % current_cd
         ability_label.add_theme_color_override("font_color", UI.MUTED)
 
 var current_creature_name: String = "PRIMORDIAL PROTOZOA"
@@ -577,7 +578,7 @@ var current_floor: int = 1
 func update_floor(floor_num: int):
     current_floor = floor_num
     var era_str = ERA_NAMES.get(floor_num, "ERA %d" % floor_num)
-    floor_label.text = "%s | 🧬 %s" % [era_str, current_creature_name]
+    floor_label.text = "%s | %s" % [era_str, current_creature_name]
 
 func update_minimap(rooms: Dictionary, current_pos: Vector2i):
     dungeon_rooms = rooms
@@ -760,7 +761,7 @@ func add_lineage_strip(box: VBoxContainer):
             strip.add_child(arrow)
         var sheet = "res://assets/lineages/%s_sheet.png" % f.id
         var tile = PauseTile.new().setup(load(sheet) if ResourceLoader.exists(sheet) else null, 4, 92.0, f.name.capitalize())
-        tile.tint = Color(f.color).clamp()
+        tile.tint = UI.ink_tint(f.color)
         tile.mouse_filter = Control.MOUSE_FILTER_IGNORE
         strip.add_child(tile)
     box.add_child(strip)
@@ -799,7 +800,7 @@ func show_evolution_modal(floor_num: int, current_path: Array = []):
 
     var header = evolution_modal.get_node("CenterBox/Header") as Label
     var subheader = evolution_modal.get_node("CenterBox/SubHeader") as Label
-    header.text = "🧬 " + ERA_NAMES.get(floor_num, "ERA %d" % floor_num) + " COMPLETE"
+    header.text = "" + ERA_NAMES.get(floor_num, "ERA %d" % floor_num) + " COMPLETE"
 
     var cards_row = evolution_modal.get_node("CenterBox/CardsRow") as HBoxContainer
     for c in cards_row.get_children():
@@ -867,7 +868,7 @@ func _create_evolution_modal():
     
     var header = Label.new()
     header.name = "Header"
-    header.text = "🧬 EPOCH TRANSCENDED: GEOLOGICAL EVOLUTION"
+    header.text = "EPOCH TRANSCENDED: GEOLOGICAL EVOLUTION"
     header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
     header.add_theme_font_size_override("font_size", 40)
     header.add_theme_color_override("font_color", UI.SUN)
@@ -887,13 +888,14 @@ func _create_evolution_modal():
     cards_row.add_theme_constant_override("separation", 50)
     center_box.add_child(cards_row)
 
-func _build_choice_card(parent: HBoxContainer, floor_num: int, choice_idx: int, data: Dictionary, total: int = 2, on_pick: Callable = Callable(), height: float = 560.0, button_text: String = "⚡ MUTATE & ADAPT") -> Button:
+func _build_choice_card(parent: HBoxContainer, floor_num: int, choice_idx: int, data: Dictionary, total: int = 2, on_pick: Callable = Callable(), height: float = 560.0, button_text: String = "MUTATE & ADAPT") -> Button:
     var card = PanelContainer.new()
     # Up to four cards share the row
     var gap = 50 if total <= 2 else 24
     card.custom_minimum_size = Vector2(min(680.0, (1640.0 - gap * (total - 1)) / total), height)
     parent.add_theme_constant_override("separation", gap)
     
+    data["color"] = UI.ink_tint(data["color"]) # muted, sketchbook-style rims
     card.add_theme_stylebox_override("panel", UI.panel(data["color"], 32, 0.96, 0.0))
     
     var margin = MarginContainer.new()
@@ -916,7 +918,7 @@ func _build_choice_card(parent: HBoxContainer, floor_num: int, choice_idx: int, 
         head_row.add_theme_constant_override("separation", 14)
         vbox.add_child(head_row)
         var pic = PauseTile.new().setup(load(sheet), 4, 118.0 if total <= 2 else 104.0)
-        pic.tint = Color(data["color"]).clamp()
+        pic.tint = data["color"]
         pic.size_flags_vertical = Control.SIZE_SHRINK_CENTER
         head_row.add_child(pic)
         head = VBoxContainer.new()
@@ -1099,6 +1101,8 @@ func _pause_chip(parent: Control, tex: Texture2D, text: String, colour: Color = 
     icon.custom_minimum_size = Vector2(34, 34)
     icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
     icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+    if tex != heart_full_tex: # the heart pip is already drawn in ink
+        icon.material = UI.sepia_material()
     row.add_child(icon)
     var l = _pause_label(19, colour, false, text)
     l.autowrap_mode = TextServer.AUTOWRAP_OFF
@@ -1148,7 +1152,7 @@ func show_pause_info():
                 spin = 0.0
             var me = _pause_tile(pause_you, tex, frames, 190.0, "",
                 form.name, body)
-            me.tint = form.color.clamp()
+            me.tint = UI.ink_tint(form.color)
             me.spin = spin
             var side = VBoxContainer.new()
             side.add_theme_constant_override("separation", 6)
@@ -1225,7 +1229,7 @@ func show_adaptation_modal(options: Array, taken: Dictionary = {}):
     _create_evolution_modal()
     var header = evolution_modal.get_node("CenterBox/Header") as Label
     var subheader = evolution_modal.get_node("CenterBox/SubHeader") as Label
-    header.text = "🧬 ADAPTATION"
+    header.text = "ADAPTATION"
     subheader.text = "Your lineage has fed well. Natural selection favours one new trait:"
     var cards_row = evolution_modal.get_node("CenterBox/CardsRow") as HBoxContainer
     for c in cards_row.get_children():
@@ -1241,7 +1245,7 @@ func show_adaptation_modal(options: Array, taken: Dictionary = {}):
             "desc": a.fact,
             "perks": a.effect,
             "color": UI.LEAF,
-        }, options.size(), _on_adaptation_clicked.bind(a.id), 400.0, "🧬 ADAPT")
+        }, options.size(), _on_adaptation_clicked.bind(a.id), 400.0, "ADAPT")
         btn.disabled = true
         buttons.append(btn)
     evolution_modal.visible = true

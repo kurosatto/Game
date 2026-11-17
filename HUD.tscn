@@ -136,7 +136,7 @@ alignment = 1
 layout_mode = 2
 theme_override_colors/font_color = Color(0.62, 0.93, 0.5, 1)
 theme_override_font_sizes/font_size = 17
-text = "🧬 BIOMASS 0 / 5"
+text = "BIOMASS 0 / 5"
 
 [node name="DnaBar" type="ProgressBar" parent="HUDPanel/MarginContainer/HBoxContainer/DnaContainer"]
 custom_minimum_size = Vector2(0, 10)
@@ -154,7 +154,7 @@ alignment = 1
 layout_mode = 2
 theme_override_colors/font_color = Color(0.45, 0.9, 0.85, 1)
 theme_override_font_sizes/font_size = 17
-text = "⚡ [E / MMB] DISCHARGE"
+text = "[E / MMB] DISCHARGE"
 
 [node name="AbilityBar" type="ProgressBar" parent="HUDPanel/MarginContainer/HBoxContainer/AbilityContainer"]
 custom_minimum_size = Vector2(0, 10)
@@ -311,7 +311,7 @@ theme_override_constants/separation = 6
 [node name="BrightnessLabel" type="Label" parent="SettingsModal/Panel/Margin/VBox/BrightnessSection"]
 layout_mode = 2
 theme_override_font_sizes/font_size = 16
-text = "🔆 Brightness: 120%"
+text = "Brightness: 120%"
 
 [node name="BrightnessSlider" type="HSlider" parent="SettingsModal/Panel/Margin/VBox/BrightnessSection"]
 layout_mode = 2
@@ -327,7 +327,7 @@ theme_override_constants/separation = 6
 [node name="DisplayLabel" type="Label" parent="SettingsModal/Panel/Margin/VBox/DisplaySection"]
 layout_mode = 2
 theme_override_font_sizes/font_size = 16
-text = "🖥 Display Mode / Resolution:"
+text = "Display Mode / Resolution:"
 
 [node name="DisplayOption" type="OptionButton" parent="SettingsModal/Panel/Margin/VBox/DisplaySection"]
 layout_mode = 2
@@ -340,7 +340,7 @@ theme_override_constants/separation = 6
 [node name="VolumeLabel" type="Label" parent="SettingsModal/Panel/Margin/VBox/VolumeSection"]
 layout_mode = 2
 theme_override_font_sizes/font_size = 16
-text = "🔊 SFX Volume: 100%"
+text = "SFX Volume: 100%"
 
 [node name="VolumeSlider" type="HSlider" parent="SettingsModal/Panel/Margin/VBox/VolumeSection"]
 layout_mode = 2
