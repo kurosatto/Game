@@ -85,6 +85,10 @@ func setup_room(data, floor_number: int):
     # 7. Spawn Layout Obstacles
     spawn_layout_obstacles(clean_layout)
 
+    # 7b. Era ground hazards in fight rooms (Hazard.gd)
+    if room_data.type == 1:
+        spawn_hazards(floor_number)
+
     # 8. Restore or Initialize Contents based on Persistence State
     if room_data.has_initialized_contents:
         # Restore saved pickups that were left in this room
@@ -645,6 +649,44 @@ func spawn_treasure_pedestal():
     ped.item_id = chosen_item
     room_data.treasure_item_id = chosen_item
     add_child(ped)
+
+# From era 2, about half the fight rooms have two patches of hazard ground:
+# brine pools at sea, peat bog in the coal swamps, gas vents in the Permian.
+# Rolled once per room and kept, so a revisit looks the same.
+func spawn_hazards(floor_number: int):
+    if not room_data.hazards_rolled:
+        room_data.hazards_rolled = true
+        if floor_number >= 2 and randf() < 0.45:
+            room_data.hazards = roll_hazards(floor_number)
+    var kind = preload("res://Hazard.gd").kind_for_floor(floor_number)
+    for h in room_data.hazards:
+        var hz = preload("res://Hazard.gd").new()
+        hz.kind = kind
+        hz.position = h.pos
+        hz.size = h.size
+        hz.seed_val = h.seed
+        add_child(hz)
+
+func roll_hazards(floor_number: int) -> Array:
+    var out: Array = []
+    var vent = floor_number >= 5
+    var doors = [Vector2(960, 68), Vector2(960, 1012), Vector2(128 - side_margin, 540), Vector2(1792 + side_margin, 540)]
+    var area = interior_rect(110.0)
+    for attempt in 60:
+        if out.size() >= 2:
+            break
+        var sz = Vector2(95, 66) if vent else Vector2(randf_range(130, 190), randf_range(80, 110))
+        var pos = Vector2(randf_range(area.position.x, area.end.x), randf_range(area.position.y, area.end.y))
+        var ok = spot_is_free(pos, sz.x * 0.75)
+        for d in doors:
+            if pos.distance_to(d) < 330.0:
+                ok = false
+        for h in out:
+            if pos.distance_to(h.pos) < sz.x + h.size.x + 60.0:
+                ok = false
+        if ok:
+            out.append({"pos": pos, "size": sz, "seed": randi()})
+    return out
 
 func spawn_seep():
     var seep = preload("res://MineralSeep.gd").new()

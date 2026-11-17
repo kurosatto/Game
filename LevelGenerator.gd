@@ -23,7 +23,9 @@ class RoomData:
     var destroyed_obstacles: Array = [] # positions of obstacles broken here
     var treasure_item_id: String = "" # "" if collected
     var seep_used: bool = false # SEEP room: its minerals taken
-    var layout_idx: int = -1 # which RoomLayouts normal layout this room uses
+    var layout_idx: int = -1
+    var hazards: Array = [] # Room.spawn_hazards: [{pos, size, seed}], rolled on first visit
+    var hazards_rolled: bool = false # which RoomLayouts normal layout this room uses
     var shop_inventory: Array = [] # [{ "item_id": String, "price": int, "pos": Vector2, "bought": bool }]
 
 static func generate_level(floor_number: int = 1) -> Dictionary:
