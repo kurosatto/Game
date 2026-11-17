@@ -37,16 +37,54 @@ func setup_visuals():
         
     $Sprite2D.texture = load(tex_path)
 
-    # Pop in, then bob gently so pickups read as collectable
+    # Pop in (drop and bounce), then each kind idles in its own way: hearts
+    # beat, keys swing on their ring, everything floats a little
     var sprite = $Sprite2D
     sprite.scale = Vector2.ZERO
-    var tw = create_tween()
-    tw.tween_property(sprite, "scale", Vector2.ONE, 0.3).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-    var bob = sprite.create_tween().set_loops()
-    var phase = randf_range(0.0, 0.4)
-    bob.tween_interval(phase)
-    bob.tween_property(sprite, "position:y", -6.0, 0.7).set_trans(Tween.TRANS_SINE)
-    bob.tween_property(sprite, "position:y", 0.0, 0.7).set_trans(Tween.TRANS_SINE)
+    sprite.position.y = -26.0
+    var tw = create_tween().set_parallel(true)
+    tw.tween_property(sprite, "scale", Vector2.ONE, 0.35).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+    tw.tween_property(sprite, "position:y", 0.0, 0.45).set_trans(Tween.TRANS_BOUNCE).set_ease(Tween.EASE_OUT)
+    idle_t = randf_range(0.0, 3.0)
+    tw.chain().tween_callback(func(): idling = true)
+
+var idle_t: float = 0.0
+var idling: bool = false
+
+func _process(delta: float):
+    if not idling or taken:
+        return
+    idle_t += delta
+    var sprite = $Sprite2D
+    sprite.position.y = -4.0 + sin(idle_t * 2.2) * 4.0
+    match pickup_type:
+        "heart", "heart_half":
+            # Lub-dub: two quick beats, then a rest
+            var b = fmod(idle_t, 1.1)
+            var beat = exp(-pow((b - 0.08) / 0.05, 2.0)) * 0.14 + exp(-pow((b - 0.28) / 0.06, 2.0)) * 0.09
+            sprite.scale = Vector2(1.0 + beat, 1.0 + beat * 0.8)
+        "key":
+            # Swings on its ring, with a glint now and then
+            sprite.rotation = sin(idle_t * 1.7) * 0.22
+            var glint = pow(max(0.0, sin(idle_t * 0.9)), 30.0)
+            sprite.modulate = Color(1.0 + glint * 0.6, 1.0 + glint * 0.6, 1.0 + glint * 0.4)
+
+# Collected: a copy of the pickup zips into the player and shrinks away
+func fly_to_player(body: Node2D):
+    var sprite = $Sprite2D
+    var ghost = Sprite2D.new()
+    ghost.texture = sprite.texture
+    ghost.z_index = 6
+    get_parent().add_child(ghost)
+    ghost.global_position = sprite.global_position
+    ghost.scale = sprite.scale * 1.25
+    var tw = ghost.create_tween().set_parallel(true)
+    tw.tween_method(func(t):
+        if is_instance_valid(body):
+            ghost.global_position = ghost.global_position.lerp(body.global_position, t)
+        , 0.0, 1.0, 0.2).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+    tw.tween_property(ghost, "scale", Vector2.ONE * 0.25, 0.2).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+    tw.chain().tween_callback(ghost.queue_free)
 
 func sparkle_color() -> Color:
     match pickup_type:
@@ -128,4 +166,5 @@ func _on_body_entered(body: Node):
         if collected:
             taken = true
             spawn_collect_sparkle()
+            fly_to_player(body)
             queue_free()

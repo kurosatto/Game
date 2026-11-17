@@ -79,8 +79,16 @@ func open_door():
 			light.energy = 1.4
 
 func close_door():
+	var was_open = is_open
 	is_open = false
 	update_visuals()
+	if was_open and is_inside_tree():
+		# Slams shut: overshoots, then settles with a little shudder
+		var sprite = $Sprite2D
+		sprite.scale = Vector2(1.18, 0.86)
+		var tw = create_tween()
+		tw.tween_property(sprite, "scale", Vector2(0.95, 1.04), 0.08).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+		tw.tween_property(sprite, "scale", Vector2.ONE, 0.3).set_trans(Tween.TRANS_ELASTIC).set_ease(Tween.EASE_OUT)
 
 func lock_door():
 	is_locked = true
@@ -92,6 +100,15 @@ func unlock_door():
 	is_open = true
 	SoundManager.play_sfx("door_open", 1.2)
 	update_visuals()
+	if is_inside_tree():
+		# The key turns: a rattle, then the door springs open
+		var sprite = $Sprite2D
+		var tw = create_tween()
+		for i in 3:
+			tw.tween_property(sprite, "rotation", 0.06 * (1 if i % 2 == 0 else -1), 0.05)
+		tw.tween_property(sprite, "rotation", 0.0, 0.05)
+		tw.tween_property(sprite, "scale", Vector2.ONE * 1.25, 0.08)
+		tw.tween_property(sprite, "scale", Vector2.ONE, 0.35).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 
 func update_visuals():
 	if not is_inside_tree():

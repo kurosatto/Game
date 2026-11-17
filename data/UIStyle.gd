@@ -187,3 +187,40 @@ static func sepia_material() -> ShaderMaterial:
 # "#rrggbb" for BBCode
 static func hex(c: Color) -> String:
 	return "#" + c.to_html(false)
+
+# ═══════════════════════════════════════════════════════════
+# SCREEN MOTION: screens fade in and their panel settles like a page laid
+# on the desk; card rows are dealt one after another. They run while the
+# game is paused (most screens pause it).
+# ═══════════════════════════════════════════════════════════
+static func reveal(screen: CanvasItem, panel: Control = null, time: float = 0.2):
+	if screen == null:
+		return
+	screen.modulate.a = 0.0
+	var tw = screen.create_tween().set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	tw.tween_property(screen, "modulate:a", 1.0, time).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	if panel:
+		var settle = func(v: float):
+			if is_instance_valid(panel):
+				panel.pivot_offset = panel.size / 2.0
+				panel.scale = Vector2.ONE * v
+				panel.rotation = (1.0 - v) * -0.25
+		settle.call(0.93)
+		tw.parallel().tween_method(settle, 0.93, 1.0, time + 0.15).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+
+static func deal(cards: Array, delay: float = 0.12, step: float = 0.08):
+	for i in cards.size():
+		var c = cards[i]
+		if not (c is Control):
+			continue
+		c.modulate.a = 0.0
+		var lift = func(v: float):
+			if is_instance_valid(c):
+				c.pivot_offset = Vector2(c.size.x / 2.0, c.size.y)
+				c.scale = Vector2.ONE * (0.82 + 0.18 * v)
+				c.rotation = (1.0 - v) * (0.12 if i % 2 == 0 else -0.12)
+		lift.call(0.0)
+		var tw = c.create_tween().set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+		tw.tween_interval(delay + step * i)
+		tw.tween_property(c, "modulate:a", 1.0, 0.16)
+		tw.parallel().tween_method(lift, 0.0, 1.0, 0.34).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
