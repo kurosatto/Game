@@ -223,6 +223,7 @@ func toggle_settings():
     get_tree().paused = settings_modal.visible
     if settings_modal.visible:
         show_pause_info()
+        UI.reveal(settings_modal, pause_box, 0.16)
     
     if not settings_modal.visible:
         SettingsManager.save_settings()
@@ -351,6 +352,7 @@ func show_grow_screen():
     grow_selected = ""
     _fill_grow_screen()
     grow_modal.visible = true
+    UI.reveal(grow_modal)
     get_tree().paused = true
 
 func hide_grow_screen():
@@ -683,6 +685,7 @@ func show_game_over(run: Dictionary = {}):
     item_banner.visible = false # it would show through the dimmed screen
     end_shown_at = Time.get_ticks_msec()
     game_over_screen.visible = true
+    UI.reveal(game_over_screen, null, 0.6)
     var touch = TouchControls.should_show()
     var how = "Tap to try again  ·  Back for the main menu" if touch else "R or tap to try again  ·  Esc for the main menu"
     var sub = $GameOverScreen/Center/SubLabel
@@ -707,6 +710,7 @@ func show_game_over(run: Dictionary = {}):
 func show_victory(summary: Dictionary = {}):
     end_shown_at = Time.get_ticks_msec()
     victory_screen.visible = true
+    UI.reveal(victory_screen, null, 0.6)
     item_banner.visible = false
     if not TouchControls.should_show():
         $VictoryScreen/Center/RestartLabel.text = "R or tap to play again  ·  Esc for the main menu"
@@ -772,6 +776,8 @@ func show_evolution_modal(floor_num: int, current_path: Array = []):
             }, child_paths.size())
 
     evolution_modal.visible = true
+    UI.reveal(evolution_modal)
+    UI.deal(cards_row.get_children())
     get_tree().paused = true
 
 func _create_evolution_modal():
@@ -1179,6 +1185,8 @@ func show_adaptation_modal(options: Array, taken: Dictionary = {}):
         btn.disabled = true
         buttons.append(btn)
     evolution_modal.visible = true
+    UI.reveal(evolution_modal)
+    UI.deal(cards_row.get_children())
     get_tree().paused = true
     SoundManager.play_sfx("level_up", 1.0)
     await get_tree().create_timer(0.45, true).timeout
@@ -1325,6 +1333,7 @@ func _open_card(color: Color, width: float) -> VBoxContainer:
     var vbox = VBoxContainer.new()
     vbox.add_theme_constant_override("separation", 14)
     panel.add_child(vbox)
+    UI.reveal(intro_card, panel, 0.24)
     return vbox
 
 func _add_rows(parent: Container, rows: Array):

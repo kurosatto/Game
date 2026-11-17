@@ -55,6 +55,7 @@ func setup_visuals():
     $ItemSprite.texture = load(tex_path)
     # Item icons are drawn at 96 px; pickups are 64 px sprites
     $ItemSprite.scale = Vector2.ONE * (0.85 if tex_path.contains("/icons/") else 1.0)
+    item_base_scale = $ItemSprite.scale
     $ItemSprite.visible = true
     
     if is_shop_item and price > 0:
@@ -63,11 +64,36 @@ func setup_visuals():
     else:
         $PriceLabel.visible = false
 
+var item_base_scale: Vector2 = Vector2.ONE
+
 func _process(delta: float):
     if item_id == "" or collected:
         return
     elapsed += delta
-    $ItemSprite.position.y = start_y + sin(elapsed * 4.0) * 4.0
+    # Floats over the pedestal, turning slowly as if hung in water
+    $ItemSprite.position.y = start_y - 4.0 + sin(elapsed * 2.4) * 6.0
+    $ItemSprite.rotation = sin(elapsed * 1.3) * 0.08
+    $ItemSprite.scale = item_base_scale * (1.0 + sin(elapsed * 2.4 + 1.2) * 0.035)
+
+# Taken: the find lifts above the player's head, swells and fades
+func lift_item(body: Node2D):
+    var spr = $ItemSprite
+    if spr.texture == null:
+        return
+    var ghost = Sprite2D.new()
+    ghost.texture = spr.texture
+    ghost.z_index = 8
+    get_parent().add_child(ghost)
+    ghost.global_position = spr.global_position
+    ghost.scale = spr.global_scale
+    var top = body.global_position + Vector2(0, -90)
+    var tw = ghost.create_tween()
+    tw.tween_property(ghost, "global_position", top, 0.28).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+    tw.parallel().tween_property(ghost, "scale", spr.global_scale * 1.35, 0.28).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+    tw.tween_interval(0.45)
+    tw.tween_property(ghost, "global_position", body.global_position, 0.22).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+    tw.parallel().tween_property(ghost, "scale", Vector2.ONE * 0.2, 0.22).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+    tw.tween_callback(ghost.queue_free)
 
 func _on_body_entered(body: Node):
     if not is_instance_valid(body):
@@ -85,6 +111,7 @@ func _on_body_entered(body: Node):
             body.add_dna(-price)
             
         collected = true
+        lift_item(body)
         
         # Apply item upgrades
         apply_item_to_player(body)

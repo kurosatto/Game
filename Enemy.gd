@@ -122,13 +122,39 @@ func _ready():
 # behaviour code sets every frame.
 const HIT_SHADER = """
 shader_type canvas_item;
+// Hit feedback (flash, punch) plus the motion layer (update_motion): the
+// body is bent, rippled and stretched here so the 4-frame sheets move like
+// living animals. Sheets face up: v = 0 is the head, v = 1 the tail.
 uniform float flash = 0.0;
 uniform float punch = 0.0;
+uniform float frames = 4.0;
+uniform float wave = 0.0;
+uniform float waves = 1.0;
+uniform float wphase = 0.0;
+uniform float curve = 0.0;
+uniform float flinch = 0.0;
+uniform float pulse = 0.0;
+uniform vec2 stretch = vec2(1.0);
 void vertex() {
-	VERTEX *= 1.0 + punch;
+	VERTEX *= stretch * (1.0 + punch);
 }
 void fragment() {
-	vec4 c = texture(TEXTURE, UV) * COLOR;
+	float fi = floor(UV.x * frames);
+	vec2 l = vec2(UV.x * frames - fi, UV.y);
+	float v = l.y;
+	// Body wave: the head holds its line, the tail sweeps
+	float env = 0.2 + 0.8 * smoothstep(0.1, 1.0, v);
+	float off = wave * sin(v * waves * 6.2832 - wphase) * env;
+	// Tail swings out on a turn; a hit bows the middle away from the blow
+	off += curve * v * v;
+	off += flinch * 4.0 * v * (1.0 - v);
+	// Peristalsis / mantle squeeze: bulges travel head to tail
+	float squeeze = 1.0 + pulse * sin(v * 11.0 - wphase * 2.0);
+	l.x = 0.5 + (l.x - 0.5) / squeeze + off;
+	float inside = step(0.0, l.x) * step(l.x, 1.0);
+	vec2 uv = vec2((fi + clamp(l.x, 0.002, 0.998)) / frames, l.y);
+	vec4 c = texture(TEXTURE, uv) * COLOR;
+	c.a *= inside;
 	COLOR = vec4(mix(c.rgb, vec3(1.0), flash), c.a);
 }
 """
@@ -160,6 +186,7 @@ func hit_feedback(amount: float):
 	var strength = clamp(amount / max(1.0, max_health) * 2.5, 0.12, 0.3)
 	hit_material.set_shader_parameter("flash", 0.85)
 	hit_material.set_shader_parameter("punch", strength)
+	_squash_v += 1.2 + strength * 4.0
 	hit_fx_tween = create_tween().set_parallel(true)
 	hit_fx_tween.tween_method(func(v): hit_material.set_shader_parameter("flash", v), 0.85, 0.0, 0.12)
 	hit_fx_tween.tween_method(func(v): hit_material.set_shader_parameter("punch", v), strength, 0.0, 0.16) \
@@ -189,6 +216,148 @@ func draw_health_bar():
 	var col = Color(0.35, 1.0, 0.45).lerp(Color(1.0, 0.3, 0.25), 1.0 - frac)
 	health_bar.draw_rect(Rect2(r.position, Vector2(w * frac, r.size.y)), col)
 
+# ═══════════════════════════════════════════════════════════
+# MOTION LAYER: runs every rendered frame after the behaviour code and turns
+# its velocity, turns and attack states into body motion (data/FaunaMotion.gd)
+# ═══════════════════════════════════════════════════════════
+const FaunaMotion = preload("res://data/FaunaMotion.gd")
+var motion: Dictionary = FaunaMotion.DEFAULT
+var gait_phase: float = 0.0     # radians; one turn = one 4-frame cycle
+var _last_pos: Vector2 = Vector2.INF
+var _last_rot: float = 0.0
+var _speed_s: float = 0.0       # smoothed speed (px/s)
+var _turn_s: float = 0.0        # smoothed turn rate (rad/s)
+var _stretch_s: Vector2 = Vector2.ONE
+var _flinch: float = 0.0        # sideways bow from a hit (spring)
+var _flinch_v: float = 0.0
+var _squash: float = 0.0        # along-body squash from a hit (spring)
+var _squash_v: float = 0.0
+
+func _process(delta: float):
+	if dead or hit_material == null or delta <= 0.0:
+		return
+	update_motion(delta)
+
+func update_motion(delta: float):
+	var spr: Sprite2D = $Sprite2D
+	var pos = global_position
+	if _last_pos == Vector2.INF:
+		_last_pos = pos
+		_last_rot = spr.rotation
+	var moved = pos.distance_to(_last_pos)
+	var spd = moved / delta
+	_last_pos = pos
+	var k = 1.0 - exp(-delta * 10.0)
+	var prev_speed = _speed_s
+	_speed_s = lerp(_speed_s, spd, k)
+	var accel = (_speed_s - prev_speed) / delta
+	var turn = wrapf(spr.rotation - _last_rot, -PI, PI) / delta
+	_last_rot = spr.rotation
+	_turn_s = lerp(_turn_s, clamp(turn, -12.0, 12.0), 1.0 - exp(-delta * 8.0))
+
+	var m = motion
+	var style: String = m.style
+	var run = clamp(_speed_s / max(1.0, speed), 0.0, 2.5)
+	# Phase: tied to distance on the ground, plus a slow resting beat (gills,
+	# breathing, the current). Fliers beat their wings at a fixed rate.
+	var dphase = moved / m.stride * TAU + m.hz * TAU * delta * (1.0 - min(1.0, run) * 0.7)
+	if style == "fly":
+		dphase = m.hz * TAU * delta * (0.8 + 0.3 * run)
+	elif style == "swim":
+		dphase = (m.hz + 2.4 * run) * TAU * delta + moved / m.stride * TAU * 0.5
+	elif style == "jet":
+		dphase = m.hz * TAU * delta * (1.0 + 1.5 * run)
+	gait_phase = fmod(gait_phase + dphase, TAU * 64.0)
+	if not is_burrowed() and enemy_type != "colony":
+		spr.frame = int(gait_phase / TAU * 4.0) % 4
+
+	# Body wave: swimmers and sprawlers flex harder the faster they go
+	var wave = m.wave
+	match style:
+		"swim": wave *= 0.45 + 0.75 * min(run, 1.6)
+		"sprawl", "creep": wave *= 0.25 + 0.75 * min(run, 1.3)
+		"rooted": wave *= 1.0
+		_: wave *= 0.5 + 0.5 * min(run, 1.0)
+	var pulse = m.get("pulse", 0.0)
+	if style == "creep":
+		pulse *= 0.3 + 0.7 * min(run, 1.0)
+	var curve = clamp(-_turn_s * 0.012 * m.curve, -0.09, 0.09)
+
+	# Stretch: lean into acceleration, settle on stopping; skittering bodies
+	# shimmy side to side in time with their legs
+	var along = 1.0 + clamp(accel * 0.00012, -0.08, 0.1)
+	var across = 1.0 / sqrt(along)
+	if style == "jet":
+		# The mantle squeezes, the shell surges: a short stretch on each pulse
+		var p = max(0.0, sin(gait_phase))
+		along += 0.06 * p * p
+		across -= 0.04 * p * p
+	elif style == "fly":
+		# Hovering: the body rises and falls with the wingbeat
+		var bob = 1.0 + 0.035 * sin(gait_phase * 0.5)
+		along *= bob
+		across *= bob
+	elif style == "creep":
+		along += 0.03 * sin(gait_phase) * min(run, 1.0)
+	# Anticipation and follow-through on attacks
+	var crouch = attack_pose()
+	along *= 1.0 + crouch
+	across *= 1.0 - crouch * 0.6
+	var want = Vector2(across, along)
+	_stretch_s = _stretch_s.lerp(want, 1.0 - exp(-delta * 18.0))
+
+	# Hit springs (stiff, a little bounce)
+	_flinch_v += (-260.0 * _flinch - 16.0 * _flinch_v) * delta
+	_flinch += _flinch_v * delta
+	_squash_v += (-320.0 * _squash - 18.0 * _squash_v) * delta
+	_squash += _squash_v * delta
+
+	var stretch = _stretch_s * Vector2(1.0 + _squash * 0.6, 1.0 - _squash)
+	hit_material.set_shader_parameter("wave", wave)
+	hit_material.set_shader_parameter("waves", m.get("waves", 1.0))
+	hit_material.set_shader_parameter("wphase", gait_phase)
+	hit_material.set_shader_parameter("curve", curve)
+	hit_material.set_shader_parameter("flinch", clamp(_flinch, -0.12, 0.12))
+	hit_material.set_shader_parameter("pulse", pulse)
+	hit_material.set_shader_parameter("stretch", stretch)
+	# Skitter shimmy: a tiny rotation on the sprite's offset, not its facing
+	var shimmy = m.get("sway", 0.0) * sin(gait_phase * 2.0) * min(run, 1.0)
+	if style == "sprawl":
+		shimmy = m.get("sway", 0.0) * sin(gait_phase) * min(run, 1.0)
+	spr.skew = shimmy
+
+# Wind-ups gather (negative: shorter and wider), strikes reach (positive)
+func attack_pose() -> float:
+	var t = sin(anim_timer * 55.0) * 0.02 # a nervous tremble while coiled
+	if lunge_state == "windup":
+		return -0.16 + t
+	if lunge_state == "dash":
+		return 0.18
+	if enemy_type in ["charger", "orbiter"]:
+		if charge_state == "windup":
+			return -0.14 + t
+		if charge_state == "dash":
+			return 0.16
+	if spray_state == "windup":
+		return -0.12 + t
+	if burrow_state == "rise":
+		return -0.1 + 0.12 * sin(anim_timer * 30.0)
+	return 0.0
+
+# A shove from a shot: the body bows away from it and the hit squashes it
+func flinch_from(force: Vector2):
+	if force.length_squared() < 1.0:
+		return
+	var local = force.rotated(-$Sprite2D.global_rotation).normalized()
+	var amt = clamp(force.length() / 900.0, 0.25, 1.0)
+	# Sideways blows bend the body; head-on blows squash it
+	_flinch_v += local.x * 1.6 * amt
+	_squash_v += abs(local.y) * 2.2 * amt
+
+func setup_motion():
+	motion = FaunaMotion.get_profile(fauna_name)
+	gait_phase = randf() * TAU
+
 # A small shove from an ordinary shot, without the stun a real knockback gives
 func apply_hit_push(force: Vector2):
 	if is_burrowed() or is_enrolled() or enemy_type == "colony":
@@ -196,6 +365,7 @@ func apply_hit_push(force: Vector2):
 	if enemy_type in ["tank", "armoured"]:
 		force *= 0.3
 	knockback_velocity = (knockback_velocity + force).limit_length(max(force.length(), 420.0))
+	flinch_from(force)
 
 func setup_enemy(floor_number: int):
 	floor_num = floor_number
@@ -304,6 +474,7 @@ func apply_fauna(floor_number: int):
 	$Sprite2D.scale = Vector2(base_scale, base_scale)
 	$CollisionShape2D.shape.radius *= base_scale
 	behavior = f.get("behavior", "")
+	setup_motion()
 	shoot_delay_mult = f.get("shoot_delay", 1.0)
 	weave_phase = randf() * TAU
 	lunge_cooldown = randf_range(1.0, 2.5)
@@ -329,7 +500,7 @@ func process_lunge(delta: float) -> bool:
 	if lunge_state == "dash":
 		lunge_timer -= delta
 		velocity = lunge_dir * speed * 4.0
-		$Sprite2D.rotation = lunge_dir.angle() + PI/2
+		face_sprite(lunge_dir, delta, 30.0)
 		if move_and_slide() or lunge_timer <= 0:
 			lunge_state = ""
 			lunge_cooldown = randf_range(2.0, 3.2)
@@ -418,8 +589,7 @@ func _physics_process(delta: float):
 		if move_and_slide():
 			pick_random_wander()
 
-		$Sprite2D.rotation = wander_dir.angle() + PI/2
-		$Sprite2D.frame = int(fmod(anim_timer * 7.0, 4.0))
+		face_sprite(wander_dir, delta, 9.0)
 
 		shoot_timer -= delta
 		if shoot_timer <= 0 and blind_timer <= 0:
@@ -722,7 +892,7 @@ func process_armoured(delta: float):
 	facing = facing.rotated(turn)
 	velocity = facing * speed
 	move_and_slide()
-	$Sprite2D.rotation = facing.angle() + PI/2
+	face_sprite(facing, delta, 20.0)
 
 func armour_blocks() -> bool:
 	if enemy_type != "armoured" or not player or not is_instance_valid(player):
@@ -1184,8 +1354,49 @@ func die():
 	HitFX.pop(get_parent(), global_position, species_burst_color().lerp(Color.WHITE, 0.4), 30.0, 170.0 * max(1.0, base_scale), 0.28)
 
 	kill_effects()
+	spawn_corpse()
 	enemy_died.emit()
 	queue_free()
+
+# The body stays a beat: it jolts, curls on its side and sinks into the ink,
+# instead of vanishing on the frame it dies
+func spawn_corpse():
+	var spr: Sprite2D = $Sprite2D
+	if spr.texture == null or not spr.visible or get_parent() == null:
+		return
+	var c = Sprite2D.new()
+	c.texture = spr.texture
+	c.hframes = spr.hframes
+	c.frame = spr.frame
+	get_parent().add_child(c)
+	c.global_position = spr.global_position
+	c.rotation = spr.global_rotation
+	c.scale = spr.global_scale
+	c.skew = 0.0
+	c.z_index = z_index - 1
+	c.modulate = base_tint
+	var mat = ShaderMaterial.new()
+	mat.shader = hit_shader
+	mat.set_shader_parameter("flash", 0.9)
+	mat.set_shader_parameter("stretch", _stretch_s)
+	mat.set_shader_parameter("wave", motion.wave)
+	mat.set_shader_parameter("waves", motion.get("waves", 1.0))
+	mat.set_shader_parameter("wphase", gait_phase)
+	c.material = mat
+	var side = 1.0 if randf() < 0.5 else -1.0
+	var tw = c.create_tween().set_parallel(true)
+	tw.tween_method(func(v): mat.set_shader_parameter("flash", v), 0.9, 0.0, 0.14)
+	# Curl: the body bends hard to one side as it goes limp
+	tw.tween_method(func(v): mat.set_shader_parameter("curve", v), 0.0, 0.14 * side, 0.45) \
+		.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tw.tween_property(c, "rotation", c.rotation + 0.5 * side, 0.55).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tw.tween_property(c, "scale", c.scale * Vector2(1.12, 0.82), 0.12).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tw.chain().tween_property(c, "scale", c.scale * Vector2(0.9, 0.7), 0.45).set_trans(Tween.TRANS_SINE)
+	var ink = Color(0.32, 0.22, 0.14, 0.0)
+	var t2 = c.create_tween()
+	t2.tween_property(c, "modulate", base_tint.lerp(Color(0.4, 0.3, 0.2), 0.6), 0.25)
+	t2.tween_property(c, "modulate", ink, 0.4).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
+	t2.tween_callback(c.queue_free)
 
 # First time a species is eaten: a note that it joined the fossil record
 func _announce_fossil(species: String):
