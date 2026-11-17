@@ -67,9 +67,14 @@ func setup_room(data, floor_number: int):
             raw_layout = room_layouts.get_shop_layout()
         3: # BOSS
             raw_layout = room_layouts.get_boss_layout()
+        5: # SEEP: open ground around the seep
+            raw_layout = room_layouts.get_treasure_layout()
+            raw_layout["decals"] = []
         _: # NORMAL
             var normal_layouts = room_layouts.get_normal_layouts()
-            var l_idx = abs(room_data.grid_pos.x * 7 + room_data.grid_pos.y * 13) % normal_layouts.size()
+            var l_idx = room_data.layout_idx
+            if l_idx < 0 or l_idx >= normal_layouts.size():
+                l_idx = abs(room_data.grid_pos.x * 7 + room_data.grid_pos.y * 13) % normal_layouts.size()
             raw_layout = normal_layouts[l_idx]
             
     var clean_layout = room_layouts.filter_layout_for_doors(raw_layout, room_data.connections)
@@ -105,6 +110,8 @@ func setup_room(data, floor_number: int):
                 ped.is_shop_item = true
                 ped.collected = s_item.get("collected", false)
                 add_child(ped)
+        elif room_data.type == 5: # SEEP
+            spawn_seep()
         elif room_data.type == 3 and not room_data.cleared: # BOSS
             spawn_boss(floor_number)
         elif room_data.type == 1 and not room_data.cleared: # NORMAL left mid-fight
@@ -143,6 +150,11 @@ func setup_room(data, floor_number: int):
             for d_dir in door_nodes:
                 door_nodes[d_dir].open_door()
             spawn_shop_items()
+        elif room_data.type == 5: # SEEP
+            room_data.cleared = true
+            for d_dir in door_nodes:
+                door_nodes[d_dir].open_door()
+            spawn_seep()
         elif room_data.type == 3: # BOSS
             for d_dir in door_nodes:
                 door_nodes[d_dir].close_door()
@@ -216,6 +228,7 @@ func spawn_fullscreen_background():
             0: bg.modulate = Color(0.95, 1.05, 1.1)
             2: bg.modulate = Color(1.15, 1.08, 0.8)
             4: bg.modulate = Color(1.12, 1.0, 0.85)
+            5: bg.modulate = Color(1.05, 1.08, 1.0)
             3: bg.modulate = Color(0.85, 0.75, 0.95)
     add_child(bg)
 
@@ -572,6 +585,18 @@ func spawn_tactical_enemies(layout: Dictionary, floor_number: int):
             
         spawn_enemy(cand_pos, roll_enemy_type("fly" if randf() < 0.55 else "pacer", floor_number), floor_number)
 
+    maybe_promote_elder(floor_number)
+
+# From the second era on, a fight room may hold one big old animal
+# (Enemy.make_elder): tougher, circled in ink, and it always leaves a pickup
+func maybe_promote_elder(floor_number: int):
+    if floor_number < 2 or randf() > 0.12 + 0.06 * floor_number:
+        return
+    var picks = active_enemies.filter(func(e): return e.enemy_type not in ["swarm", "colony", "skittish"])
+    if picks.is_empty():
+        return
+    picks.pick_random().make_elder()
+
 # About a third of spawns become one of the era's special animals
 # (data/Fauna.gd: the third and fourth animal of each era)
 func roll_enemy_type(base: String, floor_number: int) -> String:
@@ -620,6 +645,16 @@ func spawn_treasure_pedestal():
     ped.item_id = chosen_item
     room_data.treasure_item_id = chosen_item
     add_child(ped)
+
+func spawn_seep():
+    var seep = preload("res://MineralSeep.gd").new()
+    seep.position = Vector2(960, 540)
+    seep.floor_num = current_floor
+    seep.spot_seed = room_data.grid_pos.x * 31 + room_data.grid_pos.y * 977
+    seep.used = room_data.seep_used
+    var data = room_data
+    seep.on_used = func(): data.seep_used = true
+    add_child(seep)
 
 func spawn_shop_keeper():
     var keeper = Sprite2D.new()
@@ -706,7 +741,7 @@ func _process(delta: float):
 func _on_enemy_died(enemy):
     active_enemies.erase(enemy)
 
-    if randf() < 0.35:
+    if randf() < 0.35 or enemy.get("elder"):
         spawn_random_pickup(enemy.global_position)
 
     if active_enemies.size() == 0 and not room_data.cleared:

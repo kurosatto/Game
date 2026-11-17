@@ -84,6 +84,14 @@ func _ready():
     clear_hearts()
     boss_bar.add_theme_stylebox_override("fill", UI.bar_box(UI.CORAL))
     $MinimapContainer.add_theme_stylebox_override("panel", StyleBoxEmpty.new())
+    # Big floors would draw rooms past the map's frame
+    minimap_ctrl.clip_contents = true
+    # Long era and form names used to push the hearts and buttons off the
+    # sides of the top bar; the name gives way instead (ends in "…")
+    $HUDPanel/MarginContainer/HBoxContainer/Spacer.visible = false
+    floor_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+    floor_label.clip_text = true
+    floor_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
     
     if minimap_ctrl:
         minimap_ctrl.draw.connect(_on_minimap_draw)
@@ -606,6 +614,8 @@ func _on_minimap_draw():
                 minimap_ctrl.draw_circle(draw_pos + cell_size/2.0, 4.0, UI.SUN)
             elif r_data.type == 4: # SHOP / SHRINE
                 minimap_ctrl.draw_circle(draw_pos + cell_size/2.0, 4.0, UI.LEAF)
+            elif r_data.type == 5 and not r_data.seep_used: # MINERAL SEEP
+                minimap_ctrl.draw_circle(draw_pos + cell_size/2.0, 4.0, UI.LEAF)
                 
 
 func show_boss_health(current: float, max_value: float, boss_title: String = ""):
@@ -745,6 +755,7 @@ func show_evolution_modal(floor_num: int, current_path: Array = []):
             "desc": "Evolution does not always branch. Your lineage stays itself and gets better at what it does.",
             "perks": "+1.5 damage, +20 speed, faster fire\n+2 max health (heals 2)",
             "color": form.get("color", Color(0.0, 1.0, 0.85)),
+            "sheet": "res://assets/lineages/%s_sheet.png" % form.get("id", ""),
         }, 1)
     else:
         # Every card is a direct branch of the current form (Lineages.TREE is
@@ -761,6 +772,7 @@ func show_evolution_modal(floor_num: int, current_path: Array = []):
                 "desc": desc,
                 "perks": lineages.describe_perks(child),
                 "color": child.color,
+                "sheet": "res://assets/lineages/%s_sheet.png" % child.id,
             }, child_paths.size())
 
     evolution_modal.visible = true
@@ -835,19 +847,37 @@ func _build_choice_card(parent: HBoxContainer, floor_num: int, choice_idx: int, 
     vbox.add_theme_constant_override("separation", 16)
     margin.add_child(vbox)
     
+    # Picture of the form beside its name (the same sketch the pause screen
+    # uses), so you see what you would become before reading about it
+    var head: Container = vbox
+    var sheet: String = data.get("sheet", "")
+    if sheet != "" and ResourceLoader.exists(sheet):
+        var head_row = HBoxContainer.new()
+        head_row.add_theme_constant_override("separation", 14)
+        vbox.add_child(head_row)
+        var pic = PauseTile.new().setup(load(sheet), 4, 118.0 if total <= 2 else 104.0)
+        pic.tint = Color(data["color"]).clamp()
+        pic.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+        head_row.add_child(pic)
+        head = VBoxContainer.new()
+        head.add_theme_constant_override("separation", 6)
+        head.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+        head.alignment = BoxContainer.ALIGNMENT_CENTER
+        head_row.add_child(head)
+
     var clade_lbl = Label.new()
     clade_lbl.text = data["clade"].to_upper()
     clade_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
     clade_lbl.add_theme_font_size_override("font_size", 16)
     clade_lbl.add_theme_color_override("font_color", data["color"].lerp(UI.CREAM, 0.25))
-    vbox.add_child(clade_lbl)
+    head.add_child(clade_lbl)
     
     var title_lbl = Label.new()
     title_lbl.text = data["title"]
     title_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
     title_lbl.add_theme_font_size_override("font_size", 28)
     title_lbl.add_theme_color_override("font_color", UI.SUN)
-    vbox.add_child(title_lbl)
+    head.add_child(title_lbl)
     
     var desc_lbl = Label.new()
     desc_lbl.text = data["desc"]
