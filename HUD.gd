@@ -692,6 +692,7 @@ func show_game_over(run: Dictionary = {}):
     if run.is_empty():
         sub.text = "Your genetic lineage was severed.\n" + how
         return
+    add_lineage_strip($GameOverScreen/Center)
     var era: Dictionary = ERA_INFO.get(clampi(run.get("floor", 1), 1, 5), {})
     var lines = "Your %s lineage died out in the %s, era %d of 5." % [
         str(run.get("form", "")).to_lower().capitalize(), era.get("name", "").to_lower().capitalize(), run.get("floor", 1)]
@@ -704,9 +705,49 @@ func show_game_over(run: Dictionary = {}):
     sub.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
     $GameOverScreen/Center.offset_left = -560.0
     $GameOverScreen/Center.offset_right = 560.0
-    $GameOverScreen/Center.offset_top = -160.0
-    $GameOverScreen/Center.offset_bottom = 160.0
+    $GameOverScreen/Center.offset_top = -250.0
+    $GameOverScreen/Center.offset_bottom = 250.0
     
+# The run's family line as pictures: every form from the first cell to
+# where the run ended, left to right. Shown on the game over and victory
+# screens, replacing the one from an earlier death on a restart.
+func add_lineage_strip(box: VBoxContainer):
+    var old = box.get_node_or_null("LineageStrip")
+    if old:
+        old.queue_free()
+    var player = get_tree().get_first_node_in_group("player")
+    if player == null or not "evolution_choices" in player:
+        return
+    var forms: Array = []
+    var choices: Array = player.evolution_choices
+    for n in range(choices.size() + 1):
+        var key = lineages.path_key(choices.slice(0, n))
+        if lineages.has_form(key):
+            var f = lineages.get_form(key)
+            if forms.is_empty() or forms[-1].id != f.id:
+                forms.append(f)
+    if forms.is_empty():
+        return
+    var strip = HBoxContainer.new()
+    strip.name = "LineageStrip"
+    strip.alignment = BoxContainer.ALIGNMENT_CENTER
+    strip.add_theme_constant_override("separation", 10)
+    for i in forms.size():
+        var f = forms[i]
+        if i > 0:
+            var arrow = _pause_label(30, UI.MUTED, true, "›")
+            arrow.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+            arrow.custom_minimum_size = Vector2(0, 92)
+            arrow.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+            strip.add_child(arrow)
+        var sheet = "res://assets/lineages/%s_sheet.png" % f.id
+        var tile = PauseTile.new().setup(load(sheet) if ResourceLoader.exists(sheet) else null, 4, 92.0, f.name.capitalize())
+        tile.tint = Color(f.color).clamp()
+        tile.mouse_filter = Control.MOUSE_FILTER_IGNORE
+        strip.add_child(tile)
+    box.add_child(strip)
+    box.move_child(strip, 1)
+
 func show_victory(summary: Dictionary = {}):
     end_shown_at = Time.get_ticks_msec()
     victory_screen.visible = true
@@ -721,6 +762,7 @@ func show_victory(summary: Dictionary = {}):
         sublabel.text = "Your lineage dominated Earth through all 5 eras!"
     else:
         label.text = "APEX EVOLUTION: VICTORY!"
+        add_lineage_strip($VictoryScreen/Center)
         var text = "Final Evolved Lineage: " + summary.get("title", "Apex Organism") + "\n"
         text += summary.get("clade", "") + "\n\nPhylogenetic Path Across Earth's Eras:\n"
         for h in summary.get("history", []):
