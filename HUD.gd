@@ -446,7 +446,7 @@ func _fill_grow_screen():
         var maxed = r.get("once", false) and n > 0
         var ok = BIOMINERALS.can_grow(r, _have, taken)
         var tile = Button.new()
-        tile.custom_minimum_size = Vector2(415, 112)
+        tile.custom_minimum_size = Vector2(415, 120)
         tile.focus_mode = Control.FOCUS_NONE
         tile.toggle_mode = false
         var tint = UI.LEAF if ok else (UI.SUN if r.id == grow_selected else UI.MEMBRANE)
@@ -459,11 +459,29 @@ func _fill_grow_screen():
             grow_selected = r.id
             _fill_grow_screen()
         )
+        # Picture of the part on the left, words on the right
+        var row = HBoxContainer.new()
+        row.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT, Control.PRESET_MODE_MINSIZE, 14)
+        row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+        row.add_theme_constant_override("separation", 12)
+        tile.add_child(row)
+        var icon_path = "res://assets/ui/icons/adapt_%s.png" % r.get("icon", "")
+        if ResourceLoader.exists(icon_path):
+            var ic = TextureRect.new()
+            ic.texture = load(icon_path)
+            ic.custom_minimum_size = Vector2(64, 64)
+            ic.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+            ic.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+            ic.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+            ic.mouse_filter = Control.MOUSE_FILTER_IGNORE
+            if not ok:
+                ic.modulate = Color(1, 1, 1, 0.55)
+            row.add_child(ic)
         var v = VBoxContainer.new()
-        v.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT, Control.PRESET_MODE_MINSIZE, 16)
+        v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
         v.mouse_filter = Control.MOUSE_FILTER_IGNORE
         v.add_theme_constant_override("separation", 2)
-        tile.add_child(v)
+        row.add_child(v)
         var t = Label.new()
         t.text = r.name + (" ×%d" % n if n > 0 else "")
         t.add_theme_font_size_override("font_size", 19)
