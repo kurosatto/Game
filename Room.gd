@@ -67,6 +67,9 @@ func setup_room(data, floor_number: int):
             raw_layout = room_layouts.get_shop_layout()
         3: # BOSS
             raw_layout = room_layouts.get_boss_layout()
+        5: # SEEP: open ground around the seep
+            raw_layout = room_layouts.get_treasure_layout()
+            raw_layout["decals"] = []
         _: # NORMAL
             var normal_layouts = room_layouts.get_normal_layouts()
             var l_idx = room_data.layout_idx
@@ -107,6 +110,8 @@ func setup_room(data, floor_number: int):
                 ped.is_shop_item = true
                 ped.collected = s_item.get("collected", false)
                 add_child(ped)
+        elif room_data.type == 5: # SEEP
+            spawn_seep()
         elif room_data.type == 3 and not room_data.cleared: # BOSS
             spawn_boss(floor_number)
         elif room_data.type == 1 and not room_data.cleared: # NORMAL left mid-fight
@@ -145,6 +150,11 @@ func setup_room(data, floor_number: int):
             for d_dir in door_nodes:
                 door_nodes[d_dir].open_door()
             spawn_shop_items()
+        elif room_data.type == 5: # SEEP
+            room_data.cleared = true
+            for d_dir in door_nodes:
+                door_nodes[d_dir].open_door()
+            spawn_seep()
         elif room_data.type == 3: # BOSS
             for d_dir in door_nodes:
                 door_nodes[d_dir].close_door()
@@ -218,6 +228,7 @@ func spawn_fullscreen_background():
             0: bg.modulate = Color(0.95, 1.05, 1.1)
             2: bg.modulate = Color(1.15, 1.08, 0.8)
             4: bg.modulate = Color(1.12, 1.0, 0.85)
+            5: bg.modulate = Color(1.05, 1.08, 1.0)
             3: bg.modulate = Color(0.85, 0.75, 0.95)
     add_child(bg)
 
@@ -634,6 +645,16 @@ func spawn_treasure_pedestal():
     ped.item_id = chosen_item
     room_data.treasure_item_id = chosen_item
     add_child(ped)
+
+func spawn_seep():
+    var seep = preload("res://MineralSeep.gd").new()
+    seep.position = Vector2(960, 540)
+    seep.floor_num = current_floor
+    seep.spot_seed = room_data.grid_pos.x * 31 + room_data.grid_pos.y * 977
+    seep.used = room_data.seep_used
+    var data = room_data
+    seep.on_used = func(): data.seep_used = true
+    add_child(seep)
 
 func spawn_shop_keeper():
     var keeper = Sprite2D.new()

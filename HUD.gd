@@ -84,6 +84,14 @@ func _ready():
     clear_hearts()
     boss_bar.add_theme_stylebox_override("fill", UI.bar_box(UI.CORAL))
     $MinimapContainer.add_theme_stylebox_override("panel", StyleBoxEmpty.new())
+    # Big floors would draw rooms past the map's frame
+    minimap_ctrl.clip_contents = true
+    # Long era and form names used to push the hearts and buttons off the
+    # sides of the top bar; the name gives way instead (ends in "…")
+    $HUDPanel/MarginContainer/HBoxContainer/Spacer.visible = false
+    floor_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+    floor_label.clip_text = true
+    floor_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
     
     if minimap_ctrl:
         minimap_ctrl.draw.connect(_on_minimap_draw)
@@ -603,6 +611,8 @@ func _on_minimap_draw():
             elif r_data.type == 2: # TREASURE / MUTATION
                 minimap_ctrl.draw_circle(draw_pos + cell_size/2.0, 4.0, UI.SUN)
             elif r_data.type == 4: # SHOP / SHRINE
+                minimap_ctrl.draw_circle(draw_pos + cell_size/2.0, 4.0, UI.LEAF)
+            elif r_data.type == 5 and not r_data.seep_used: # MINERAL SEEP
                 minimap_ctrl.draw_circle(draw_pos + cell_size/2.0, 4.0, UI.LEAF)
                 
 
