@@ -59,7 +59,8 @@ func try_room(pos: Vector2i) -> String:
 		for e in room.active_enemies.duplicate():
 			if is_instance_valid(e):
 				e.take_damage_if_alive(99999.0)
-		if room.active_enemies.is_empty():
+		# Rooms with a second wave (Room.start_wave) refill after a beat
+		if room.active_enemies.is_empty() and (room.room_data.cleared or not (room.wave_pending or room.room_data.waves_left > 0)):
 			break
 		await physics_frame
 	for i in 10: await physics_frame

@@ -34,6 +34,7 @@ var obstacle_scene = preload("res://Obstacle.tscn")
 var room_layouts = preload("res://RoomLayouts.gd")
 var fauna = preload("res://data/Fauna.gd")
 var era_look = preload("res://data/EraLook.gd")
+const HitFX = preload("res://HitFX.gd")
 
 func setup_room(data, floor_number: int):
     room_data = data
@@ -173,6 +174,9 @@ func setup_room(data, floor_number: int):
                 p.pickup_type = p_info["type"]
                 add_child(p)
             spawn_tactical_enemies(clean_layout, floor_number)
+            # From era 2, some rooms draw a second group in once the first falls
+            if floor_number >= 2 and randf() < 0.22:
+                room_data.waves_left = 1
 
     # A fight room with nobody to fight would keep its doors shut forever
     if room_data.type == 1 and not room_data.cleared and active_enemies.is_empty():
@@ -803,7 +807,49 @@ func spawn_random_pickup(pos: Vector2):
         
     add_child(p)
 
+# The commotion draws more animals: when the room falls quiet, a second
+# group comes in through the doors farthest from you, already hunting
+var wave_pending: bool = false
+var had_wave: bool = false # a room that drew a second group always pays out
+
+func start_wave():
+    wave_pending = true
+    had_wave = true
+    room_data.waves_left -= 1
+    var player_node = get_tree().get_first_node_in_group("player")
+    var ppos = player_node.global_position if player_node else Vector2(960, 540)
+    var inward = {Vector2i.UP: Vector2(0, 170), Vector2i.DOWN: Vector2(0, -170), Vector2i.LEFT: Vector2(170, 0), Vector2i.RIGHT: Vector2(-170, 0)}
+    var spots: Array = []
+    for d in door_nodes:
+        spots.append(door_nodes[d].position + inward.get(d, Vector2.ZERO))
+    if spots.is_empty():
+        spots.append(Vector2(960, 300))
+    spots.sort_custom(func(a, b): return a.distance_to(ppos) > b.distance_to(ppos))
+    spots = spots.slice(0, 2)
+    for sp in spots:
+        HitFX.pop(self, sp, Color(0.9, 0.75, 0.55), 30.0, 200.0, 0.5)
+    if player_node and player_node.has_method("popup_text"):
+        player_node.popup_text(ppos + Vector2(0, -70), "MORE ARE COMING!", Color(1.0, 0.75, 0.45))
+    SoundManager.play_sfx("boss_roar", 1.6, -10.0)
+    await get_tree().create_timer(1.1, false).timeout
+    if not is_inside_tree() or player_node == null or player_node.health <= 0:
+        wave_pending = false
+        return
+    var count = 2 + current_floor / 2
+    for i in count:
+        var sp: Vector2 = spots[i % spots.size()] + Vector2(randf_range(-50, 50), randf_range(-50, 50))
+        spawn_enemy(free_spot(sp), roll_enemy_type("fly" if randf() < 0.55 else "pacer", current_floor), current_floor)
+    for e in active_enemies:
+        if is_instance_valid(e) and e.has_method("become_hostile"):
+            e.become_hostile()
+    wave_pending = false
+
 func clear_room():
+    if room_data.cleared or wave_pending:
+        return
+    if room_data.type == 1 and room_data.waves_left > 0 and active_enemies.is_empty():
+        start_wave()
+        return
     room_data.cleared = true
     SoundManager.play_sfx("room_clear")
     var player_node = get_tree().get_first_node_in_group("player")
@@ -814,7 +860,7 @@ func clear_room():
         door_nodes[d_dir].open_door()
         
     if room_data.type == 1:
-        if randf() < 0.65:
+        if randf() < 0.65 or had_wave:
             spawn_random_pickup(Vector2(960, 540))
             
     if room_data.type == 3:

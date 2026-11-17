@@ -51,7 +51,8 @@ func screen_size() -> Vector2:
 
 func button_center(i: int) -> Vector2:
     var s = screen_size()
-    return Vector2(s.x - 140.0 - i * 190.0, s.y - 460.0)
+    # Low enough to leave the right-hand door (centred at mid-height) in view
+    return Vector2(s.x - 140.0 - i * 190.0, s.y - 395.0)
 
 func any_button_held() -> bool:
     for b in buttons:

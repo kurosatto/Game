@@ -182,7 +182,7 @@ func _draw():
 		for k in n.kids:
 			var c = nodes[k]
 			var lit = n.known and c.known
-			var col = Color(c.form.color.clamp(), 0.85) if lit else Color(UI.MEMBRANE, 0.22)
+			var col = Color(UI.ink_tint(c.form.color), 0.85) if lit else Color(UI.MEMBRANE, 0.22)
 			branch(n.pos, c.pos, col, 7.0 if lit else 4.0)
 	for p in nodes:
 		draw_node(p, nodes[p])
@@ -210,7 +210,7 @@ func branch(from: Vector2, to: Vector2, col: Color, width: float):
 func draw_node(p: String, n: Dictionary):
 	var pos: Vector2 = n.pos
 	var form: Dictionary = n.form
-	var tint: Color = form.color.clamp()
+	var tint: Color = UI.ink_tint(form.color)
 	var bob = sin(time * 1.6 + pos.x * 0.013) * 3.0 if n.known else 0.0
 	var centre = pos + Vector2(0, bob)
 	if p == selected:
