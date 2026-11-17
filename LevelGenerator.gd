@@ -21,6 +21,7 @@ class RoomData:
     var saved_pickups: Array = [] # [{ "type": String, "pos": Vector2 }]
     var destroyed_obstacles: Array = [] # positions of obstacles broken here
     var treasure_item_id: String = "" # "" if collected
+    var layout_idx: int = -1 # which RoomLayouts normal layout this room uses
     var shop_inventory: Array = [] # [{ "item_id": String, "price": int, "pos": Vector2, "bought": bool }]
 
 static func generate_level(floor_number: int = 1) -> Dictionary:
@@ -151,6 +152,17 @@ static func generate_level(floor_number: int = 1) -> Dictionary:
     # Second leaf is TREASURE room (dead end)
     if leaves.size() > 1:
         leaves[1].type = RoomType.TREASURE
+
+    # Deal the fight-room layouts like a shuffled deck, so a floor doesn't
+    # repeat one until it has used them all and runs don't always open alike
+    var deck: Array = []
+    var layout_count = preload("res://RoomLayouts.gd").get_normal_layouts().size()
+    for pos in rooms:
+        if rooms[pos].type == RoomType.NORMAL:
+            if deck.is_empty():
+                deck = range(layout_count)
+                deck.shuffle()
+            rooms[pos].layout_idx = deck.pop_back()
 
     # Every floor has a guaranteed key in a normal room, so the locked
     # treasure room can always be opened

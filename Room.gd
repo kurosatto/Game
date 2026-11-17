@@ -69,7 +69,9 @@ func setup_room(data, floor_number: int):
             raw_layout = room_layouts.get_boss_layout()
         _: # NORMAL
             var normal_layouts = room_layouts.get_normal_layouts()
-            var l_idx = abs(room_data.grid_pos.x * 7 + room_data.grid_pos.y * 13) % normal_layouts.size()
+            var l_idx = room_data.layout_idx
+            if l_idx < 0 or l_idx >= normal_layouts.size():
+                l_idx = abs(room_data.grid_pos.x * 7 + room_data.grid_pos.y * 13) % normal_layouts.size()
             raw_layout = normal_layouts[l_idx]
             
     var clean_layout = room_layouts.filter_layout_for_doors(raw_layout, room_data.connections)
@@ -572,6 +574,18 @@ func spawn_tactical_enemies(layout: Dictionary, floor_number: int):
             
         spawn_enemy(cand_pos, roll_enemy_type("fly" if randf() < 0.55 else "pacer", floor_number), floor_number)
 
+    maybe_promote_elder(floor_number)
+
+# From the second era on, a fight room may hold one big old animal
+# (Enemy.make_elder): tougher, circled in ink, and it always leaves a pickup
+func maybe_promote_elder(floor_number: int):
+    if floor_number < 2 or randf() > 0.12 + 0.06 * floor_number:
+        return
+    var picks = active_enemies.filter(func(e): return e.enemy_type not in ["swarm", "colony", "skittish"])
+    if picks.is_empty():
+        return
+    picks.pick_random().make_elder()
+
 # About a third of spawns become one of the era's special animals
 # (data/Fauna.gd: the third and fourth animal of each era)
 func roll_enemy_type(base: String, floor_number: int) -> String:
@@ -706,7 +720,7 @@ func _process(delta: float):
 func _on_enemy_died(enemy):
     active_enemies.erase(enemy)
 
-    if randf() < 0.35:
+    if randf() < 0.35 or enemy.get("elder"):
         spawn_random_pickup(enemy.global_position)
 
     if active_enemies.size() == 0 and not room_data.cleared:

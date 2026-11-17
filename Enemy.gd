@@ -76,6 +76,8 @@ var burrow_state: String = "walk"
 var burrow_timer: float = 0.0
 var dust: CPUParticles2D = null
 var floor_num: int = 1
+var elder: bool = false # a big old individual: tougher, circled in ink, eats well
+var elder_ring: Node2D = null
 var sprout_timer: float = 0.0 # colony: time to the next runner
 var grow: float = 1.0 # colony: new sprouts grow in from small
 var enroll_time: float = 0.0 # enroll: rolled up and untouchable
@@ -254,6 +256,37 @@ func setup_enemy(floor_number: int):
 func is_boss() -> bool:
 	return false
 
+# Many animals keep growing all their lives, so the odd one in a room is a
+# big old individual. Promoted after setup: more health, bigger, a little
+# slower, circled in ink like a specimen in a field notebook, and a feast.
+const ELDER_HEALTH := 2.6
+const ELDER_SIZE := 1.3
+
+func make_elder():
+	if elder or is_boss():
+		return
+	elder = true
+	max_health *= ELDER_HEALTH
+	health = max_health
+	base_scale *= ELDER_SIZE
+	$Sprite2D.scale = Vector2(base_scale, base_scale)
+	$CollisionShape2D.shape.radius *= ELDER_SIZE
+	speed *= 0.88
+	elder_ring = Node2D.new()
+	elder_ring.draw.connect(draw_elder_ring)
+	add_child(elder_ring)
+	move_child(elder_ring, 0) # under the animal
+
+func draw_elder_ring():
+	var r = $CollisionShape2D.shape.radius + 12.0
+	var ink = Color(0.24, 0.15, 0.08, 0.75)
+	# Two hand-drawn loops that don't quite meet, plus tick marks
+	elder_ring.draw_arc(Vector2.ZERO, r, 0.25, TAU - 0.05, 40, ink, 3.0, true)
+	elder_ring.draw_arc(Vector2(1.5, -1.0), r + 6.0, 0.9, TAU + 0.4, 40, Color(ink, 0.45), 1.6, true)
+	for i in 8:
+		var a = TAU * i / 8.0 + 0.2
+		elder_ring.draw_line(Vector2.from_angle(a) * (r + 9.0), Vector2.from_angle(a) * (r + 15.0), Color(ink, 0.6), 2.0, true)
+
 func apply_fauna(floor_number: int):
 	var f = fauna.get_fauna(floor_number, enemy_type)
 	if f.is_empty():
@@ -328,6 +361,8 @@ func _physics_process(delta: float):
 	else:
 		$Sprite2D.modulate = base_tint
 	update_health_bar(delta)
+	if elder_ring:
+		elder_ring.visible = not is_burrowed()
 
 	if not player or not is_instance_valid(player):
 		return
@@ -1189,8 +1224,10 @@ func drop_biomass():
 	if enemy_type in SPECIAL_STATS:
 		worth = SPECIAL_STATS[enemy_type].worth
 	var els: Array = preload("res://data/Biominerals.gd").fauna_elements(fauna_name)
+	if elder:
+		worth *= 3.0
 	var units = worth * preload("res://data/Biominerals.gd").YIELD
-	var count = clampi(int(ceil(units * 2.0)), 1, 4)
+	var count = clampi(int(ceil(units * 2.0)), 1, 6 if elder else 4)
 	var first = randi() % els.size()
 	for i in count:
 		var orb = biomass_orb_script.new()
