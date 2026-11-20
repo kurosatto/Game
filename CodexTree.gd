@@ -187,13 +187,14 @@ func _draw():
 	for p in nodes:
 		draw_node(p, nodes[p])
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
-	# Pick labels stay pinned to the left edge so they're readable when panned
+	# Pick labels stay pinned to the left edge so they're readable when panned,
+	# tucked into the top corner of their band so they never cover a form
 	for d in PICK_LABELS.size():
-		var y = offset.y + (content_size.y - LEVEL_GAP * 0.5 - d * LEVEL_GAP) * zoom
-		if y > -20 and y < size.y + 20:
-			var w = font_med.get_string_size(PICK_LABELS[d], HORIZONTAL_ALIGNMENT_LEFT, -1, 20).x
-			draw_style_box(pick_box, Rect2(6, y - 16, w + 20, 32))
-			draw_string(font_med, Vector2(16, y + 7), PICK_LABELS[d], HORIZONTAL_ALIGNMENT_LEFT, -1, 20, UI.MUTED)
+		var y = offset.y + (content_size.y - LEVEL_GAP - d * LEVEL_GAP) * zoom + 4.0
+		if y > -40 and y < size.y + 10:
+			var w = font_med.get_string_size(PICK_LABELS[d], HORIZONTAL_ALIGNMENT_LEFT, -1, 17).x
+			draw_style_box(pick_box, Rect2(6, y, w + 18, 26))
+			draw_string(font_med, Vector2(15, y + 19), PICK_LABELS[d], HORIZONTAL_ALIGNMENT_LEFT, -1, 17, UI.MUTED)
 
 # A soft S-curve, like a branch in a phylogeny drawn by hand
 func branch(from: Vector2, to: Vector2, col: Color, width: float):

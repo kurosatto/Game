@@ -460,5 +460,6 @@ func _on_player_died():
         "floor": floor_number,
         "form": player.current_character_name,
         "kills": player.kills,
+        "killed_by": player.last_hurt_by,
         "rooms": dungeon_rooms.values().filter(func(r): return r.cleared and r.type == 1).size(),
     })

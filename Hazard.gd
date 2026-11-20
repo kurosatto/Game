@@ -107,7 +107,7 @@ func burst():
 		if sm:
 			sm.play_sfx("explosion", 0.55, -12.0)
 	if covers(player.global_position, 20.0) and player.has_method("take_damage"):
-		player.take_damage(1)
+		player.take_damage(1, "a fumarole")
 	for e in get_tree().get_nodes_in_group("enemies"):
 		if is_instance_valid(e) and not e.dead and covers(e.global_position, 20.0) \
 				and not e.is_boss() and not e.is_burrowed():

@@ -83,6 +83,10 @@ func think(_delta: float):
 func draw_body():
 	pass
 
+# How the game over screen names this boss ("Killed by Anomalocaris.")
+func killer_name() -> String:
+	return boss_title.split(" ")[0].capitalize()
+
 func is_boss() -> bool:
 	return true
 
@@ -153,7 +157,7 @@ func shake(amount: float):
 # Hurts the player if they are inside a circle (global position)
 func hurt_circle(center: Vector2, radius: float, dmg: int = -1) -> bool:
 	if player.global_position.distance_to(center) < radius + 22.0:
-		player.take_damage(damage if dmg < 0 else dmg)
+		player.take_damage(damage if dmg < 0 else dmg, killer_name())
 		return true
 	return false
 
@@ -190,6 +194,7 @@ func shoot(from: Vector2, dir: Vector2, spd: float, tint: Color = Color.WHITE, d
 	tear.position = from
 	tear.direction = dir.normalized()
 	tear.is_enemy_tear = true
+	tear.shooter_name = killer_name()
 	tear.damage = dmg
 	tear.speed = spd
 	tear.modulate = tint

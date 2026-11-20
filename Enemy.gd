@@ -996,7 +996,7 @@ func process_burrower(delta: float):
 				$Sprite2D.scale = Vector2.ONE * base_scale
 				SoundManager.play_sfx("explosion", 1.6, -8.0)
 				if player.global_position.distance_to(global_position) < 100.0:
-					player.take_damage(damage)
+					player.take_damage(damage, killer_name())
 				var main = get_tree().get_first_node_in_group("main")
 				if main: main.shake_camera(5.0)
 
@@ -1130,6 +1130,7 @@ func spray_slime(dir: Vector2):
 		tear.position = global_position + dir * 26.0
 		tear.direction = dir.rotated(deg_to_rad(-16.0 + i * 8.0 + randf_range(-2.0, 2.0)))
 		tear.is_enemy_tear = true
+		tear.shooter_name = killer_name()
 		tear.is_snare = true
 		tear.damage = 0
 		tear.speed = randf_range(380.0, 440.0)
@@ -1202,6 +1203,14 @@ func set_burrowed(on: bool):
 		dust.amount = 16
 		dust.emitting = on
 
+# How the game over screen names this animal: "Anomalocaris", "an elder Opabinia"
+func killer_name() -> String:
+	if is_boss():
+		return boss_title.split(" —")[0].split(" ")[0].capitalize()
+	if fauna_name == "":
+		return ""
+	return ("an elder " if elder else "") + fauna_name
+
 func is_burrowed() -> bool:
 	return burrow_state in ["under", "rise"]
 
@@ -1212,7 +1221,7 @@ func check_contact_damage():
 		var collision = get_slide_collision(i)
 		var collider = collision.get_collider()
 		if collider.is_in_group("player") and boss_state != "jump" and boss_state != "dash":
-			collider.take_damage(damage)
+			collider.take_damage(damage, killer_name())
 
 func shoot_at_player():
 	if not player:
@@ -1222,6 +1231,7 @@ func shoot_at_player():
 	tear.position = global_position
 	tear.direction = dir
 	tear.is_enemy_tear = true
+	tear.shooter_name = killer_name()
 	tear.damage = 1
 	tear.speed = 460.0
 	get_parent().add_child(tear)
@@ -1236,6 +1246,7 @@ func fire_radial_tears(num_tears: int = 12):
 		tear.position = global_position
 		tear.direction = dir
 		tear.is_enemy_tear = true
+		tear.shooter_name = killer_name()
 		tear.damage = damage
 		tear.speed = 400.0 + (num_tears * 4.0)
 		get_parent().add_child(tear)
@@ -1250,6 +1261,7 @@ func fire_spinning_fan(num_tears: int = 12, spd: float = 320.0):
 		tear.position = global_position
 		tear.direction = dir
 		tear.is_enemy_tear = true
+		tear.shooter_name = killer_name()
 		tear.damage = 1
 		tear.speed = spd
 		get_parent().add_child(tear)
@@ -1263,6 +1275,7 @@ func fire_arc_tears(num_tears: int, arc_deg: float, center_angle: float):
 		tear.position = global_position
 		tear.direction = dir
 		tear.is_enemy_tear = true
+		tear.shooter_name = killer_name()
 		tear.damage = damage
 		tear.speed = 440.0
 		get_parent().add_child(tear)

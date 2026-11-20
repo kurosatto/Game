@@ -101,7 +101,7 @@ func think(delta: float):
 				player.move_and_collide(to_beak.normalized() * min(520.0 * delta, to_beak.length()))
 			if not did_hit and to_beak.length() < 70.0:
 				did_hit = true
-				player.take_damage(2)
+				player.take_damage(2, killer_name())
 				shake(8.0)
 			if did_hit or state_time > 0.9:
 				push_player(dir_to_player() * 700.0)
@@ -155,7 +155,7 @@ func think(delta: float):
 				push_player(aim * 900.0)
 				if not did_hit:
 					did_hit = true
-					player.take_damage(1)
+					player.take_damage(1, killer_name())
 			if state_time > 1.0:
 				vel = Vector2.ZERO
 				set_state("drift")

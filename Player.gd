@@ -1486,7 +1486,21 @@ func get_evolution_summary() -> Dictionary:
 func add_coin(amount: int):
     add_dna(amount)
 
-func take_damage(amount: int):
+# Who or what dealt the last hit, for the game over screen ("killed by")
+var last_hurt_by: String = ""
+
+func nearest_attacker() -> String:
+    var best = ""
+    var best_d = 420.0
+    for e in get_tree().get_nodes_in_group("enemies"):
+        if is_instance_valid(e) and not e.dead and e.has_method("killer_name"):
+            var d = e.global_position.distance_to(global_position) - (300.0 if e.is_boss() else 0.0)
+            if d < best_d:
+                best_d = d
+                best = e.killer_name()
+    return best
+
+func take_damage(amount: int, source: String = ""):
     if invincibility_time > 0 or is_dashing:
         return
     # Autotomy: drop a limb or tail tip instead of taking the hit
@@ -1508,6 +1522,7 @@ func take_damage(amount: int):
         actual_amount = max(1, actual_amount - armour)
         
     health = max(0, health - actual_amount)
+    last_hurt_by = source if source != "" else nearest_attacker()
     
     # Invincibility frames (doubled for heavy carapace)
     invincibility_time = 2.0 if current_passive == "double_iframes" else 1.0
