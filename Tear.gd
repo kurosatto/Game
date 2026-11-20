@@ -5,6 +5,7 @@ extends Area2D
 @export var damage: float = 3.5
 @export var lifetime: float = 0.85
 @export var is_enemy_tear: bool = false
+var shooter_name: String = "" # the animal that spat it, for "killed by"
 @export var is_snare: bool = false # velvet-worm slime: slows instead of hurting
 # Player weapon this projectile belongs to (data/Lineages.gd WEAPONS), e.g. "vesicle"
 @export var projectile_kind: String = ""
@@ -213,7 +214,7 @@ func _on_body_entered(body: Node):
             body.apply_slow(2.0, 0.5, "SNARED")
             destroy_tear()
         elif body.is_in_group("player") and body.has_method("take_damage"):
-            body.take_damage(damage)
+            body.take_damage(damage, shooter_name)
             destroy_tear()
         elif body.is_in_group("obstacles") or body.is_in_group("walls"):
             destroy_tear()

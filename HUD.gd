@@ -715,6 +715,8 @@ func show_game_over(run: Dictionary = {}):
     var era: Dictionary = ERA_INFO.get(clampi(run.get("floor", 1), 1, 5), {})
     var lines = "Your %s lineage died out in the %s, era %d of 5." % [
         str(run.get("form", "")).to_lower().capitalize(), era.get("name", "").to_lower().capitalize(), run.get("floor", 1)]
+    if str(run.get("killed_by", "")) != "":
+        lines += "\nKilled by %s." % run.killed_by
     lines += "\n%d animals eaten · %d rooms cleared this era · %d of %d lineages in your codex" % [
         run.get("kills", 0), run.get("rooms", 0), codex.load_discovered().size(), lineages.TREE.size()]
     if run.get("record", false) and run.get("floor", 1) > 1:

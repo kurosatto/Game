@@ -91,7 +91,7 @@ func think(delta: float):
 			vel = vel.move_toward(Vector2.ZERO, 3000.0 * delta)
 			move_by(vel * delta, 60.0)
 			if not did_hit and in_grab(to_p):
-				player.take_damage(2 if phase2 else 1)
+				player.take_damage(2 if phase2 else 1, killer_name())
 				did_hit = true
 			if state_time > 0.35:
 				set_state("recover")

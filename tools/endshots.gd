@@ -24,6 +24,7 @@ func _initialize():
 	await snap("victory")
 	main.hud.victory_screen.visible = false
 	p.kills = 140
+	p.last_hurt_by = "an elder Pulmonoscorpius"
 	main._on_player_died()
 	await snap("gameover")
 	quit()
