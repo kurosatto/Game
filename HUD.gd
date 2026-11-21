@@ -77,6 +77,7 @@ var current_room_pos: Vector2i = Vector2i(4, 4)
 
 func _ready():
     boss_container.visible = false
+    _make_banner_card()
     item_banner.visible = false
     game_over_screen.visible = false
     victory_screen.visible = false
@@ -650,9 +651,38 @@ func hide_boss_health():
     boss_container.visible = false
 
 # near_top keeps the banner clear of the room centre, where the player spawns
+# Banners (wildlife, found items, hazards, seeps) used to be bare outlined
+# text over the room, hard to read on the pale ground. They sit on a small
+# sepia card now, like the rest of the interface, sized to their text.
+func _make_banner_card():
+    var vb = item_banner
+    var card = PanelContainer.new()
+    card.name = "ItemBannerCard"
+    card.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    card.anchor_left = 0.5
+    card.anchor_right = 0.5
+    card.anchor_top = 0.5
+    card.anchor_bottom = 0.5
+    card.grow_horizontal = Control.GROW_DIRECTION_BOTH
+    card.grow_vertical = Control.GROW_DIRECTION_END
+    card.add_theme_stylebox_override("panel", UI.panel(UI.MEMBRANE, 22, 0.9, 22.0))
+    add_child(card)
+    move_child(card, vb.get_index())
+    vb.get_parent().remove_child(vb)
+    card.add_child(vb)
+    vb.add_theme_constant_override("separation", 6)
+    for l in [item_title, item_desc]:
+        l.add_theme_constant_override("outline_size", 0)
+    item_title.add_theme_color_override("font_color", UI.SUN)
+    item_title.add_theme_font_size_override("font_size", 30)
+    item_desc.add_theme_color_override("font_color", UI.CREAM)
+    item_banner = card
+
 func show_item_banner(title: String, desc: String, near_top: bool = false):
-    item_banner.offset_top = -435.0 if near_top else -80.0
-    item_banner.offset_bottom = -215.0 if near_top else 80.0
+    item_banner.offset_left = -560.0
+    item_banner.offset_right = 560.0
+    item_banner.offset_top = -430.0 if near_top else -90.0
+    item_banner.offset_bottom = item_banner.offset_top # grows down to fit the text
     item_banner.visible = true
     item_title.text = title
     item_desc.text = desc
@@ -1216,9 +1246,14 @@ func show_pause_info():
     var touch = TouchControls.should_show()
     pause_info_title.text = "Tap a picture to learn about it" if touch else "Point at a picture to learn about it"
     pause_info_body.text = ""
-    if not last_banner.is_empty() and last_banner[0] != "WILDLIFE OF THIS ERA":
+    if not last_banner.is_empty() and last_banner[0] != "WILDLIFE OF THIS ERA" \
+            and not last_banner[0].begins_with("FIELD NOTE"): # the notes list follows anyway
         pause_info_title.text = "Last discovery: " + last_banner[0]
         pause_info_body.text = last_banner[1]
+    var m = get_tree().get_first_node_in_group("main")
+    if m and m.get("field_notes"):
+        var notes = "Field notes for this era:\n" + m.field_notes.describe(m.floor_number, m.notes_progress)
+        pause_info_body.text = notes if pause_info_body.text == "" else pause_info_body.text + "\n\n" + notes
 
 # ---- Adaptations ----
 # Shown when the biomass bar fills: three traits from data/Adaptations.gd.

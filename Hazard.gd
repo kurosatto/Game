@@ -112,6 +112,9 @@ func burst():
 		if is_instance_valid(e) and not e.dead and covers(e.global_position, 20.0) \
 				and not e.is_boss() and not e.is_burrowed():
 			e.take_damage(6.0)
+			var main = get_tree().get_first_node_in_group("main")
+			if main and main.has_method("field_event"):
+				main.field_event("fumarole")
 
 func _draw():
 	match kind:

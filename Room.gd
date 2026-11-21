@@ -852,6 +852,12 @@ func clear_room():
         return
     room_data.cleared = true
     SoundManager.play_sfx("room_clear")
+    var m = get_parent()
+    if room_data.type == 1 and m and m.has_method("field_event"):
+        if not m.hit_this_room:
+            m.field_event("nohit")
+        if had_wave:
+            m.field_event("wave")
     var player_node = get_tree().get_first_node_in_group("player")
     if player_node and player_node.has_method("on_room_cleared"):
         player_node.on_room_cleared()

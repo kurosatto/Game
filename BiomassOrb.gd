@@ -39,7 +39,8 @@ func collect():
 	collected = true
 	if player and is_instance_valid(player) and player.has_method("add_element"):
 		player.add_element(element, value)
-		SoundManager.play_sfx("dna_pickup", 1.6 + randf_range(0.0, 0.25), -10.0)
+		var sm = get_node_or_null("/root/SoundManager")
+		if sm: sm.play_sfx("dna_pickup", 1.6 + randf_range(0.0, 0.25), -10.0)
 	queue_free()
 
 # Leaving the room before every orb arrives still counts what was eaten
