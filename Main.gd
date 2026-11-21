@@ -132,12 +132,48 @@ var last_player_health: int = -1
 func _on_player_health_feedback(health, _max_health):
     if last_player_health >= 0 and health < last_player_health:
         hit_this_floor = true
+        hit_this_room = true
         hit_stop(0.07)
         hud.flash_hurt()
     last_player_health = health
 
 var progress = preload("res://data/Progress.gd")
 var hit_this_floor: bool = false
+var hit_this_room: bool = false
+
+# ---- Field notes: two fixed goals per era (data/FieldNotes.gd) ----
+var field_notes = preload("res://data/FieldNotes.gd")
+var notes_progress: Dictionary = {} # note index -> count, this floor only
+
+func field_event(event: String, amount: int = 1):
+    if player == null or player.health <= 0:
+        return
+    var notes = field_notes.for_floor(floor_number)
+    for i in notes.size():
+        var n = notes[i]
+        var got = int(notes_progress.get(i, 0))
+        if n.event != event or got >= n.need:
+            continue
+        notes_progress[i] = got + amount
+        if notes_progress[i] >= n.need:
+            _field_note_done(n)
+        elif n.need > 1:
+            player.popup_text(player.global_position + Vector2(0, -70), "%d/%d" % [notes_progress[i], n.need], Color(0.98, 0.76, 0.38))
+
+func _field_note_done(n: Dictionary):
+    var els = preload("res://MineralSeep.gd").era_elements(floor_number)
+    els.shuffle()
+    els = els.slice(0, 2)
+    for i in field_notes.REWARD_ORBS:
+        var orb = preload("res://BiomassOrb.gd").new()
+        orb.value = field_notes.REWARD_UNITS / field_notes.REWARD_ORBS
+        orb.element = els[i % els.size()]
+        orb.position = current_room_node.to_local(player.global_position) + Vector2.from_angle(TAU * i / field_notes.REWARD_ORBS) * 70.0
+        current_room_node.add_child(orb)
+    if player.has_method("heal"):
+        player.heal(field_notes.REWARD_HEAL)
+    SoundManager.play_sfx("level_up", 1.1, -4.0)
+    hud.show_item_banner("FIELD NOTE: " + n.text.to_upper(), n.fact + "\n+1 heart and elements to GROW with.\n" + field_notes.describe(floor_number, notes_progress), true)
 
 func start_new_game():
     floor_number = 1
@@ -172,6 +208,7 @@ func check_challenges():
 
 func generate_floor():
     hit_this_floor = false
+    notes_progress = {}
     hud.update_floor(floor_number)
     SoundManager.play_music(SoundManager.music_for_floor(floor_number))
     
@@ -185,7 +222,8 @@ func generate_floor():
     
     load_room(current_room_pos)
     hud.update_minimap(dungeon_rooms, current_room_pos)
-    hud.show_item_banner("WILDLIFE OF THIS ERA", fauna.describe_floor(floor_number, true), true)
+    hud.show_item_banner("WILDLIFE OF THIS ERA", fauna.describe_floor(floor_number, true)
+        + "\n\nField notes for this era:\n" + field_notes.describe(floor_number, notes_progress), true)
     if floor_number >= 3:
         complete_challenge("ordovician")
 
@@ -199,6 +237,7 @@ func load_room(grid_pos: Vector2i):
         
     var room_data = dungeon_rooms[grid_pos]
     room_data.visited = true
+    hit_this_room = false
     
     current_room_node = room_scene.instantiate()
     current_room_node.position = Vector2.ZERO

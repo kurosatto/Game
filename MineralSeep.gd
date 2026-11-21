@@ -94,11 +94,14 @@ func use():
 		get_parent().add_child(orb)
 	if player.has_method("heal"):
 		player.heal(HEAL)
-	SoundManager.play_sfx("level_up", 1.25, -6.0)
+	var sm = get_node_or_null("/root/SoundManager")
+	if sm: sm.play_sfx("level_up", 1.25, -6.0)
 	HitFX.pop(get_parent(), global_position, Color(0.95, 0.88, 0.7), 40.0, 220.0, 0.4)
 	var main = get_tree().get_first_node_in_group("main")
 	if main and main.get("hud"):
 		main.hud.show_item_banner(title_for(floor_num), fact_for(floor_num) + "\n+1 heart, and %s to GROW with" % " and ".join(els.map(func(e): return BIOMINERALS.ELEMENTS[e].name)), true)
+	if main and main.has_method("field_event"):
+		main.field_event("seep") # after the seep's own banner, so a finished note shows
 
 func _draw():
 	var land = is_land(floor_num)

@@ -1351,6 +1351,11 @@ func die():
 		drop_biomass()
 		if player and is_instance_valid(player) and "kills" in player:
 			player.kills += 1
+		var m = get_tree().get_first_node_in_group("main")
+		if m and m.has_method("field_event"):
+			m.field_event("eat:" + fauna_name)
+			if elder:
+				m.field_event("elder")
 		if preload("res://data/Codex.gd").note_eaten(fauna_name):
 			_announce_fossil(fauna_name)
 
