@@ -167,6 +167,13 @@ func _initialize():
 	await snap("7_evolution_pad")
 	await button(JOY_BUTTON_DPAD_RIGHT)
 	check(focus() != null and em.is_ancestor_of(focus()), "d-pad stays on the evolution cards (%s)" % focus_text())
+	# A card's INFO button swaps its stat bars for the full text and back
+	if focus_text() == "INFO" or focus_text() == "DETAILS":
+		await button(JOY_BUTTON_A)
+		check(focus_text() == "STATS", "A on INFO opens the card's details (%s)" % focus_text())
+		await button(JOY_BUTTON_A)
+		await button(JOY_BUTTON_DPAD_RIGHT)
+	check(focus_text() == "EVOLVE", "d-pad reaches EVOLVE (%s)" % focus_text())
 	await button(JOY_BUTTON_A)
 	await frames(30)
 	check(not em.visible, "A picks an evolution")
