@@ -72,7 +72,7 @@ func setup_enemy(_floor_number: int):
 	setup()
 	health = max_health
 	call_deferred("emit_boss_health")
-	set_state("intro", 1.0)
+	set_state("intro", 1.4) # a moment to see it before it moves
 
 # ── Overridden by each boss ──
 func setup():
@@ -95,6 +95,12 @@ func emit_boss_health():
 	boss_health_changed.emit(health, max_health, boss_title)
 
 func _physics_process(delta: float):
+	# ARENA and the moves are in room coordinates, which only match the world
+	# once the room has slid into place: while the room slides in it sits a
+	# whole room away, and a move then clamped the boss to the near wall,
+	# right where the player walks in. Hold still until the slide is over.
+	if _room_sliding():
+		return
 	t += delta
 	state_time += delta
 	if hit_flash > 0:
@@ -122,6 +128,10 @@ func _draw():
 	draw_body()
 
 # ── State and movement helpers ──
+func _room_sliding() -> bool:
+	var main = get_tree().get_first_node_in_group("main")
+	return main != null and main.get("is_transitioning") == true
+
 func set_state(s: String, _unused: float = 0.0):
 	state = s
 	state_time = 0.0

@@ -8,6 +8,9 @@ var current_floor: int = 1
 # Extra floor on each side when the screen is wider than 16:9, so rooms fill
 # the whole width (phones are ~19.5:9). Layouts stay in the central 1920px.
 var side_margin: float = 0.0
+# Which way the player walked in (Main sets it before setup_room); the boss
+# starts on the far side of the room from that door
+var entry_dir: Vector2i = Vector2i.ZERO
 
 const ERA_ART = ["ediacaran", "cambrian", "ordovician", "carboniferous", "permian"]
 
@@ -659,7 +662,8 @@ const BOSSES = {
 
 func spawn_boss(floor_number: int):
     var boss = load(BOSSES.get(clampi(floor_number, 1, 5))).new()
-    boss.position = Vector2(960, 540)
+    # Away from the door the player came through, never on top of them
+    boss.position = Vector2(960, 540) + Vector2(entry_dir) * Vector2(420.0 + side_margin * 0.5, 220.0)
     boss.setup_enemy(floor_number)
     add_child(boss)
     active_enemies.append(boss)
