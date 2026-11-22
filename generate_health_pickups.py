@@ -29,29 +29,24 @@ def bezier(p0, p1, p2, p3, n=24):
 # ---------- designs: each returns (mask L, wash RGBA, lines RGBA, shade L) ----------
 
 def design_heart():
-    """Anatomical heart: tilted muscular body, aortic arch with three
-    branches, pulmonary trunk, a coronary artery down the front."""
+    """Anatomical heart: tilted muscular body, a plain aortic arch, the
+    pulmonary trunk and a coronary artery down the front."""
     mask = Image.new("L", (S, S), 0)
     md = ImageDraw.Draw(mask)
     body = (bezier((70, 98), (40, 150), (95, 205), (158, 232))
             + bezier((158, 232), (205, 190), (222, 140), (200, 100))[1:]
             + bezier((200, 100), (175, 78), (100, 74), (70, 98))[1:])
     md.polygon(body, fill=255)
-    # aortic arch (thick tube) + its three branches
-    arch = bezier((128, 100), (118, 48), (172, 30), (180, 76))
+    # aortic arch: one smooth tube, no branches (kuro wanted it simple)
+    arch = bezier((128, 100), (118, 56), (170, 44), (176, 84))
     md.line(arch, fill=255, width=34, joint="curve")
-    for x0, y0, x1, y1 in ((134, 52, 128, 18), (152, 44, 156, 12), (168, 50, 182, 22)):
-        md.line([(x0, y0), (x1, y1)], fill=255, width=13)
     # pulmonary trunk heading up-left
     pul = bezier((112, 100), (100, 70), (84, 62), (66, 58))
     md.line(pul, fill=255, width=26, joint="curve")
-    # vena cava stub on the right
-    md.line([(196, 104), (214, 70)], fill=255, width=22)
     wash = Image.new("RGBA", (S, S), (176, 58, 46, 255))
     wd = ImageDraw.Draw(wash)
     # vessels a touch bluer/darker on top, like an anatomy plate
     wd.line(pul, fill=(140, 70, 70, 255), width=26, joint="curve")
-    wd.line([(196, 104), (214, 70)], fill=(120, 74, 82, 255), width=22)
     lines = Image.new("RGBA", (S, S), (0, 0, 0, 0))
     ld = ImageDraw.Draw(lines)
     # coronary artery with a side branch, and the groove between chambers
@@ -60,7 +55,7 @@ def design_heart():
     ld.line(bezier((140, 150), (160, 160), (180, 168), (192, 160)), fill=INK, width=5, joint="curve")
     ld.line(bezier((120, 106), (100, 112), (88, 126), (86, 140)), fill=INK, width=5, joint="curve")
     # ends of the vessels: open rings
-    for (x, y, r) in ((128, 18, 7), (156, 12, 7), (182, 22, 7), (66, 58, 13), (214, 70, 11)):
+    for (x, y, r) in ((66, 58, 13),):
         ld.ellipse([x - r, y - r, x + r, y + r], outline=INK, width=4)
     shade = Image.new("L", (S, S), 0)
     sd = ImageDraw.Draw(shade)
@@ -204,7 +199,7 @@ def compose(design, fill_left, fill_right):
     return img.resize((64, 64), Image.LANCZOS)
 
 if __name__ == "__main__":
-    name = sys.argv[1] if len(sys.argv) > 1 else "heart"
+    name = sys.argv[1] if len(sys.argv) > 1 else "heart"  # the chosen design
     out = sys.argv[2] if len(sys.argv) > 2 else "assets"
     os.makedirs(out, exist_ok=True)
     d = DESIGNS[name]

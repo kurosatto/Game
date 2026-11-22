@@ -1,4 +1,6 @@
 # generate_ink_hearts.py
+# SUPERSEDED (2026-11-22): the health pips are now anatomical hearts from
+# generate_health_pickups.py. Running this would bring back the round cell.
 # Health pips in the sepia ink sketch style (replaces the glossy pink cells
 # from generate_biology_art.py): a cell drawn in brown ink over a brick-red
 # wash, hatched on its shaded side, with a nucleus. Half = left half washed,
