@@ -1235,7 +1235,7 @@ func melee_blast(pos: Vector2, amount: float):
 func emit_biomass():
     var n := 0
     for r in biominerals.RECIPES:
-        if biominerals.can_grow(r, elements, adaptations_taken):
+        if can_grow_part(r):
             n += 1
     if n > growable_count:
         SoundManager.play_sfx("level_up", 1.4, -6.0)
@@ -1248,13 +1248,23 @@ func add_element(el: String, amount: float):
     add_biomass(amount / biominerals.YIELD)
 
 # Spend elements on a part from data/Biominerals.gd (the GROW screen)
+# Affordable, and for a healing part only when you are hurt
+func can_grow_part(r: Dictionary) -> bool:
+    if r.has("heal") and health >= max_health:
+        return false
+    return biominerals.can_grow(r, elements, adaptations_taken)
+
 func grow(id: String) -> bool:
     var r = biominerals.get_recipe(id)
-    if r.is_empty() or not biominerals.can_grow(r, elements, adaptations_taken):
+    if r.is_empty() or not can_grow_part(r):
         return false
-    var cost = biominerals.cost_of(r, adaptations_taken.get(id, 0))
+    var cost = biominerals.cost_of(r, biominerals.times_for_cost(r, adaptations_taken))
     for el in cost:
         elements[el] = elements.get(el, 0.0) - cost[el]
+    if r.has("heal"):
+        heal(int(r.heal))
+        emit_biomass()
+        return true
     adapt_level += 1
     grant_adaptation(id)
     SoundManager.play_sfx("evolve", 1.2)

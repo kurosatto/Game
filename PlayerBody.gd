@@ -28,6 +28,10 @@ var strike: float = 0.0   # 1 on attack, fades out
 var dash: float = 0.0     # 1 while dashing
 var tuck: float = 0.0     # 1 while withdrawn or hunkered (escape moves)
 var preview: bool = false # driven by the sheet renderer instead of a player
+# In preview the grown parts to show (the GROW screen's portrait sets these),
+# and whether the clock runs so the drawing idles and breathes
+var preview_parts: Dictionary = {}
+var preview_live: bool = false
 var _last_rot: float = 0.0
 var halo_pass: bool = false
 # Attack timeline: seconds since the last strike (strike above is the pose
@@ -128,6 +132,9 @@ func _attack_curve():
 
 func _process(delta: float):
 	if preview or player == null or not is_instance_valid(player):
+		if preview_live:
+			t += delta
+			swim += delta * 2.2
 		queue_redraw()
 		return
 	t += delta
@@ -241,6 +248,7 @@ func _draw():
 	_draw_parts()
 	_sil.resize(0)
 	_draw_form(spec)
+	_draw_eye_parts()
 	if _sil.size() >= 3:
 		_hull = Geometry2D.convex_hull(_sil)
 
@@ -265,30 +273,76 @@ func _hull_point(dir: Vector2) -> Vector2:
 	return best
 
 func _draw_parts():
-	if preview or player == null or not is_instance_valid(player) or _hull.size() < 4:
+	if _hull.size() < 4:
 		return
-	var taken: Dictionary = player.adaptations_taken
+	var taken: Dictionary
+	if preview:
+		taken = preview_parts
+	elif player == null or not is_instance_valid(player):
+		return
+	else:
+		taken = player.adaptations_taken
 	var n_spines = int(taken.get("calcite_spines", 0))
 	var n_horn = int(taken.get("keratin_horn", 0))
 	var n_claws = int(taken.get("keratin_claws", 0))
 	var n_teeth = int(taken.get("magnetite_teeth", 0))
-	if n_spines + n_horn + n_claws + n_teeth == 0:
+	var n_eyes = int(taken.get("photoreceptors", 0))
+	var n_lens = int(taken.get("calcite_lenses", 0))
+	var n_plates = int(taken.get("shell_plates", 0))
+	var n_jaws = int(taken.get("zinc_jaws", 0))
+	if n_spines + n_horn + n_claws + n_teeth + n_eyes + n_lens + n_plates + n_jaws == 0:
 		return
 	_parts_pass = true
 	var c := Vector2.ZERO
 	for q in _hull:
 		c += q
 	c /= _hull.size()
+	# Aragonite plates: a row of overlapping pearly scales round the rear
+	if n_plates > 0:
+		var nacre = Color(0.86, 0.83, 0.76)
+		var steps = 7
+		for i in steps:
+			var a = lerp(PI * 0.6, PI * 1.4, i / float(steps - 1))
+			var p = _hull_point(Vector2.from_angle(a))
+			var nrm = (p - c).normalized()
+			var tn = Vector2(-nrm.y, nrm.x)
+			var arc := PackedVector2Array()
+			for k in 7:
+				var u = PI * k / 6.0
+				arc.append(p - nrm * 1.0 + tn * cos(u) * 5.5 + nrm * sin(u) * 4.2)
+			if shape(arc, nacre, 1.1) and not halo_pass:
+				line(p - nrm * 1.0 - tn * 3.0, p - nrm * 1.0 + tn * 3.0, ink(nacre), 0.6)
+	# Zinc-tipped mandibles at the very front that snap shut on a strike
+	if n_jaws > 0:
+		var chitin = Color(0.42, 0.34, 0.26)
+		var jl = 6.0 + 2.0 * min(n_jaws, 3)
+		for side in [-1.0, 1.0]:
+			var p = _hull_point(Vector2(1.0, side * 0.32).normalized())
+			var close = 0.9 - strike * 0.8
+			var mid = p + Vector2(jl * 0.6, side * jl * 0.25 * close)
+			var tip = mid + Vector2(jl * 0.4, -side * jl * 0.45)
+			taper(pv([p, mid, tip]), 2.8, 1.0, chitin)
+			if not halo_pass:
+				draw_circle(tip, 1.2, Color(0.55, 0.68, 0.78), true, -1.0, true)
 	if n_spines > 0:
 		var calcite = Color(0.93, 0.9, 0.8)
 		var spike = 6.0 + 2.5 * min(n_spines, 3)
+		# One spine every 12 px walked round the outline (a round cell has
+		# many short hull edges, so spacing is carried from edge to edge)
 		var k := 0
+		var carry := 6.0
 		for i in _hull.size():
 			var a: Vector2 = _hull[i]
 			var b: Vector2 = _hull[(i + 1) % _hull.size()]
-			var steps = int(a.distance_to(b) / 12.0)
-			for j in steps:
-				var p = a.lerp(b, (j + 0.5) / steps)
+			var len_ab = a.distance_to(b)
+			var spots: Array = []
+			var d = carry
+			while d < len_ab:
+				spots.append(d / len_ab)
+				d += 12.0
+			carry = d - len_ab
+			for f in spots:
+				var p = a.lerp(b, f)
 				var nrm = (p - c).normalized()
 				k += 1
 				if nrm.x > 0.75:
@@ -324,6 +378,47 @@ func _draw_parts():
 			var b = p + Vector2(-2, y)
 			draw_colored_polygon(pv([b + Vector2(0, -1.1), b + Vector2(3.2, 0), b + Vector2(0, 1.1)]), Color(0.16, 0.17, 0.2))
 	_parts_pass = false
+
+# Eyes grown on the GROW screen sit on top of the drawing, either side of the
+# head: dark pigment eyespots, then clear calcite lenses that glint
+func _draw_eye_parts():
+	if _hull.size() < 4:
+		return
+	var taken: Dictionary
+	if preview:
+		taken = preview_parts
+	elif player == null or not is_instance_valid(player):
+		return
+	else:
+		taken = player.adaptations_taken
+	var n_eyes = int(taken.get("photoreceptors", 0))
+	var n_lens = int(taken.get("calcite_lenses", 0))
+	if n_eyes + n_lens == 0:
+		return
+	var c := Vector2.ZERO
+	for q in _hull:
+		c += q
+	c /= _hull.size()
+	if n_eyes > 0:
+		for side in [-1.0, 1.0]:
+			for i in min(n_eyes, 3):
+				var p = _hull_point(Vector2(0.55 - 0.18 * i, side * 0.83).normalized())
+				var nrm = (p - c).normalized()
+				var ec = p - nrm * 4.0
+				draw_circle(ec, 2.4 + 0.3 * min(n_eyes, 3), Color(0.96, 0.92, 0.82), true, -1.0, true)
+				draw_circle(ec, 1.6 + 0.3 * min(n_eyes, 3), Color(0.12, 0.08, 0.07), true, -1.0, true)
+	if n_lens > 0:
+		var calcite = Color(0.9, 0.95, 0.97, 1.0)
+		var r = 2.2 + 0.4 * min(n_lens, 3)
+		for side in [-1.0, 1.0]:
+			var p = _hull_point(Vector2(0.8, side * 0.6).normalized())
+			var nrm = (p - c).normalized()
+			var lc = p - nrm * (r * 0.9)
+			draw_circle(lc, r + 1.2, OUTLINE, true, -1.0, true)
+			draw_circle(lc, r, calcite, true, -1.0, true)
+			draw_circle(lc, r * 0.55, Color(0.1, 0.09, 0.1), true, -1.0, true)
+			var gl = 0.6 + 0.4 * sin(t * 2.2 + side)
+			draw_circle(lc + Vector2(-0.35, -0.4) * r, r * 0.3, Color(1, 1, 1, gl), true, -1.0, true)
 
 var shadow_pass: bool = false
 func _draw_shadow_pass(spec: Array):
