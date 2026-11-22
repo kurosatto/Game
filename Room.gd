@@ -239,6 +239,27 @@ func spawn_fullscreen_background():
             5: bg.modulate = Color(1.05, 1.08, 1.0)
             3: bg.modulate = Color(0.85, 0.75, 0.95)
     add_child(bg)
+    # Screens taller than 16:9 (the Legion Go's 1920x1200) see past the top
+    # and bottom of the room: mirror the rocky rim out into that strip
+    var extra = ceilf((get_viewport().get_visible_rect().size.y - 1080.0) / 2.0) + 8.0
+    if extra > 8.0:
+        extra = minf(extra, 400.0)
+        for top in [true, false]:
+            var at = AtlasTexture.new()
+            at.atlas = bg.texture
+            at.region = Rect2(0, 0 if top else 1080.0 - extra, 1920, extra)
+            var strip = TextureRect.new()
+            strip.name = "RimTop" if top else "RimBottom"
+            strip.texture = at
+            strip.flip_v = true
+            strip.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+            strip.stretch_mode = TextureRect.STRETCH_SCALE
+            strip.position = Vector2(-side_margin, -extra if top else 1080.0)
+            strip.size = Vector2(1920 + side_margin * 2, extra)
+            strip.z_index = -20
+            strip.modulate = bg.modulate
+            strip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+            add_child(strip)
 
 func spawn_boundary_colliders_and_doors():
     var m = side_margin

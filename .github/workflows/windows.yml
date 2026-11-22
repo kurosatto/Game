@@ -1,0 +1,72 @@
+# Builds the standalone Windows game (one EvoRoguelike.exe with the game
+# packed inside it) on every push to main, and puts it on the "windows-latest"
+# GitHub Release so there is always a download link for the newest version:
+# https://github.com/kurosatto/Game/releases/tag/windows-latest
+name: Windows build
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: windows-build
+  cancel-in-progress: true
+
+env:
+  GODOT_VERSION: 4.7.1
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cache Godot
+        id: godot-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/godot
+          key: godot-${{ env.GODOT_VERSION }}-windows
+
+      - name: Download Godot and the Windows export template
+        if: steps.godot-cache.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p ~/godot && cd ~/godot
+          base=https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable
+          curl -sSL -o godot.zip "$base/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
+          unzip -q godot.zip && mv Godot_v${GODOT_VERSION}-stable_linux.x86_64 godot && rm godot.zip
+          curl -sSL -o templates.tpz "$base/Godot_v${GODOT_VERSION}-stable_export_templates.tpz"
+          unzip -qj templates.tpz templates/windows_release_x86_64.exe templates/windows_debug_x86_64.exe templates/version.txt -d templates
+          rm templates.tpz
+
+      - name: Export
+        run: |
+          dest=~/.local/share/godot/export_templates/${GODOT_VERSION}.stable
+          mkdir -p "$dest" && cp ~/godot/templates/* "$dest/"
+          ~/godot/godot --headless --path . --import || true
+          mkdir -p build/windows
+          ~/godot/godot --headless --path . --export-release "Windows Desktop" build/windows/EvoRoguelike.exe
+          test -s build/windows/EvoRoguelike.exe
+          # The game is packed into the exe, so nothing else should be needed
+          ls -la build/windows
+          cd build/windows && zip -q EvoRoguelike-windows.zip EvoRoguelike.exe
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: EvoRoguelike-windows
+          path: build/windows/EvoRoguelike.exe
+
+      - name: Publish to the windows-latest release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          short=$(git rev-parse --short HEAD)
+          notes="Standalone Windows build of main at ${short} ($(date -u +%Y-%m-%d)). Download EvoRoguelike.exe (or the zip), copy it anywhere, and run it. Works with an Xbox controller or the Legion Go's built-in pad."
+          gh release delete windows-latest --cleanup-tag --yes || true
+          gh release create windows-latest \
+            build/windows/EvoRoguelike.exe build/windows/EvoRoguelike-windows.zip \
+            --target "$GITHUB_SHA" --title "Windows build (latest)" --notes "$notes" --latest

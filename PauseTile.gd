@@ -41,6 +41,9 @@ func _ready():
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	time = randf() * 4.0
 	mouse_entered.connect(func(): picked.emit(self))
+	# Gamepad: the highlight shows what the tile is, like hovering it
+	focus_mode = Control.FOCUS_ALL if mouse_filter != Control.MOUSE_FILTER_IGNORE else Control.FOCUS_NONE
+	focus_entered.connect(func(): picked.emit(self))
 	pic = Node2D.new()
 	if sepia:
 		pic.material = UI.sepia_material()
@@ -57,7 +60,8 @@ func _process(delta: float):
 
 func _gui_input(event: InputEvent):
 	var tap = (event is InputEventScreenTouch and event.pressed) or \
-		(event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT)
+		(event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT) or \
+		event.is_action_pressed("ui_accept")
 	if tap:
 		picked.emit(self)
 		accept_event()
@@ -80,8 +84,10 @@ func _draw():
 	if font == null:
 		return
 	var r = disc * 0.5 - 4.0
-	if selected:
+	if selected or has_focus():
 		draw_circle(c, r + 4.0, Color(UI.SUN, 0.35 + 0.15 * sin(time * 5.0)))
+	if has_focus():
+		draw_arc(c, r + 9.0, 0, TAU, 48, UI.SUN, 4.0, true)
 	draw_circle(c, r, Color(UI.INK.lerp(tint, 0.16), 0.95))
 	draw_arc(c, r, 0, TAU, 48, Color(UI.SUN if selected else tint, 0.95), 3.0, true)
 	if badge > 1:

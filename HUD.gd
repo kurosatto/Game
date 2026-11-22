@@ -125,6 +125,9 @@ func _ready():
 func setup_settings_ui():
     settings_btn.pressed.connect(toggle_settings)
     resume_btn.pressed.connect(toggle_settings)
+    # On the pad, Start pauses; the top bar's button is for mouse and touch
+    settings_btn.focus_mode = Control.FOCUS_NONE
+    resume_btn.set_meta("pad_default", true)
     var menu_btn = Button.new()
     menu_btn.text = "MAIN MENU (ends this run)"
     menu_btn.custom_minimum_size = Vector2(0, 44)
@@ -170,7 +173,7 @@ func setup_settings_ui():
     )
     var shake = _add_toggle("Screen shake", SettingsManager.screen_shake,
         func(on): SettingsManager.screen_shake = on, music_section)
-    if TouchControls.should_show():
+    if TouchControls.should_show() or Input.get_connected_joypads().size() > 0:
         _add_toggle("Aim assist (shots bend onto nearby animals)", SettingsManager.aim_assist,
             func(on): SettingsManager.aim_assist = on, shake)
 
@@ -228,10 +231,26 @@ func _unhandled_input(event: InputEvent):
             else:
                 toggle_settings()
         elif event.keycode == KEY_G or event.keycode == KEY_TAB:
-            if is_grow_up():
-                hide_grow_screen()
-            else:
-                show_grow_screen()
+            pad_grow()
+
+# Gamepad Start / View (PadInput.gd): like Esc, but on an end screen it
+# plays again
+func pad_pause():
+    if game_over_screen.visible or victory_screen.visible:
+        if end_screen_ready():
+            get_tree().paused = false
+            get_tree().reload_current_scene()
+    elif is_grow_up():
+        hide_grow_screen()
+    elif not is_card_up():
+        toggle_settings()
+
+# Gamepad Y, or G / Tab: open or close the grow screen
+func pad_grow():
+    if is_grow_up():
+        hide_grow_screen()
+    else:
+        show_grow_screen()
 
 func toggle_settings():
     # Over an evolution card, a how-to-play card or an end screen the pause
@@ -353,7 +372,7 @@ func update_elements(have: Dictionary, growable: int):
     _growable = growable
     if growable > 0 and not _grow_hinted:
         _grow_hinted = true
-        var how = "Tap GROW" if TouchControls.should_show() else "Press G or click GROW"
+        var how = PadInput.prompt("Press Y", "Tap GROW", "Press G or click GROW")
         show_item_banner("READY TO GROW", "You have eaten enough elements to grow a new part. %s to choose one." % how)
     if element_label:
         element_label.text = _element_text(have)
@@ -466,7 +485,6 @@ func _fill_grow_screen():
         var ok = BIOMINERALS.can_grow(r, _have, taken)
         var tile = Button.new()
         tile.custom_minimum_size = Vector2(415, 120)
-        tile.focus_mode = Control.FOCUS_NONE
         tile.toggle_mode = false
         var tint = UI.LEAF if ok else (UI.SUN if r.id == grow_selected else UI.MEMBRANE)
         for state in ["normal", "hover", "pressed", "disabled"]:
@@ -524,9 +542,13 @@ func _fill_grow_screen():
         e.mouse_filter = Control.MOUSE_FILTER_IGNORE
         v.add_child(e)
         grow_grid.add_child(tile)
+        # The tiles are rebuilt on every pick; keep the pad's highlight on
+        # the part just picked
+        if r.id == grow_selected and PadInput.using_pad:
+            tile.grab_focus.call_deferred()
     var sel = BIOMINERALS.get_recipe(grow_selected)
     if sel.is_empty():
-        grow_title.text = "Tap a part to see what it is made of"
+        grow_title.text = PadInput.prompt("Pick a part (A) to see what it is made of", "Tap a part to see what it is made of", "Click a part to see what it is made of")
         grow_body.text = "Prey leaves behind the elements its body was built from. Hunt different animals to gather different elements. Parts lit green can be grown now."
         grow_go.disabled = true
     else:
@@ -568,8 +590,10 @@ func use_touch_texts():
     settings_btn.text = " ⏸ PAUSE "
     settings_btn.custom_minimum_size = Vector2(190, 56)
     settings_btn.add_theme_font_size_override("font_size", 24)
-    # Window sizes mean nothing on a phone, which is always fullscreen
-    $SettingsModal/Panel/Margin/VBox/DisplaySection.visible = false
+    # Window sizes mean nothing on a phone, which is always fullscreen (a
+    # touchscreen PC like the Legion Go still has a window)
+    if OS.has_feature("mobile") or OS.has_feature("web"):
+        $SettingsModal/Panel/Margin/VBox/DisplaySection.visible = false
     $GameOverScreen/Center/SubLabel.text = "Your genetic lineage was severed.
 Tap to Mutate Anew"
     $VictoryScreen/Center/RestartLabel.text = "Tap to play again  ·  Back for the main menu"
@@ -579,12 +603,12 @@ func update_discharge_cooldown(current_cd: float, max_cd: float):
         return
     if current_cd <= 0.0:
         ability_bar.value = 1.0
-        ability_label.text = "ZAP: READY" if TouchControls.should_show() else "[E / MMB] DISCHARGE: READY"
+        ability_label.text = PadInput.prompt("[LB / LT] ZAP: READY", "ZAP: READY", "[E / MMB] DISCHARGE: READY")
         ability_label.add_theme_color_override("font_color", UI.AQUA)
     else:
         var ratio = 1.0 - (current_cd / max(0.001, max_cd))
         ability_bar.value = ratio
-        ability_label.text = ("ZAP RECHARGING (%.1fs)" if TouchControls.should_show() else "[E] RECHARGING (%.1fs)") % current_cd
+        ability_label.text = PadInput.prompt("ZAP RECHARGING (%.1fs)", "ZAP RECHARGING (%.1fs)", "[E] RECHARGING (%.1fs)") % current_cd
         ability_label.add_theme_color_override("font_color", UI.MUTED)
 
 var current_creature_name: String = "PRIMORDIAL PROTOZOA"
@@ -753,8 +777,8 @@ func show_game_over(run: Dictionary = {}):
     end_shown_at = Time.get_ticks_msec()
     game_over_screen.visible = true
     UI.reveal(game_over_screen, null, 0.6)
-    var touch = TouchControls.should_show()
-    var how = "Tap to try again  ·  Back for the main menu" if touch else "R or tap to try again  ·  Esc for the main menu"
+    var how = PadInput.prompt("A to try again  ·  B for the main menu",
+        "Tap to try again  ·  Back for the main menu", "R or tap to try again  ·  Esc for the main menu")
     var sub = $GameOverScreen/Center/SubLabel
     if run.is_empty():
         sub.text = "Your genetic lineage was severed.\n" + how
@@ -822,7 +846,9 @@ func show_victory(summary: Dictionary = {}):
     victory_screen.visible = true
     UI.reveal(victory_screen, null, 0.6)
     item_banner.visible = false
-    if not TouchControls.should_show():
+    if PadInput.using_pad:
+        $VictoryScreen/Center/RestartLabel.text = "A to play again  ·  B for the main menu"
+    elif not TouchControls.should_show():
         $VictoryScreen/Center/RestartLabel.text = "R or tap to play again  ·  Esc for the main menu"
     var label = $VictoryScreen/Center/Label
     var sublabel = $VictoryScreen/Center/SubLabel
@@ -1332,14 +1358,16 @@ var intro_card: Control = null
 var intro_ready_time: int = 0
 
 # The dash row of the era card; forms that can't dash name their escape
-func dash_row(form: Dictionary, touch: bool) -> Array:
+func dash_row(form: Dictionary, touch: bool, pad: bool = false) -> Array:
     var escape = lineages.get_escape(form)
     if escape[0] == "dart":
+        if pad:
+            return ["DASH", "RT / RB / A to dart away, untouchable for a moment"]
         if touch:
             return ["DASH", "Tap DASH to dart away, untouchable for a moment"]
         return ["DASH", "Space / Shift / right-click to dart away, untouchable for a moment"]
     var label = lineages.escape_label(form)
-    var how = ("Tap " + label) if touch else "Space / Shift / right-click"
+    var how = "RT / RB / A" if pad else (("Tap " + label) if touch else "Space / Shift / right-click")
     return [label, "%s: %s, %s" % [how, escape[1].to_lower(), escape[2]]]
 
 # One card per floor: the era on the left, how to play on the right
@@ -1347,7 +1375,16 @@ func show_era_card(floor_num: int, form: Dictionary):
     var touch = TouchControls.should_show()
     var weapon = lineages.weapon_stats(form.get("weapon", "vesicle"))
     var rows: Array
-    if touch:
+    if PadInput.using_pad:
+        rows = [
+            ["MOVE", "Left stick or d-pad"],
+            ["AIM & FIRE", "Right stick; you fire while you hold it"],
+            dash_row(form, false, true),
+            ["ZAP", "LT / LB / X for an electric burst around you (recharges)"],
+            ["GROW", "Y opens the grow screen"],
+            ["PAUSE", "Start; B goes back in menus"],
+        ]
+    elif touch:
         rows = [
             ["MOVE", "Drag the left side of the screen"],
             ["AIM & FIRE", "Drag the right side; you fire while you hold it"],
@@ -1470,7 +1507,7 @@ func _add_rows(parent: Container, rows: Array):
         grid.add_child(val)
 
 func _close_card(vbox: VBoxContainer, verb: String):
-    var hint = _card_label(("Tap anywhere to " if TouchControls.should_show() else "Press any key or click to ") + verb, 20, UI.SUN)
+    var hint = _card_label(PadInput.prompt("Press A to ", "Tap anywhere to ", "Press any key or click to ") + verb, 20, UI.SUN)
     hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
     vbox.add_child(hint)
     var tw = hint.create_tween().set_loops()

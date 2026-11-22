@@ -34,16 +34,26 @@ func add_symbol_fallbacks():
 func load_settings():
     var config = ConfigFile.new()
     var err = config.load(config_path)
+    if err != OK:
+        window_mode_index = default_window_mode()
     if err == OK:
         brightness = config.get_value("graphics", "brightness", 1.2)
         sfx_volume = config.get_value("audio", "sfx_volume", 1.0)
         music_volume = config.get_value("audio", "music_volume", 0.8)
-        window_mode_index = config.get_value("display", "window_mode", 1)
+        window_mode_index = config.get_value("display", "window_mode", default_window_mode())
         aim_assist = config.get_value("controls", "aim_assist", true)
         screen_shake = config.get_value("graphics", "screen_shake", true)
         art_style = config.get_value("graphics", "art_style", "sepia")
         if not preload("res://data/ArtStyles.gd").ids().has(art_style):
             art_style = "sepia"
+
+# First launch on a PC: a 1920x1080 window doesn't fit a screen that size or
+# smaller (a 1080p monitor, or the Legion Go's 1920x1200), so start fullscreen
+func default_window_mode() -> int:
+    if OS.has_feature("mobile") or OS.has_feature("web") or DisplayServer.get_name() == "headless":
+        return 1
+    var screen = DisplayServer.screen_get_size()
+    return 3 if screen.x <= 1920 or screen.y <= 1200 else 1
 
 func save_settings():
     var config = ConfigFile.new()

@@ -92,7 +92,9 @@ func _process(delta: float):
 
 func _input(event: InputEvent):
     # Tap anywhere to restart on touch screens (no R key on a phone)
-    if event is InputEventScreenTouch and event.pressed:
+    # A on the gamepad does the same
+    var pad_a = event is InputEventJoypadButton and event.pressed and event.button_index == JOY_BUTTON_A
+    if (event is InputEventScreenTouch and event.pressed) or pad_a:
         if (hud.game_over_screen.visible or hud.victory_screen.visible) and hud.end_screen_ready():
             get_tree().paused = false
             get_tree().reload_current_scene()
@@ -135,6 +137,7 @@ func _on_player_health_feedback(health, _max_health):
         hit_this_room = true
         hit_stop(0.07)
         hud.flash_hurt()
+        PadInput.rumble(0.55, 0.18)
     last_player_health = health
 
 var progress = preload("res://data/Progress.gd")
