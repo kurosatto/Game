@@ -298,7 +298,9 @@ func spawn_boundary_colliders_and_doors():
 func _add_static_box(pos: Vector2, size: Vector2):
     var body = StaticBody2D.new()
     body.position = pos
-    body.collision_layer = 4
+    # Layer 3 is shared with obstacles; walls are also on layer 5, which
+    # flying forms (Player.gd drops layer 3 to fly over obstacles) still hit
+    body.collision_layer = 4 | 16
     body.collision_mask = 1
     var col = CollisionShape2D.new()
     var shape = RectangleShape2D.new()

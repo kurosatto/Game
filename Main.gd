@@ -358,6 +358,7 @@ func _on_room_transition_requested(direction: Vector2i):
         player.invincibility_time = 0.8 # Buffer to prevent immediate contact damage
         
         current_room_pos = target_pos
+        room_entered_at = Time.get_ticks_msec()
         hud.update_minimap(dungeon_rooms, current_room_pos)
         
         player.set_physics_process(true)
@@ -365,6 +366,7 @@ func _on_room_transition_requested(direction: Vector2i):
     )
 
 var advancing: bool = false
+var room_entered_at: int = 0 # when the last room change finished (Door.gd hints)
 
 func advance_floor():
     # The trapdoor can report the player more than once during the fade
@@ -407,8 +409,8 @@ func advance_floor():
 func note_new_fossil(species: String):
     player.popup_text(player.global_position + Vector2(0, -60), "NEW FOSSIL: " + species.to_upper(), Color(0.98, 0.76, 0.38))
 
-func display_item_banner(title: String, desc: String):
-    hud.show_item_banner(title, desc)
+func display_item_banner(title: String, desc: String, hold: float = -1.0):
+    hud.show_item_banner(title, desc, false, hold)
 
 func on_boss_defeated(f_num: int):
     # A poison tick or acid pool can finish the boss after you have died:
