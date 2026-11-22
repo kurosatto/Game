@@ -16,6 +16,9 @@ const ArtStyles = preload("res://data/ArtStyles.gd")
 var mat: ShaderMaterial
 # Paper level to use outside a run (the main menu); below 0 follows the era
 var fixed_light: float = -1.0
+# Light tint over the floor outside a run (the main menu has no
+# CanvasModulate); alpha 0 means read the run's CanvasModulate
+var fixed_floor_tint: Color = Color(1, 1, 1, 0)
 
 func _ready():
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -32,10 +35,21 @@ func apply_style(id: String):
 # starts (EraLook "ink_light"): dark swamps still read as paper, not ink
 func _process(_delta: float):
 	var light: float = fixed_light
+	var main = get_tree().current_scene
 	if light < 0.0:
-		var main = get_tree().current_scene
 		if main == null or not ("floor_number" in main):
 			return
 		light = EraLook.get_look(main.floor_number).get("ink_light", 0.45)
+	# Where the colour styles' flat floor key lands on screen (ArtStyles.floor_material)
+	var st: Dictionary = ArtStyles.get_style(SettingsManager.art_style)
+	if st.has("floor"):
+		var tint: Color = fixed_floor_tint
+		if tint.a == 0.0:
+			var cm = main.get_node_or_null("CanvasModulate") if main else null
+			tint = cm.color if cm else Color.WHITE
+		var seen: Color = (st.floor * tint).clamp()
+		mat.set_shader_parameter("floor_seen", Vector3(seen.r, seen.g, seen.b))
+	else:
+		mat.set_shader_parameter("floor_seen", Vector3(-1, -1, -1))
 	mat.set_shader_parameter("light_lum", light)
 	mat.set_shader_parameter("dark_lum", light * 0.12)

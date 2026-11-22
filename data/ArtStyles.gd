@@ -22,34 +22,34 @@ const STYLES := [
 	{"id": "sepia", "name": "Sepia sketchbook", "desc": "Pen and brown ink on pale paper. The game's own look.",
 		"fog": Color(0.93, 0.87, 0.74), "rim": Color(0.55, 0.42, 0.30), "dark": false, "swatch": Color(0.94, 0.88, 0.75)},
 	{"id": "chunky_pixel", "name": "Chunky pixel", "desc": "Big readable pixels, black outlines, few shades.",
-		"fog": Color(0.06, 0.10, 0.13), "rim": Color(0.16, 0.28, 0.32), "dark": true, "swatch": Color(0.20, 0.42, 0.46),
+		"fog": Color(0.06, 0.10, 0.13), "rim": Color(0.16, 0.28, 0.32), "dark": true, "floor": Color(0.12, 0.20, 0.23), "swatch": Color(0.20, 0.42, 0.46),
 		"ui": {"INK": Color(0.06, 0.08, 0.11), "INK_SOFT": Color(0.11, 0.15, 0.19), "MEMBRANE": Color(0.45, 0.78, 0.82), "CREAM": Color(0.95, 0.97, 0.92), "MUTED": Color(0.62, 0.72, 0.74), "SUN": Color(1.0, 0.84, 0.30), "LEAF": Color(0.55, 0.90, 0.40), "CORAL": Color(1.0, 0.40, 0.35), "SHADE": Color(0, 0, 0, 0.9), "BACKDROP": Color(0.04, 0.05, 0.08), "TITLE": Color(1.0, 0.84, 0.30), "TITLE_OUTLINE": Color(0.04, 0.03, 0.06), "ROUND": 0.0, "RIM": 6, "CORNER_DETAIL": 1, "SMOOTH": false, "SHADOW_SIZE": 1, "SHADOW_OFFSET": Vector2(8, 8)}},
 	{"id": "pixel_16bit", "name": "16-bit pixel", "desc": "Console-era sprites with coloured outlines and hue-shifted shades.",
-		"fog": Color(0.09, 0.12, 0.16), "rim": Color(0.22, 0.30, 0.38), "dark": true, "swatch": Color(0.36, 0.50, 0.62),
+		"fog": Color(0.09, 0.12, 0.16), "rim": Color(0.22, 0.30, 0.38), "dark": true, "floor": Color(0.16, 0.21, 0.27), "swatch": Color(0.36, 0.50, 0.62),
 		"ui": {"INK": Color(0.10, 0.09, 0.20), "INK_SOFT": Color(0.17, 0.15, 0.32), "MEMBRANE": Color(0.70, 0.62, 0.98), "CREAM": Color(0.98, 0.96, 0.90), "MUTED": Color(0.70, 0.68, 0.85), "SUN": Color(1.0, 0.82, 0.42), "LEAF": Color(0.60, 0.92, 0.50), "CORAL": Color(1.0, 0.48, 0.48), "SHADE": Color(0.02, 0.0, 0.08, 0.85), "BACKDROP": Color(0.06, 0.05, 0.12), "TITLE": Color(1.0, 0.86, 0.50), "TITLE_OUTLINE": Color(0.20, 0.10, 0.35), "ROUND": 0.18, "RIM": 5, "CORNER_DETAIL": 2, "SMOOTH": false, "SHADOW_SIZE": 1, "SHADOW_OFFSET": Vector2(6, 6)}},
 	{"id": "hibit_pixel", "name": "Hi-bit pixel", "desc": "Fine modern pixel art with dithering and rim light.",
-		"fog": Color(0.05, 0.08, 0.14), "rim": Color(0.18, 0.28, 0.42), "dark": true, "swatch": Color(0.30, 0.46, 0.70),
+		"fog": Color(0.05, 0.08, 0.14), "rim": Color(0.18, 0.28, 0.42), "dark": true, "floor": Color(0.10, 0.15, 0.27), "swatch": Color(0.30, 0.46, 0.70),
 		"ui": {"INK": Color(0.04, 0.07, 0.14), "INK_SOFT": Color(0.08, 0.13, 0.24), "MEMBRANE": Color(0.45, 0.68, 0.98), "CREAM": Color(0.92, 0.96, 1.0), "MUTED": Color(0.58, 0.68, 0.82), "SUN": Color(0.55, 0.92, 1.0), "LEAF": Color(0.55, 0.95, 0.65), "CORAL": Color(1.0, 0.45, 0.50), "SHADE": Color(0, 0.02, 0.06, 0.8), "BACKDROP": Color(0.02, 0.04, 0.09), "TITLE": Color(0.80, 0.94, 1.0), "TITLE_OUTLINE": Color(0.05, 0.10, 0.25), "ROUND": 0.3, "RIM": 3, "CORNER_DETAIL": 3, "SMOOTH": false, "SHADOW_SIZE": 10, "SHADOW_OFFSET": Vector2(0, 6)}},
 	{"id": "ink_cel", "name": "Bold ink cel", "desc": "Thick black outlines, flat colour, one hard shadow.",
-		"fog": Color(0.90, 0.79, 0.60), "rim": Color(0.20, 0.14, 0.09), "dark": false, "swatch": Color(0.92, 0.70, 0.40),
+		"fog": Color(0.90, 0.79, 0.60), "rim": Color(0.20, 0.14, 0.09), "dark": false, "floor": Color(0.93, 0.83, 0.64), "swatch": Color(0.92, 0.70, 0.40),
 		"ui": {"INK": Color(0.08, 0.07, 0.06), "INK_SOFT": Color(0.16, 0.13, 0.10), "MEMBRANE": Color(0.98, 0.90, 0.70), "CREAM": Color(1.0, 0.97, 0.90), "MUTED": Color(0.85, 0.78, 0.66), "SUN": Color(1.0, 0.78, 0.20), "LEAF": Color(0.60, 0.88, 0.35), "CORAL": Color(1.0, 0.38, 0.28), "SHADE": Color(0, 0, 0, 0.95), "BACKDROP": Color(0.05, 0.04, 0.03), "TITLE": Color(1.0, 0.78, 0.20), "TITLE_OUTLINE": Color(0.04, 0.03, 0.02), "ROUND": 0.7, "RIM": 7, "CORNER_DETAIL": 8, "SMOOTH": true, "SHADOW_SIZE": 1, "SHADOW_OFFSET": Vector2(9, 10)}},
 	{"id": "engraving", "name": "Naturalist engraving", "desc": "Old field-guide plate: fine engraved lines and stipple, hand tinted.",
 		"fog": Color(0.92, 0.88, 0.78), "rim": Color(0.40, 0.33, 0.25), "dark": false, "swatch": Color(0.80, 0.74, 0.62),
 		"ui": {"INK": Color(0.15, 0.14, 0.12), "INK_SOFT": Color(0.22, 0.20, 0.17), "MEMBRANE": Color(0.80, 0.76, 0.66), "CREAM": Color(0.95, 0.93, 0.86), "MUTED": Color(0.74, 0.71, 0.64), "SUN": Color(0.90, 0.78, 0.52), "LEAF": Color(0.66, 0.78, 0.52), "CORAL": Color(0.88, 0.50, 0.42), "SHADE": Color(0.03, 0.03, 0.02, 0.5), "BACKDROP": Color(0.09, 0.08, 0.07), "TITLE": Color(0.20, 0.15, 0.11), "TITLE_OUTLINE": Color(0.93, 0.89, 0.79), "ROUND": 0.25, "RIM": 2, "CORNER_DETAIL": 4, "SMOOTH": true, "SHADOW_SIZE": 12, "SHADOW_OFFSET": Vector2(0, 5)}},
 	{"id": "watercolour", "name": "Watercolour plate", "desc": "Soft pigment washes with bleeding edges, like a museum painting.",
-		"fog": Color(0.95, 0.93, 0.88), "rim": Color(0.62, 0.66, 0.70), "dark": false, "swatch": Color(0.55, 0.75, 0.80),
+		"fog": Color(0.95, 0.93, 0.88), "rim": Color(0.62, 0.66, 0.70), "dark": false, "floor": Color(0.97, 0.95, 0.90), "swatch": Color(0.55, 0.75, 0.80),
 		"ui": {"INK": Color(0.20, 0.27, 0.33), "INK_SOFT": Color(0.27, 0.36, 0.42), "MEMBRANE": Color(0.78, 0.88, 0.90), "CREAM": Color(0.98, 0.97, 0.93), "MUTED": Color(0.78, 0.84, 0.86), "SUN": Color(1.0, 0.76, 0.62), "LEAF": Color(0.70, 0.88, 0.62), "CORAL": Color(0.98, 0.55, 0.52), "SHADE": Color(0.10, 0.15, 0.20, 0.35), "BACKDROP": Color(0.16, 0.21, 0.26), "TITLE": Color(0.25, 0.38, 0.48), "TITLE_OUTLINE": Color(0.97, 0.95, 0.90), "ROUND": 1.3, "RIM": 2, "CORNER_DETAIL": 16, "SMOOTH": true, "SHADOW_SIZE": 30, "SHADOW_OFFSET": Vector2(0, 10)}},
 	{"id": "neon", "name": "Bioluminescent neon", "desc": "Glowing outlines in the dark abyss.",
-		"fog": Color(0.01, 0.02, 0.05), "rim": Color(0.05, 0.30, 0.40), "dark": true, "swatch": Color(0.20, 0.95, 1.00),
+		"fog": Color(0.01, 0.02, 0.05), "rim": Color(0.05, 0.30, 0.40), "dark": true, "floor": Color(0.02, 0.03, 0.06), "swatch": Color(0.20, 0.95, 1.00),
 		"ui": {"INK": Color(0.01, 0.03, 0.07), "INK_SOFT": Color(0.03, 0.07, 0.13), "MEMBRANE": Color(0.20, 0.95, 1.0), "CREAM": Color(0.86, 1.0, 1.0), "MUTED": Color(0.45, 0.72, 0.82), "SUN": Color(1.0, 0.45, 0.90), "LEAF": Color(0.45, 1.0, 0.55), "AQUA": Color(0.30, 0.95, 1.0), "CORAL": Color(1.0, 0.35, 0.45), "SHADE": Color(0.10, 0.85, 1.0, 0.30), "BACKDROP": Color(0.0, 0.01, 0.03), "TITLE": Color(0.60, 1.0, 1.0), "TITLE_OUTLINE": Color(0.05, 0.30, 0.55), "ROUND": 0.9, "RIM": 3, "CORNER_DETAIL": 12, "SMOOTH": true, "SHADOW_SIZE": 18, "SHADOW_OFFSET": Vector2(0, 0)}},
 	{"id": "silhouette", "name": "Silhouette + rim light", "desc": "Dark shapes lit from behind with warm rims and light shafts.",
-		"fog": Color(0.05, 0.15, 0.18), "rim": Color(0.65, 0.50, 0.25), "dark": true, "swatch": Color(0.20, 0.45, 0.48),
+		"fog": Color(0.05, 0.15, 0.18), "rim": Color(0.65, 0.50, 0.25), "dark": true, "floor": Color(0.15, 0.35, 0.38), "swatch": Color(0.20, 0.45, 0.48),
 		"ui": {"INK": Color(0.02, 0.03, 0.04), "INK_SOFT": Color(0.06, 0.08, 0.09), "MEMBRANE": Color(0.95, 0.72, 0.35), "CREAM": Color(0.94, 0.95, 0.92), "MUTED": Color(0.58, 0.70, 0.70), "SUN": Color(1.0, 0.80, 0.40), "LEAF": Color(0.62, 0.88, 0.62), "CORAL": Color(1.0, 0.48, 0.35), "SHADE": Color(1.0, 0.70, 0.30, 0.18), "BACKDROP": Color(0.02, 0.06, 0.07), "TITLE": Color(0.03, 0.04, 0.05), "TITLE_OUTLINE": Color(1.0, 0.78, 0.40), "ROUND": 1.0, "RIM": 2, "CORNER_DETAIL": 12, "SMOOTH": true, "SHADOW_SIZE": 14, "SHADOW_OFFSET": Vector2(4, -4)}},
 	{"id": "low_poly", "name": "Low-poly facets", "desc": "Flat-shaded triangles, like papercraft or a cut gem.",
-		"fog": Color(0.11, 0.15, 0.21), "rim": Color(0.28, 0.36, 0.46), "dark": true, "swatch": Color(0.40, 0.55, 0.70),
+		"fog": Color(0.11, 0.15, 0.21), "rim": Color(0.28, 0.36, 0.46), "dark": true, "floor": Color(0.22, 0.30, 0.40), "swatch": Color(0.40, 0.55, 0.70),
 		"ui": {"INK": Color(0.10, 0.14, 0.20), "INK_SOFT": Color(0.15, 0.21, 0.29), "MEMBRANE": Color(0.58, 0.72, 0.88), "CREAM": Color(0.94, 0.96, 0.98), "MUTED": Color(0.65, 0.72, 0.80), "SUN": Color(0.98, 0.78, 0.42), "LEAF": Color(0.62, 0.86, 0.55), "CORAL": Color(0.98, 0.50, 0.42), "SHADE": Color(0.02, 0.04, 0.08, 0.6), "BACKDROP": Color(0.06, 0.09, 0.13), "TITLE": Color(0.98, 0.82, 0.50), "TITLE_OUTLINE": Color(0.10, 0.14, 0.22), "ROUND": 0.8, "RIM": 3, "CORNER_DETAIL": 1, "SMOOTH": true, "SHADOW_SIZE": 1, "SHADOW_OFFSET": Vector2(0, 7)}},
 	{"id": "soft_3d", "name": "Soft 3D", "desc": "Rounded lit volumes, soft shadows and rippling water light.",
-		"fog": Color(0.09, 0.24, 0.26), "rim": Color(0.30, 0.55, 0.55), "dark": true, "swatch": Color(0.35, 0.70, 0.68),
+		"fog": Color(0.09, 0.24, 0.26), "rim": Color(0.30, 0.55, 0.55), "dark": true, "floor": Color(0.24, 0.48, 0.48), "swatch": Color(0.35, 0.70, 0.68),
 		"ui": {"INK": Color(0.07, 0.20, 0.22), "INK_SOFT": Color(0.12, 0.30, 0.32), "MEMBRANE": Color(0.62, 0.92, 0.86), "CREAM": Color(0.97, 1.0, 0.98), "MUTED": Color(0.70, 0.86, 0.84), "SUN": Color(1.0, 0.86, 0.52), "LEAF": Color(0.66, 0.95, 0.60), "CORAL": Color(1.0, 0.55, 0.48), "SHADE": Color(0.0, 0.08, 0.08, 0.5), "BACKDROP": Color(0.04, 0.13, 0.14), "TITLE": Color(1.0, 0.92, 0.70), "TITLE_OUTLINE": Color(0.06, 0.22, 0.24), "ROUND": 1.5, "RIM": 2, "CORNER_DETAIL": 16, "SMOOTH": true, "SHADOW_SIZE": 34, "SHADOW_OFFSET": Vector2(0, 14)}},
 ]
 
@@ -88,28 +88,19 @@ float luma(vec3 c) { return dot(c, vec3(0.299, 0.587, 0.114)); }
 vec3 tex(vec2 uv) { return texture(screen_tex, uv).rgb; }
 vec3 expose(vec3 c) { return clamp(c * mix(1.0, 0.62 / max(light_lum, 0.2), 0.45), 0.0, 1.0); }
 vec3 saturate_by(vec3 c, float k) { float l = luma(c); return clamp(mix(vec3(l), c, k), 0.0, 1.0); }
-// Things (animals, you, scenery, walls) against the open floor: how much
-// this point differs in colour from its surroundings, near and far. The
-// floor's big soft patches score low, so they can be repainted in the
-// style's own backdrop instead of being posterised into murky blotches.
+// Things (animals, you, scenery, walls) against the open floor. In the
+// colour styles Room.gd paints the open floor one flat key colour (the
+// style's "floor", see floor_material()), which reaches the screen as
+// floor_seen after the room's light tint; anything else is a thing. Below
+// zero (no key, as in the ink styles) everything counts as a thing.
+uniform vec3 floor_seen = vec3(-1.0);
 float thing_mask(vec2 uv, vec2 px) {
-	vec3 c = tex(uv);
-	vec3 a = vec3(0.0);
-	vec3 b = vec3(0.0);
-	for (int i = 0; i < 6; i++) {
-		float ang = float(i) * 1.0472 + 0.3;
-		vec2 d = vec2(cos(ang), sin(ang));
-		a += tex(uv + d * 20.0 * px);
-		b += tex(uv + d * 46.0 * px);
-	}
-	float k = max(length(c - a / 6.0), length(c - b / 6.0)) / max(light_lum, 0.55);
-	return smoothstep(0.13, 0.27, k);
+	if (floor_seen.r < 0.0) return 1.0;
+	return smoothstep(0.03, 0.08, length(tex(uv) - floor_seen));
 }
-// The bare floor in the style's backdrop colour, keeping a faint trace of
-// its light and shade so rooms still read as places
+// The bare floor in the style's backdrop colour
 vec3 ground(vec3 bg, vec3 c, float detail) {
-	float k = clamp(luma(c) / max(light_lum, 0.2), 0.0, 1.6) - 1.0;
-	return clamp(bg * (1.0 + k * detail), 0.0, 1.0);
+	return bg;
 }
 """
 
@@ -171,10 +162,9 @@ void fragment() {
 	q = mix(q, vec3(0.13, 0.20, 0.24), 0.18); // a cool retro cast
 	q = mix(q, vec3(0.04, 0.03, 0.06), outline);
 	// The floor: the sample's deep blue-green, in two flat shades
-	float thing = smoothstep(0.3, 0.6, thing_mask(uv, px));
+	float thing = thing_mask(uv, px);
 	vec3 bg = mix(vec3(0.12, 0.20, 0.23), vec3(0.08, 0.13, 0.16), SCREEN_UV.y);
-	float k = floor(clamp(luma(tex(uv)) / max(light_lum, 0.2), 0.0, 1.5) * 2.0) / 2.0;
-	vec3 floor_col = bg * (0.85 + 0.2 * k);
+	vec3 floor_col = bg;
 	COLOR = vec4(mix(floor_col, q, thing), 1.0);
 }
 """
@@ -205,10 +195,9 @@ void fragment() {
 	vec3 line_col = shade * vec3(0.30, 0.25, 0.38);
 	shade = mix(shade, line_col, outline);
 	// The floor: a dusky slate in three shades
-	float thing = smoothstep(0.3, 0.6, thing_mask(uv, px));
+	float thing = thing_mask(uv, px);
 	vec3 bg = mix(vec3(0.16, 0.21, 0.27), vec3(0.10, 0.13, 0.18), SCREEN_UV.y);
-	float k = floor(clamp(luma(tex(uv)) / max(light_lum, 0.2), 0.0, 1.5) * 3.0) / 3.0;
-	vec3 floor_col = bg * (0.82 + 0.2 * k);
+	vec3 floor_col = bg;
 	COLOR = vec4(mix(floor_col, shade, thing), 1.0);
 }
 """
@@ -272,7 +261,7 @@ void fragment() {
 	// The floor: the sample's warm sand card, with a faint flat shadow band
 	float thing = thing_mask(uv, px);
 	vec3 bg = mix(vec3(0.93, 0.83, 0.64), vec3(0.86, 0.73, 0.53), SCREEN_UV.y);
-	vec3 floor_col = bg * (0.94 + 0.06 * step(0.0, luma(tex(uv)) - light_lum * 0.8));
+	vec3 floor_col = bg;
 	COLOR = vec4(mix(floor_col, flat_col, smoothstep(0.35, 0.6, max(thing, line * smoothstep(0.15, 0.3, thing)))), 1.0);
 }
 """
@@ -334,7 +323,7 @@ void fragment() {
 	float granule = 1.0 - vnoise(fc / 3.0) * 0.06 - vnoise(fc / 70.0) * 0.07;
 	// The floor stays almost bare paper, with the faintest wash of its colour
 	float thing = thing_mask(uv, px);
-	vec3 floor_wash = 1.0 - (1.0 - c) * 0.18;
+	vec3 floor_wash = vec3(1.0);
 	COLOR = vec4(paper * mix(floor_wash, wash * pool, thing) * granule, 1.0);
 }
 """
@@ -480,6 +469,53 @@ void fragment() {
 	COLOR = vec4(col, 1.0);
 }
 """
+
+# The colour styles repaint the open floor of the room art (assets/eras/*/
+# floor_mask.png, made by generate_floor_masks.py) in one flat key colour,
+# so the style filter can tell the floor from everything on it. null for
+# the ink styles, which draw the real floor.
+const FLOOR_SHADER = """
+shader_type canvas_item;
+uniform sampler2D mask_tex : filter_linear;
+uniform vec3 floor_col = vec3(0.5);
+void fragment() {
+	float m = texture(mask_tex, UV).r;
+	COLOR.rgb = mix(COLOR.rgb, floor_col, m);
+}
+"""
+static var _floor_shader: Shader = null
+static func floor_material(id: String, era_dir: String) -> ShaderMaterial:
+	var st: Dictionary = get_style(id)
+	if not st.has("floor") or not ResourceLoader.exists(era_dir + "floor_mask.png"):
+		return null
+	if _floor_shader == null:
+		_floor_shader = Shader.new()
+		_floor_shader.code = FLOOR_SHADER
+	var m = ShaderMaterial.new()
+	m.shader = _floor_shader
+	m.set_shader_parameter("mask_tex", load(era_dir + "floor_mask.png"))
+	var c: Color = st.floor
+	m.set_shader_parameter("floor_col", Vector3(c.r, c.g, c.b))
+	return m
+
+# The run's WorldEnvironment (Main.tscn) adds bloom and boosts contrast and
+# saturation after everything is drawn. The sepia sketch was tuned with it;
+# the other styles set their own colours, so it is turned off for them
+# (neon keeps a softer bloom for its glow)
+static func apply_environment(env: Environment, id: String):
+	if env == null:
+		return
+	var ink := id == "sepia" or id == "engraving"
+	env.glow_enabled = ink or id == "neon"
+	env.glow_intensity = 0.95 if ink else 0.8
+	env.glow_bloom = 0.26 if ink else 0.0
+	env.adjustment_enabled = ink
+	env.adjustment_contrast = 1.12
+	env.adjustment_saturation = 1.25
+
+# Whether the style keeps the real floor (and its moving light)
+static func keeps_floor(id: String) -> bool:
+	return not get_style(id).has("floor")
 
 static func shader_code(id: String) -> String:
 	var body: String
