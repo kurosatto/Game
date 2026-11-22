@@ -149,20 +149,28 @@ def mix(length_sec, *parts):
     return out
 
 
-def finish(x, peak=0.5, fade=0.012):
+def finish(x, peak=0.5, fade=0.012, loud=0.0):
     x = np.asarray(x, dtype=np.float64)
     x = highp(x, 35.0, 1)  # no DC thump through phone speakers
     m = np.max(np.abs(x))
     if m > 0:
         x = x / m * peak
+    if loud > 0:
+        # Phone speakers drop everything under ~400 Hz: scale so the part they
+        # can play reaches `loud` RMS (over the sound's loud first 80 ms),
+        # without clipping
+        audible = highp(x, 400.0, 2)[: n_of(0.08)]
+        r = np.sqrt(np.mean(audible ** 2))
+        if r > 0:
+            x *= min(loud / r, 0.95 / max(1e-6, np.max(np.abs(x))))
     f = min(len(x), n_of(fade))
     x[-f:] *= np.linspace(1, 0, f)  # no click at the end
     x[:32] *= np.linspace(0, 1, 32)
     return x
 
 
-def write(name, x, peak=0.5):
-    x = finish(x, peak)
+def write(name, x, peak=0.5, loud=0.0):
+    x = finish(x, peak, loud=loud)
     os.makedirs(OUT, exist_ok=True)
     path = os.path.join(OUT, name + ".wav")
     with wave.open(path, "w") as w:
@@ -362,37 +370,52 @@ ATTACKS = {
 
 # ── impacts and kills ──────────────────────────────────────────────────────
 
+# Phone speakers play almost nothing below ~300 Hz, so every impact is built
+# around a mid-range "smack" (a sharp noise burst plus a body tone between
+# 300 and 900 Hz); the low thump only adds weight on headphones and PCs.
+
+def smack(sec, lo, hi, tone0, tone1, decay):
+    """The audible core of a hit: a bright noise slap and a dropping body tone."""
+    slap = band(noise(sec), lo, hi) * env(sec, 0.0005, decay * 0.5)
+    tone = sweep(sec, tone0, tone1, curve=0.4) * env(sec, 0.001, decay)
+    return plus(slap, tone * 0.8)
+
+
 def hit_soft():
-    L = 0.2
-    squelch = lowp(noise(L), 1400) * env(L, 0.001, 0.035)
-    body = thump(0.12, 240, 110, 0.035)
-    return mix(L, (squelch, 0, 0.8), (body, 0, 0.8), (bubbles(0.1, 2, 500, 1100, 0.03), 0.02, 0.3))
+    # Wet splut: a squashy slap, a quick falling blip and a bubble
+    L = 0.22
+    core = smack(L, 700, 3200, 820, 300, 0.045)
+    wet = band(noise(L), 400, 1600) * env(L, 0.001, 0.03)
+    return mix(L, (core, 0, 1.0), (wet, 0, 0.6), (thump(0.12, 220, 110, 0.035), 0, 0.5),
+               (bubbles(0.12, 2, 700, 1500, 0.03), 0.03, 0.4))
 
 
 def hit_shell():
-    L = 0.18
-    clack = click(0.01, 2500) * 1.3
-    tone = ring(L, [1650, 2480, 3900], 0.02, [1, 0.6, 0.35])
-    return mix(L, (clack, 0, 1.0), (tone, 0, 0.6), (thump(0.06, 300, 150, 0.015), 0, 0.4))
+    # Chitin crack: a hard knock with a hollow, ringing shell behind it
+    L = 0.22
+    knock = plus(click(0.012, 1800) * 1.6, band(noise(0.03), 1500, 5000) * env(0.03, 0.0005, 0.006))
+    tone = ring(L, [980, 1650, 2480, 3900], 0.03, [0.8, 1, 0.6, 0.35])
+    return mix(L, (knock, 0, 1.0), (tone, 0, 0.8), (smack(0.1, 600, 2500, 620, 380, 0.02), 0, 0.6),
+               (thump(0.06, 300, 150, 0.015), 0, 0.4))
 
 
 def hit_flesh():
-    L = 0.2
-    body = thump(0.16, 150, 55, 0.045)
-    slap = lowp(noise(0.04), 3000) * env(0.04, 0.0005, 0.008)
-    return mix(L, (body, 0, 1.0), (slap, 0, 0.6))
+    # Meaty thwack: slap of skin and scales over a solid body thud
+    L = 0.22
+    core = smack(L, 500, 2600, 560, 200, 0.05)
+    return mix(L, (core, 0, 1.0), (click(0.01, 2200), 0, 0.6), (thump(0.16, 150, 55, 0.045), 0, 0.6))
 
 
 def hit_crit():
     # A big crunch: bone/shell giving way, with a bright ring on top
-    L = 0.36
+    L = 0.38
     crunch = np.zeros(n_of(L))
     for i in range(7):
-        c = click(0.012, rng.uniform(1200, 3000))
-        crunch += mix(L, (c, i * 0.011 + rng.uniform(0, 0.004), rng.uniform(0.5, 1.0)))
-    body = thump(0.25, 180, 45, 0.07)
-    shine = ring(L, [2200, 3300, 4950], 0.06, [1, 0.5, 0.3])
-    return mix(L, (crunch, 0, 1.0), (body, 0, 1.0), (shine, 0.01, 0.25))
+        c = plus(click(0.014, rng.uniform(900, 2500)), band(noise(0.02), 800, 3500) * env(0.02, 0.0005, 0.005))
+        crunch += mix(L, (c, i * 0.012 + rng.uniform(0, 0.004), rng.uniform(0.6, 1.0)))
+    shine = ring(L, [1320, 2200, 3300], 0.07, [1, 0.6, 0.3])
+    return mix(L, (crunch, 0, 1.0), (smack(0.2, 500, 2500, 600, 180, 0.06), 0, 0.9),
+               (thump(0.25, 180, 45, 0.07), 0, 0.5), (shine, 0.01, 0.35))
 
 
 def hit_glance():
@@ -411,10 +434,10 @@ def parry():
 def kill_soft():
     # Soft body bursts: wet splat, a gurgle and a spray of little bubbles
     L = 0.5
-    splat = lowp(noise(0.25), 1800) * env(0.25, 0.002, 0.06)
-    gurgle = sweep(0.3, 340, 120, curve=0.6) * env(0.3, 0.003, 0.08) * (1 + 0.5 * np.sin(2 * np.pi * 26 * t_of(0.3)))
-    return mix(L, (splat, 0, 1.0), (thump(0.15, 200, 60, 0.05), 0, 0.8), (gurgle, 0.02, 0.45),
-               (bubbles(0.4, 9, 500, 1800, 0.03), 0.04, 0.35))
+    splat = band(noise(0.25), 500, 3000) * env(0.25, 0.002, 0.05)
+    gurgle = sweep(0.3, 700, 260, curve=0.6) * env(0.3, 0.003, 0.08) * (1 + 0.5 * np.sin(2 * np.pi * 26 * t_of(0.3)))
+    return mix(L, (smack(0.2, 600, 3000, 900, 260, 0.06), 0, 1.0), (splat, 0, 0.8), (gurgle, 0.02, 0.6),
+               (thump(0.15, 200, 60, 0.05), 0, 0.5), (bubbles(0.4, 9, 700, 2000, 0.03), 0.04, 0.5))
 
 
 def kill_shell():
@@ -422,17 +445,19 @@ def kill_shell():
     L = 0.5
     out = np.zeros(n_of(L))
     for i in range(10):
-        c = plus(click(0.014, rng.uniform(1000, 3200)), ring(0.05, [rng.uniform(1500, 3500)], 0.01) * 0.4)
-        out += mix(L, (c, i * 0.018 + rng.uniform(0, 0.008), rng.uniform(0.4, 1.0) * (1 - i / 14)))
-    return mix(L, (out, 0, 1.0), (thump(0.2, 170, 50, 0.06), 0, 0.9), (lowp(noise(0.2), 1200) * env(0.2, 0.002, 0.05), 0, 0.3))
+        c = plus(click(0.014, rng.uniform(900, 2800)) * 1.4, ring(0.06, [rng.uniform(900, 3000)], 0.012) * 0.6)
+        out += mix(L, (c, i * 0.018 + rng.uniform(0, 0.008), rng.uniform(0.5, 1.0) * (1 - i / 14)))
+    return mix(L, (out, 0, 1.0), (smack(0.2, 600, 2800, 640, 260, 0.05), 0, 0.8),
+               (thump(0.2, 170, 50, 0.06), 0, 0.5))
 
 
 def kill_flesh():
-    # A heavy body goes down: deep thump, crunch, a soft exhale of air
+    # A heavy body goes down: a hard thwack, crunch and a soft exhale of air
     L = 0.55
-    breath = band(noise(0.35), 300, 1400) * env(0.35, 0.03, 0.12)
-    crunch = mix(0.1, (click(0.012, 1500), 0, 1.0), (click(0.012, 1800), 0.025, 0.7))
-    return mix(L, (thump(0.35, 120, 40, 0.1), 0, 1.0), (crunch, 0, 0.6), (breath, 0.05, 0.35))
+    breath = band(noise(0.35), 500, 1800) * env(0.35, 0.03, 0.12)
+    crunch = mix(0.1, (click(0.014, 1200), 0, 1.0), (click(0.014, 1600), 0.025, 0.8))
+    return mix(L, (smack(0.3, 400, 2200, 520, 150, 0.08), 0, 1.0), (crunch, 0, 0.8),
+               (thump(0.35, 120, 40, 0.1), 0, 0.6), (breath, 0.05, 0.4))
 
 
 def enemy_lunge():
@@ -454,10 +479,10 @@ def enemy_spit():
 
 
 def hurt_thud():
-    # Taking a blow: a heavy body thump and a short crunch, felt more than heard
+    # Taking a blow: a hard thwack and a short crunch over a body thump
     L = 0.32
-    return mix(L, (thump(0.3, 140, 42, 0.08), 0, 1.0), (click(0.015, 1200), 0, 0.5),
-               (lowp(noise(0.08), 900) * env(0.08, 0.001, 0.02), 0, 0.5))
+    return mix(L, (smack(0.25, 500, 2400, 480, 150, 0.06), 0, 1.0), (click(0.015, 1200), 0, 0.6),
+               (thump(0.3, 140, 42, 0.08), 0, 0.6))
 
 
 OTHERS = {
@@ -468,11 +493,16 @@ OTHERS = {
 }
 
 
+# Impacts must cut through music on a phone speaker: target RMS above 400 Hz
+LOUD = {"hit_soft": 0.16, "hit_shell": 0.15, "hit_flesh": 0.16, "hit_crit": 0.18,
+        "kill_soft": 0.15, "kill_shell": 0.15, "kill_flesh": 0.15, "hurt_thud": 0.15}
+
+
 def main():
     for w, (fn, peak) in ATTACKS.items():
         write("atk_" + w, fn(), peak)
     for name, (fn, peak) in OTHERS.items():
-        write(name, fn(), peak)
+        write(name, fn(), peak, LOUD.get(name, 0.0))
 
 
 if __name__ == "__main__":
