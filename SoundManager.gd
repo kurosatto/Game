@@ -23,6 +23,10 @@ const SOUND_VOLUMES: Dictionary = {
     "evolve":       -4.0,   # Evolution card chosen
     "boss_intro":   -2.0,   # Boss room entered
     "room_clear":   -6.0,   # Last enemy in a room died
+    # Senses (generate_sense_sfx.py): a soft cue when the best non-visual
+    # sense first picks up an animal hidden in the dark (SenseHints.gd)
+    "sense_smell": -10.0, "sense_chemical": -10.0, "sense_electric": -12.0,
+    "sense_lateral": -9.0, "sense_vibration": -8.0, "sense_touch": -10.0,
     # Combat (generate_combat_sfx.py): one attack sound per weapon...
     "atk_vesicle": -6.0, "atk_jet": -6.0, "atk_spit": -6.0, "atk_harpoon": -6.0,
     "atk_slime": -6.0, "atk_silk": -7.0, "atk_spray": -7.0, "atk_engulf": -5.0,
