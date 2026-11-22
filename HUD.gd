@@ -142,9 +142,9 @@ func setup_settings_ui():
     # Initialize display options (1080p Standard)
     display_option.clear()
     display_option.add_item("Windowed (1280 x 720 - HD)", 0)
-    display_option.add_item("Windowed (1920 x 1080 - 1080p Full HD Default)", 1)
+    display_option.add_item("Windowed (1920 x 1080 - 1080p Full HD)", 1)
     display_option.add_item("Windowed (2560 x 1440 - 2K QHD)", 2)
-    display_option.add_item("Fullscreen Mode", 3)
+    display_option.add_item("Fullscreen (default)", 3)
     display_option.select(SettingsManager.window_mode_index)
     display_option.item_selected.connect(_on_display_mode_selected)
     
@@ -260,6 +260,7 @@ func toggle_settings():
     settings_modal.visible = not settings_modal.visible
     get_tree().paused = settings_modal.visible
     if settings_modal.visible:
+        display_option.select(SettingsManager.window_mode_index) # F11 may have changed it
         show_pause_info()
         UI.reveal(settings_modal, pause_box, 0.16)
     

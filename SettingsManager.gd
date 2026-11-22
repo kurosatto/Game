@@ -4,6 +4,7 @@ extends Node
 signal brightness_changed(value: float)
 signal sfx_volume_changed(value: float)
 signal art_style_changed(id: String)
+signal fullscreen_changed(on: bool)
 
 var brightness: float = 1.2 # Default bright & vibrant
 var sfx_volume: float = 1.0
@@ -40,27 +41,49 @@ func load_settings():
         brightness = config.get_value("graphics", "brightness", 1.2)
         sfx_volume = config.get_value("audio", "sfx_volume", 1.0)
         music_volume = config.get_value("audio", "music_volume", 0.8)
-        window_mode_index = config.get_value("display", "window_mode", default_window_mode())
+        # "window_mode_v2": older saves kept a 1920x1080 window from before
+        # fullscreen became the default, so they start fullscreen once
+        window_mode_index = config.get_value("display", "window_mode_v2", default_window_mode())
         aim_assist = config.get_value("controls", "aim_assist", true)
         screen_shake = config.get_value("graphics", "screen_shake", true)
         art_style = config.get_value("graphics", "art_style", "sepia")
         if not preload("res://data/ArtStyles.gd").ids().has(art_style):
             art_style = "sepia"
 
-# First launch on a PC: a 1920x1080 window doesn't fit a screen that size or
-# smaller (a 1080p monitor, or the Legion Go's 1920x1200), so start fullscreen
+# PCs (and the Legion Go) start fullscreen
 func default_window_mode() -> int:
     if OS.has_feature("mobile") or OS.has_feature("web") or DisplayServer.get_name() == "headless":
         return 1
-    var screen = DisplayServer.screen_get_size()
-    return 3 if screen.x <= 1920 or screen.y <= 1200 else 1
+    return 3
+
+func is_fullscreen() -> bool:
+    return window_mode_index == 3
+
+# Main menu button, F11 and Alt+Enter: fullscreen, or the biggest window
+# that fits the screen
+func toggle_fullscreen():
+    if is_fullscreen():
+        var screen = DisplayServer.screen_get_size()
+        set_window_mode(1 if screen.x > 1920 and screen.y > 1080 else 0)
+    else:
+        set_window_mode(3)
+    save_settings()
+    fullscreen_changed.emit(is_fullscreen())
+
+func _unhandled_input(event: InputEvent):
+    if OS.has_feature("mobile") or OS.has_feature("web"):
+        return
+    if event is InputEventKey and event.pressed and not event.echo:
+        if event.keycode == KEY_F11 or (event.keycode == KEY_ENTER and event.alt_pressed):
+            toggle_fullscreen()
+            get_viewport().set_input_as_handled()
 
 func save_settings():
     var config = ConfigFile.new()
     config.set_value("graphics", "brightness", brightness)
     config.set_value("audio", "sfx_volume", sfx_volume)
     config.set_value("audio", "music_volume", music_volume)
-    config.set_value("display", "window_mode", window_mode_index)
+    config.set_value("display", "window_mode_v2", window_mode_index)
     config.set_value("controls", "aim_assist", aim_assist)
     config.set_value("graphics", "screen_shake", screen_shake)
     config.set_value("graphics", "art_style", art_style)
