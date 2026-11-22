@@ -994,7 +994,7 @@ func spawn_tear(dir: Vector2, alpha: bool = false, boomerang: bool = false):
     get_parent().add_child(tear)
 
 # Close-range attack for forms whose real weapon is a mouth, claw or arm.
-# Hits every enemy (and breakable obstacle) in an arc toward dir, and swats
+# Hits every enemy (and chips any obstacle) in an arc toward dir, and swats
 # enemy shots inside it, so melee forms can fight back against spitters.
 func melee_attack(dir: Vector2):
     var w = lineages.weapon_stats(current_weapon)

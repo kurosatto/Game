@@ -12,7 +12,8 @@ func snap(n: String):
 	print("SHOT ", n)
 func _initialize():
 	for i in 5: await process_frame
-	DisplayServer.window_set_size(Vector2i(1920, 1080))
+	var ws = OS.get_environment("WIN").split("x") if OS.get_environment("WIN") != "" else ["1920", "1080"]
+	DisplayServer.window_set_size(Vector2i(int(ws[0]), int(ws[1])))
 	var main = load("res://Main.tscn").instantiate()
 	root.add_child(main)
 	current_scene = main
@@ -46,7 +47,7 @@ func _initialize():
 	for i in 20: await process_frame
 	await snap("grow_screen_lenses")
 	if OS.get_environment("PARTS") == "1":
-		for id in ["calcite_spines", "keratin_horn", "keratin_claws", "magnetite_teeth", "photoreceptors", "calcite_lenses", "shell_plates", "zinc_jaws"]:
+		for id in ["calcite_spines", "keratin_horn", "keratin_claws", "magnetite_teeth", "photoreceptors", "calcite_lenses", "zinc_jaws"]:
 			p.adaptations_taken[id] = 2
 		main.hud.grow_selected = ""
 		main.hud._fill_grow_screen()

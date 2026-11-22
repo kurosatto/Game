@@ -34,10 +34,12 @@ const SOUND_VOLUMES: Dictionary = {
     "atk_claw": -5.0, "atk_lash": -4.0, "atk_sting": -5.0, "atk_arms": -5.0,
     "atk_tongue": -5.0, "atk_spines": -5.0, "atk_smash": -3.0,
     # ...hits that sound like what they struck, and kills to match
-    "hit_soft": -4.0, "hit_shell": -5.0, "hit_flesh": -3.0, "hit_crit": -2.0,
-    "hit_glance": -8.0, "parry": -6.0,
-    "kill_soft": -2.0, "kill_shell": -2.0, "kill_flesh": -2.0,
-    "enemy_lunge": -9.0, "enemy_spit": -7.0, "hurt_thud": -2.0,
+    # (full volume: they're the feedback that a blow landed, so they have to
+    # cut through the attack sound and the music on a phone speaker)
+    "hit_soft": 0.0, "hit_shell": 0.0, "hit_flesh": 0.0, "hit_crit": -1.0,
+    "hit_glance": -5.0, "parry": -4.0,
+    "kill_soft": 0.0, "kill_shell": 0.0, "kill_flesh": 0.0,
+    "enemy_lunge": -9.0, "enemy_spit": -7.0, "hurt_thud": -1.0,
 }
 
 # The same sound fired twice within this many seconds plays once: a spray of
@@ -47,7 +49,7 @@ var last_played: Dictionary = {}
 
 # Looping soundtrack (generate_soundtrack.py): one theme, re-voiced per era
 const ERA_TRACKS := ["ediacaran", "cambrian", "ordovician", "carboniferous", "permian"]
-const MUSIC_VOLUME_DB := -8.0
+const MUSIC_VOLUME_DB := -10.0 # music sits under the hit and kill sounds
 const MUSIC_FADE := 1.6
 
 var music_streams: Dictionary = {}

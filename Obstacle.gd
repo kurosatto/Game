@@ -228,13 +228,9 @@ func add_glow_particles():
     p.color_ramp = fade
     add_child(p)
 
-var max_health: float = 12.0
-var health: float = 12.0
-
-func take_damage(amount: float):
-    health -= amount
-    
-    # Visual hit flash and a little wobble
+# Scenery can't be broken (kuro, 2026-11-22): hits flash, wobble and chip it,
+# and stop the shot, but the rock, frond or vent always stays standing
+func take_damage(_amount: float):
     var sprite = get_node_or_null("Sprite2D")
     if sprite:
         sprite.modulate = Color(2.5, 2.5, 2.5, 1.0)
@@ -243,12 +239,11 @@ func take_damage(amount: float):
         var wob = create_tween()
         sprite.rotation = randf_range(-0.09, 0.09)
         wob.tween_property(sprite, "rotation", 0.0, 0.25).set_trans(Tween.TRANS_ELASTIC).set_ease(Tween.EASE_OUT)
-        
+    # Swaying scenery also gets knocked back a little, then springs upright
+    if sway_mat:
+        _push_v += randf_range(-6.0, 6.0)
     spawn_hit_chip_fx()
     SoundManager.play_sfx("hit", 0.8, -4.0)
-    
-    if health <= 0:
-        destroy_rock()
 
 func spawn_hit_chip_fx():
     var p = CPUParticles2D.new()
@@ -267,68 +262,3 @@ func spawn_hit_chip_fx():
     get_parent().add_child(p)
     var timer = get_tree().create_timer(0.3)
     timer.timeout.connect(p.queue_free)
-
-var destroyed: bool = false
-
-func destroy_rock():
-    if destroyed:
-        return
-    destroyed = true
-    # Remember it in the room's data so it stays broken when you come back
-    var room = get_parent()
-    if room and "room_data" in room and room.room_data and "destroyed_obstacles" in room.room_data:
-        room.room_data.destroyed_obstacles.append(position)
-    spawn_destruction_fx()
-    SoundManager.play_sfx("explosion", 1.4, -6.0)
-    
-    # 35% chance to spawn a pickup on destruction (Biomass, Hearts, or Keys)
-    if randf() < 0.35:
-        var pickup_scene = load("res://Pickup.tscn")
-        var p = pickup_scene.instantiate()
-        p.position = global_position
-        var roll = randf()
-        if roll < 0.55:
-            p.pickup_type = "coin"
-        elif roll < 0.85:
-            p.pickup_type = "heart"
-        else:
-            p.pickup_type = "key"
-        get_parent().call_deferred("add_child", p)
-        
-    queue_free()
-
-func spawn_destruction_fx():
-    var particles = CPUParticles2D.new()
-    particles.position = global_position
-    particles.emitting = true
-    particles.one_shot = true
-    particles.explosiveness = 0.95
-    particles.amount = 14
-    particles.lifetime = 0.45
-    particles.spread = 180.0
-    particles.initial_velocity_min = 60.0
-    particles.initial_velocity_max = 180.0
-    particles.scale_amount_min = 2.5
-    particles.scale_amount_max = 6.0
-    
-    match obstacle_type:
-        "coral_spire":
-            particles.color = Color(0.55, 0.80, 1.0, 0.9)
-        "biocrystal":
-            particles.color = Color(0.0, 0.95, 1.0, 0.95)
-        "fossil_bone":
-            particles.color = Color(0.8, 0.85, 0.8, 0.85)
-        "stromatolite":
-            particles.color = Color(0.25, 0.85, 0.65, 0.9)
-        "ediacaran_frond":
-            particles.color = Color(0.20, 0.92, 0.85, 0.9)
-        "hydrothermal_vent":
-            particles.color = Color(0.15, 0.88, 0.95, 0.9)
-        "calcified_sponge":
-            particles.color = Color(0.85, 0.75, 0.35, 0.85)
-        _:
-            particles.color = Color(0.35, 0.55, 0.7, 0.85)
-            
-    get_parent().add_child(particles)
-    var timer = get_tree().create_timer(0.5)
-    timer.timeout.connect(particles.queue_free)
