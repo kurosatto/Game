@@ -10,9 +10,11 @@ const UI = preload("res://data/UIStyle.gd")
 var lineages = preload("res://data/Lineages.gd")
 var codex = preload("res://data/Codex.gd")
 
-const LEAF_GAP = 175.0   # horizontal room for each tip of the tree
-const LEVEL_GAP = 215.0  # vertical gap between evolution picks
-const NODE_R = 58.0      # radius of the round bubble behind each sprite
+const LEAF_GAP = 130.0   # horizontal room for each tip of the tree
+const LEVEL_GAP = 178.0  # vertical gap between evolution picks
+const NODE_R = 50.0      # radius of the round bubble behind each sprite
+const LABEL_PX = 20      # name size under each bubble
+const START_ZOOM = 0.8   # opening zoom cap, so about 20 tips fit across a phone
 const PICK_LABELS = ["Start", "1st evolution", "2nd evolution", "3rd evolution", "4th evolution"]
 
 var found: Array = []
@@ -109,13 +111,14 @@ func sheet(id: String) -> Texture2D:
 		sheets[id] = load(p) if ResourceLoader.exists(p) else null
 	return sheets[id]
 
-# Start zoomed so the whole height fits, centred on the starting cell
+# Start zoomed so the whole height fits (no closer than START_ZOOM), centred
+# on the starting cell
 func fit_view():
 	if size.y < 10:
 		return
 	if not fitted:
 		fitted = true
-		zoom = clamp(size.y / content_size.y, min_zoom(), 1.6)
+		zoom = clamp(min(size.y / content_size.y, START_ZOOM), min_zoom(), 1.6)
 		var root_pos = nodes[""].pos
 		offset = Vector2(size.x * 0.5 - root_pos.x * zoom, size.y - content_size.y * zoom)
 	clamp_offset()
@@ -171,7 +174,7 @@ func draw_icon(target: CanvasItem, n: Dictionary):
 	var fw = tex.get_width() / 4.0
 	var frame = int(fmod(time * 5.0 + pos.x, 4.0)) if n.known else 0
 	var src = Rect2(frame * fw, 0, fw, tex.get_height())
-	var s = 92.0
+	var s = 80.0
 	var mod = Color.WHITE if n.known else Color(0.10, 0.065, 0.04, 0.92)
 	target.draw_texture_rect_region(tex, Rect2(centre - Vector2(s, s) * 0.5, Vector2(s, s)), src, mod)
 
@@ -227,10 +230,10 @@ func draw_node(p: String, n: Dictionary):
 	if not n.known:
 		draw_icon(self, n) # known ones go on icon_layer, in sepia
 	if not n.known:
-		draw_string(font_bold, centre + Vector2(-NODE_R, 14), "?", HORIZONTAL_ALIGNMENT_CENTER, NODE_R * 2, 40, Color(UI.MEMBRANE, 0.55))
+		draw_string(font_bold, centre + Vector2(-NODE_R, 12), "?", HORIZONTAL_ALIGNMENT_CENTER, NODE_R * 2, 34, Color(UI.MEMBRANE, 0.55))
 	var title = pretty(form.name) if n.known else "???"
-	draw_multiline_string(font_med, centre + Vector2(-LEAF_GAP * 0.5 + 4, NODE_R + 24), title,
-		HORIZONTAL_ALIGNMENT_CENTER, LEAF_GAP - 8, 19, 2, UI.CREAM if n.known else Color(UI.MUTED, 0.55))
+	draw_multiline_string(font_med, centre + Vector2(-LEAF_GAP * 0.5 + 2, NODE_R + 22), title,
+		HORIZONTAL_ALIGNMENT_CENTER, LEAF_GAP - 4, LABEL_PX, 2, UI.CREAM if n.known else Color(UI.MUTED, 0.55))
 
 # "SEA LILY" -> "Sea Lily"
 func pretty(s: String) -> String:
