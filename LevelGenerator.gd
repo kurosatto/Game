@@ -20,7 +20,6 @@ class RoomData:
     # State Persistence across re-entries
     var has_initialized_contents: bool = false
     var saved_pickups: Array = [] # [{ "type": String, "pos": Vector2 }]
-    var destroyed_obstacles: Array = [] # positions of obstacles broken here
     var treasure_item_id: String = "" # "" if collected
     var seep_used: bool = false # SEEP room: its minerals taken
     var layout_idx: int = -1
