@@ -57,6 +57,7 @@ func save_settings():
     config.save(config_path)
 
 func apply_all_settings():
+    preload("res://data/UIStyle.gd").apply(art_style)
     set_brightness(brightness)
     set_sfx_volume(sfx_volume)
     set_music_volume(music_volume)
@@ -78,6 +79,7 @@ func set_art_style(id: String):
         return
     art_style = id
     save_settings()
+    preload("res://data/UIStyle.gd").apply(id)
     art_style_changed.emit(id)
 
 func set_sfx_volume(val: float):

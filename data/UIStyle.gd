@@ -12,47 +12,121 @@ extends RefCounted
 const FONT_MEDIUM = "res://assets/ui/Fredoka-Medium.ttf"
 const FONT_BOLD = "res://assets/ui/Fredoka-SemiBold.ttf"
 
-# Palette: a naturalist's sketchbook to match the sepia ink world
-# (InkFilter.gd). Dark ink-wash panels with paper-coloured text, tan rims
-# like the edge of a page, amber headings; green and red stay for good and bad.
-const INK = Color(0.16, 0.11, 0.075)      # panel fill: dark sepia wash
-const INK_SOFT = Color(0.23, 0.16, 0.105) # raised fill: buttons, bars
-const MEMBRANE = Color(0.82, 0.68, 0.48)  # panel rims: parchment tan
-const CREAM = Color(0.97, 0.92, 0.81)     # body text: paper
-const MUTED = Color(0.80, 0.72, 0.60)     # secondary text
-const SUN = Color(0.98, 0.76, 0.38)       # headings, highlights
-const LEAF = Color(0.72, 0.84, 0.50)      # good things: perks, biomass
-const AQUA = Color(0.55, 0.82, 0.80)      # energy: the zap charge
-const CORAL = Color(0.95, 0.50, 0.40)     # danger: bosses, damage
-const SHADE = Color(0.05, 0.03, 0.01, 0.55) # soft shadow under panels
-const BACKDROP = Color(0.10, 0.065, 0.04) # full-screen dimming behind cards
+# Palette: set by the art style (data/ArtStyles.gd "ui") through apply().
+# The defaults are the sepia sketchbook: dark ink-wash panels with
+# paper-coloured text, tan rims like the edge of a page, amber headings;
+# green and red stay for good and bad.
+static var INK := Color(0.16, 0.11, 0.075)      # panel fill: dark sepia wash
+static var INK_SOFT := Color(0.23, 0.16, 0.105) # raised fill: buttons, bars
+static var MEMBRANE := Color(0.82, 0.68, 0.48)  # panel rims: parchment tan
+static var CREAM := Color(0.97, 0.92, 0.81)     # body text: paper
+static var MUTED := Color(0.80, 0.72, 0.60)     # secondary text
+static var SUN := Color(0.98, 0.76, 0.38)       # headings, highlights
+static var LEAF := Color(0.72, 0.84, 0.50)      # good things: perks, biomass
+static var AQUA := Color(0.55, 0.82, 0.80)      # energy: the zap charge
+static var CORAL := Color(0.95, 0.50, 0.40)     # danger: bosses, damage
+static var SHADE := Color(0.05, 0.03, 0.01, 0.55) # soft shadow under panels
+static var BACKDROP := Color(0.10, 0.065, 0.04) # full-screen dimming behind cards
+# Over-the-world text (menu title, stats): fill and outline
+static var TITLE := Color(0.27, 0.16, 0.09)
+static var TITLE_OUTLINE := Color(0.94, 0.88, 0.75)
+# Panel shape: corner rounding (x the usual radius), rim width, corner
+# detail (1 cuts facets), smooth edges, and the shadow's size and offset
+static var ROUND := 1.0
+static var RIM := 4
+static var CORNER_DETAIL := 12
+static var SMOOTH := true
+static var SHADOW_SIZE := 22
+static var SHADOW_OFFSET := Vector2(0, 8)
+static var style_id := ""
+
+const PALETTE_KEYS = ["INK", "INK_SOFT", "MEMBRANE", "CREAM", "MUTED", "SUN", "LEAF", "AQUA", "CORAL",
+	"SHADE", "BACKDROP", "TITLE", "TITLE_OUTLINE", "ROUND", "RIM", "CORNER_DETAIL", "SMOOTH", "SHADOW_SIZE", "SHADOW_OFFSET"]
+const SEPIA_UI = {
+	"INK": Color(0.16, 0.11, 0.075), "INK_SOFT": Color(0.23, 0.16, 0.105), "MEMBRANE": Color(0.82, 0.68, 0.48),
+	"CREAM": Color(0.97, 0.92, 0.81), "MUTED": Color(0.80, 0.72, 0.60), "SUN": Color(0.98, 0.76, 0.38),
+	"LEAF": Color(0.72, 0.84, 0.50), "AQUA": Color(0.55, 0.82, 0.80), "CORAL": Color(0.95, 0.50, 0.40),
+	"SHADE": Color(0.05, 0.03, 0.01, 0.55), "BACKDROP": Color(0.10, 0.065, 0.04),
+	"TITLE": Color(0.27, 0.16, 0.09), "TITLE_OUTLINE": Color(0.94, 0.88, 0.75),
+	"ROUND": 1.0, "RIM": 4, "CORNER_DETAIL": 12, "SMOOTH": true, "SHADOW_SIZE": 22, "SHADOW_OFFSET": Vector2(0, 8),
+}
+
+# Switches every menu, card and HUD panel to an art style's palette and
+# shapes, and rebuilds the project theme in place so themed controls follow.
+# Screens built afterwards pick it up (the main menu reloads itself).
+static func apply(id: String):
+	var ui: Dictionary = SEPIA_UI.duplicate()
+	ui.merge(preload("res://data/ArtStyles.gd").get_style(id).get("ui", {}), true)
+	INK = ui.INK; INK_SOFT = ui.INK_SOFT; MEMBRANE = ui.MEMBRANE; CREAM = ui.CREAM
+	MUTED = ui.MUTED; SUN = ui.SUN; LEAF = ui.LEAF; AQUA = ui.AQUA; CORAL = ui.CORAL
+	SHADE = ui.SHADE; BACKDROP = ui.BACKDROP; TITLE = ui.TITLE; TITLE_OUTLINE = ui.TITLE_OUTLINE
+	ROUND = ui.ROUND; RIM = ui.RIM; CORNER_DETAIL = ui.CORNER_DETAIL; SMOOTH = ui.SMOOTH
+	SHADOW_SIZE = ui.SHADOW_SIZE; SHADOW_OFFSET = ui.SHADOW_OFFSET
+	style_id = id
+	var theme: Theme = ThemeDB.get_project_theme()
+	if theme:
+		theme.merge_with(make_theme())
+
+# Screens laid out in .tscn files (HUD.tscn) were coloured with the sepia
+# palette; this swaps each colour override for the same role in the current
+# style (the nearest sepia role colour decides which role it is)
+const ROLE_KEYS = ["CREAM", "MUTED", "SUN", "LEAF", "AQUA", "CORAL"]
+static func restyle_tree(root: Node):
+	if style_id == "" or style_id == "sepia":
+		return
+	var stack: Array = [root]
+	while not stack.is_empty():
+		var n = stack.pop_back()
+		stack.append_array(n.get_children())
+		if not (n is Control):
+			continue
+		for prop in ["font_color", "font_outline_color"]:
+			if n.has_theme_color_override(prop):
+				var c: Color = n.get_theme_color(prop)
+				n.add_theme_color_override(prop, Color(_role_colour(c, prop == "font_outline_color"), c.a))
+
+static func _role_colour(c: Color, outline: bool) -> Color:
+	if outline or (c.r + c.g + c.b) < 0.6:
+		return INK.darkened(0.5)
+	var best := "CREAM"
+	var best_d := 99.0
+	for k in ROLE_KEYS:
+		var r: Color = SEPIA_UI[k]
+		var d = Vector3(c.r - r.r, c.g - r.g, c.b - r.b).length()
+		if d < best_d:
+			best_d = d
+			best = k
+	return {"CREAM": CREAM, "MUTED": MUTED, "SUN": SUN, "LEAF": LEAF, "AQUA": AQUA, "CORAL": CORAL}[best]
+
+static func _r(radius: int) -> int:
+	return int(round(radius * ROUND))
 
 # A rounded membrane panel. tint colours the rim and warms the fill a little.
 static func panel(tint: Color = MEMBRANE, radius: int = 28, alpha: float = 0.94, margin: float = 32.0) -> StyleBoxFlat:
 	var s = StyleBoxFlat.new()
 	s.bg_color = Color(INK.lerp(tint, 0.07), alpha)
 	s.border_color = Color(tint.r, tint.g, tint.b, 0.85)
-	s.set_border_width_all(4)
-	s.set_corner_radius_all(radius)
-	s.corner_detail = 12
+	s.set_border_width_all(RIM)
+	s.set_corner_radius_all(_r(radius))
+	s.corner_detail = CORNER_DETAIL
 	s.shadow_color = SHADE
-	s.shadow_size = 22
-	s.shadow_offset = Vector2(0, 8)
+	s.shadow_size = SHADOW_SIZE
+	s.shadow_offset = SHADOW_OFFSET
 	s.set_content_margin_all(margin)
-	s.anti_aliasing = true
+	s.anti_aliasing = SMOOTH
 	return s
 
 # Pill-shaped button faces. state: normal, hover, pressed, disabled, focus
 static func button_box(state: String, tint: Color = MEMBRANE) -> StyleBoxFlat:
 	var s = StyleBoxFlat.new()
-	s.set_corner_radius_all(40)
-	s.corner_detail = 10
-	s.set_border_width_all(3)
+	s.set_corner_radius_all(_r(40))
+	s.corner_detail = mini(CORNER_DETAIL, 10)
+	s.set_border_width_all(maxi(RIM - 1, 2))
 	s.content_margin_left = 26
 	s.content_margin_right = 26
 	s.content_margin_top = 8
 	s.content_margin_bottom = 10
-	s.anti_aliasing = true
+	s.anti_aliasing = SMOOTH
 	match state:
 		"normal":
 			s.bg_color = Color(INK_SOFT.lerp(tint, 0.10), 0.92)
@@ -84,9 +158,9 @@ static func button_box(state: String, tint: Color = MEMBRANE) -> StyleBoxFlat:
 static func bar_box(color: Color, alpha: float = 1.0) -> StyleBoxFlat:
 	var s = StyleBoxFlat.new()
 	s.bg_color = Color(color.r, color.g, color.b, alpha)
-	s.set_corner_radius_all(8)
-	s.corner_detail = 6
-	s.anti_aliasing = true
+	s.set_corner_radius_all(_r(8))
+	s.corner_detail = mini(CORNER_DETAIL, 6)
+	s.anti_aliasing = SMOOTH
 	return s
 
 static func bar_track() -> StyleBoxFlat:
@@ -112,7 +186,7 @@ static func make_theme() -> Theme:
 	t.default_font_size = 22
 
 	t.set_color("font_color", "Label", CREAM)
-	t.set_color("font_outline_color", "Label", Color(0.08, 0.05, 0.02, 0.8))
+	t.set_color("font_outline_color", "Label", Color(INK.darkened(0.5), 0.8))
 	t.set_color("default_color", "RichTextLabel", CREAM)
 	t.set_font("bold_font", "RichTextLabel", font(650))
 

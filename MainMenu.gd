@@ -10,12 +10,12 @@ var progress = preload("res://data/Progress.gd")
 var adaptations = preload("res://data/Adaptations.gd")
 
 const UI = preload("res://data/UIStyle.gd")
-const ACCENT = UI.SUN
-const SOFT = UI.CREAM
+var ACCENT = UI.SUN
+var SOFT = UI.CREAM
 const LOCKED = Color(0.45, 0.5, 0.45)
-# Sepia ink and paper, as in InkFilter.gd
-const TITLE_INK = Color(0.27, 0.16, 0.09)
-const PAPER = Color(0.94, 0.88, 0.75)
+# Title ink and its outline: sepia ink on paper by default, set by the art style
+var TITLE_INK = UI.TITLE
+var PAPER = UI.TITLE_OUTLINE
 
 var menu_box: VBoxContainer
 var trait_btn: Button
@@ -156,7 +156,7 @@ func build_menu():
 	menu_box.add_child(title)
 	var sub_font = UI.font(500)
 	sub_font.spacing_glyph = 8
-	var sub = label("PRIMORDIAL GENESIS", 30, Color(0.45, 0.30, 0.17))
+	var sub = label("PRIMORDIAL GENESIS", 30, TITLE_INK.lerp(PAPER, 0.25))
 	sub.add_theme_font_override("font", sub_font)
 	sub.add_theme_constant_override("outline_size", 8)
 	sub.add_theme_color_override("font_outline_color", PAPER)
@@ -206,7 +206,7 @@ func build_menu():
 	var stats = label("Codex %d / %d lineages  ·  Fossils %d / 25  ·  Challenges %d / %d" % [
 		codex.load_discovered().size(), lineages.TREE.size(), codex.load_eaten().size(), done, progress.CHALLENGES.size()], 20, UI.MUTED)
 	stats.add_theme_constant_override("outline_size", 6)
-	stats.add_theme_color_override("font_color", Color(0.38, 0.25, 0.14))
+	stats.add_theme_color_override("font_color", TITLE_INK.lerp(PAPER, 0.15))
 	stats.add_theme_color_override("font_outline_color", PAPER)
 	menu_box.add_child(stats)
 	var runs = progress.run_stats()
@@ -217,7 +217,7 @@ func build_menu():
 			tally += ", %d survived to the end" % runs.wins
 		var run_line = label(best + "  ·  " + tally, 20, UI.MUTED)
 		run_line.add_theme_constant_override("outline_size", 6)
-		run_line.add_theme_color_override("font_color", Color(0.38, 0.25, 0.14))
+		run_line.add_theme_color_override("font_color", TITLE_INK.lerp(PAPER, 0.15))
 		run_line.add_theme_color_override("font_outline_color", PAPER)
 		menu_box.add_child(run_line)
 
@@ -310,8 +310,8 @@ func style_card(st: Dictionary, chosen: bool) -> Control:
 func pick_style(id: String):
 	SettingsManager.set_art_style(id)
 	SoundManager.play_sfx("evolve")
-	# Back to the menu, whose background is now in the new style
-	close_overlay()
+	# Rebuild the menu so its panels, buttons and title take the new style
+	get_tree().call_deferred("reload_current_scene")
 
 # ---- Overlays ----
 func open_overlay(title: String, scrolling: bool = true) -> VBoxContainer:
