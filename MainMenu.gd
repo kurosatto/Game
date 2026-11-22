@@ -6,6 +6,7 @@ extends Control
 
 var lineages = preload("res://data/Lineages.gd")
 var codex = preload("res://data/Codex.gd")
+var music_credits = preload("res://data/MusicCredits.gd")
 var progress = preload("res://data/Progress.gd")
 var adaptations = preload("res://data/Adaptations.gd")
 
@@ -235,6 +236,16 @@ func build_menu():
 		run_line.add_theme_color_override("font_outline_color", PAPER)
 		menu_box.add_child(run_line)
 
+	# Music credits sit small in the corner, out of the way of the menu
+	var credits_btn = button("MUSIC CREDITS", show_music_credits)
+	credits_btn.custom_minimum_size = Vector2(230, 52)
+	credits_btn.add_theme_font_size_override("font_size", 18)
+	credits_btn.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT, Control.PRESET_MODE_MINSIZE, 24)
+	credits_btn.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	credits_btn.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	credits_corner = credits_btn
+	add_child(credits_btn)
+
 	# The title drifts gently, like something floating in the shallows
 	var tw = title.create_tween().set_loops().set_trans(Tween.TRANS_SINE)
 	tw.tween_property(title, "position:y", -6.0, 2.2).as_relative()
@@ -339,6 +350,8 @@ func open_overlay(title: String, scrolling: bool = true) -> VBoxContainer:
 		menu_focus = f
 	close_overlay()
 	menu_box.visible = false
+	if credits_corner:
+		credits_corner.visible = false
 	overlay = PanelContainer.new()
 	overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT, Control.PRESET_MODE_MINSIZE, 40)
 	overlay.add_theme_stylebox_override("panel", UI.panel(UI.MEMBRANE, 36, 0.96, 34.0))
@@ -384,6 +397,8 @@ func close_overlay():
 		overlay = null
 	if menu_box:
 		menu_box.visible = true
+		if credits_corner:
+			credits_corner.visible = true
 		update_trait_text()
 		update_style_text()
 		_refocus_menu.call_deferred()
@@ -412,6 +427,21 @@ func row(parent: Container, title: String, body: String, color: Color):
 	b.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	parent.add_child(b)
 	parent.add_child(HSeparator.new())
+
+var credits_corner: Control = null
+
+func show_music_credits():
+	var list = open_overlay("MUSIC CREDITS")
+	var intro = label("All music is from OpenGameArt.org. Thank you to the artists!", 22, SOFT)
+	intro.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	list.add_child(intro)
+	list.add_child(HSeparator.new())
+	for t in music_credits.TRACKS:
+		row(list, "%s  ·  \"%s\"" % [t.track, t.title],
+			"by %s  ·  %s\n%s" % [t.artist, t.license, t.url], ACCENT)
+	var note = label("CC-BY 4.0: creativecommons.org/licenses/by/4.0  ·  CC0: public domain", 18, UI.MUTED)
+	note.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	list.add_child(note)
 
 func show_challenges():
 	var list = open_overlay("CHALLENGES")
