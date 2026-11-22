@@ -20,6 +20,7 @@ const PAPER = Color(0.94, 0.88, 0.75)
 var menu_box: VBoxContainer
 var trait_btn: Button
 var trait_info: Label
+var style_btn: Button
 var overlay: Control = null
 var drifters: Array = []
 var scenery: Array = []
@@ -184,6 +185,11 @@ func build_menu():
 	trait_info.custom_minimum_size = Vector2(600, 0)
 	col.add_child(trait_info)
 	update_trait_text()
+	style_btn = button("", show_art_styles)
+	style_btn.add_theme_font_size_override("font_size", 24)
+	col.add_child(style_btn)
+	update_style_text()
+	SettingsManager.art_style_changed.connect(func(_id): update_style_text())
 	var pair = HBoxContainer.new()
 	pair.add_theme_constant_override("separation", 16)
 	col.add_child(pair)
@@ -247,6 +253,66 @@ func cycle_trait():
 	SoundManager.play_sfx("dna_pickup", 1.2)
 	update_trait_text()
 
+# ---- Art style: the look of the whole game (data/ArtStyles.gd) ----
+const ArtStyles = preload("res://data/ArtStyles.gd")
+
+func update_style_text():
+	style_btn.text = "🎨  ART STYLE: " + ArtStyles.get_style(SettingsManager.art_style).name
+
+func show_art_styles():
+	var area = open_overlay("ART STYLE")
+	area.add_child(label("How the whole world is drawn: rooms, scenery, animals and you. Tap one to use it; it is saved for next time.", 20, UI.MUTED))
+	var grid = GridContainer.new()
+	var wide = get_viewport_rect().size.x >= 1500
+	grid.columns = 3 if wide else 2
+	grid.add_theme_constant_override("h_separation", 16)
+	grid.add_theme_constant_override("v_separation", 16)
+	grid.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	area.add_child(grid)
+	for st in ArtStyles.STYLES:
+		grid.add_child(style_card(st, st.id == SettingsManager.art_style))
+
+func style_card(st: Dictionary, chosen: bool) -> Control:
+	var card = Button.new()
+	card.custom_minimum_size = Vector2(540, 290)
+	var tint = UI.SUN if chosen else UI.MEMBRANE
+	for state in ["normal", "hover", "pressed", "disabled"]:
+		var box: StyleBoxFlat = UI.panel(tint, 14, 0.85 if chosen else 0.55, 14.0)
+		if chosen:
+			box.border_width_left = 5
+			box.border_width_right = 5
+			box.border_width_top = 5
+			box.border_width_bottom = 5
+		card.add_theme_stylebox_override(state, box)
+	card.pressed.connect(func(): pick_style(st.id))
+	var col = VBoxContainer.new()
+	col.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT, Control.PRESET_MODE_MINSIZE, 14)
+	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	col.add_theme_constant_override("separation", 6)
+	card.add_child(col)
+	var pic = TextureRect.new()
+	pic.custom_minimum_size = Vector2(500, 162)
+	pic.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	pic.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	pic.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var path = ArtStyles.thumb_path(st.id)
+	if ResourceLoader.exists(path):
+		pic.texture = load(path)
+	col.add_child(pic)
+	var n = label(("✓  " if chosen else "") + st.name, 24, UI.SUN if chosen else UI.CREAM)
+	n.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	col.add_child(n)
+	var d = label(st.desc, 17, UI.MUTED)
+	d.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	col.add_child(d)
+	return card
+
+func pick_style(id: String):
+	SettingsManager.set_art_style(id)
+	SoundManager.play_sfx("evolve")
+	# Back to the menu, whose background is now in the new style
+	close_overlay()
+
 # ---- Overlays ----
 func open_overlay(title: String, scrolling: bool = true) -> VBoxContainer:
 	close_overlay()
@@ -297,6 +363,7 @@ func close_overlay():
 	if menu_box:
 		menu_box.visible = true
 		update_trait_text()
+		update_style_text()
 
 func row(parent: Container, title: String, body: String, color: Color):
 	var t = label(title, 26, color)

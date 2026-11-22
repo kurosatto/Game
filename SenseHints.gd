@@ -19,6 +19,7 @@ var player # Player.gd (uses its drawn_position())
 var sense: int = 1
 var color: Color = Color(1, 1, 1)
 var time: float = 0.0
+var dark_fog: bool = false
 
 func _ready():
 	set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -30,6 +31,7 @@ func set_sense(rating: int, kind: String):
 
 func _process(delta: float):
 	time += delta
+	dark_fog = preload("res://data/ArtStyles.gd").get_style(SettingsManager.art_style).dark
 	queue_redraw()
 
 func _draw():
@@ -64,6 +66,9 @@ func _draw():
 		var side = dir.orthogonal() * size * 0.7
 		var back = tip - dir * size
 		# Drawn over the paper fog, so mostly brown ink with a hint of the sense's colour
+		# (on the dark fog of the pixel, neon and other dark styles, lit instead)
 		var inked = color.lerp(Color(0.3, 0.18, 0.1), 0.65)
+		if dark_fog:
+			inked = color.lerp(Color(1, 1, 1), 0.25)
 		var c = Color(inked.r, inked.g, inked.b, strength)
 		draw_polyline(PackedVector2Array([back + side, tip, back - side]), c, 4.0, true)
