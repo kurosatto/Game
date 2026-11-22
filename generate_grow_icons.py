@@ -319,11 +319,54 @@ def keratin_horn():
     return img
 
 
+def photoreceptors():
+    img, d = new()
+    # a pigment-cup eyespot: light rays falling into a cup of dark pigment
+    # cells, with the photoreceptor cells lining it
+    for i, x in enumerate((26, 40, 54, 68)):
+        ink(d, [(x - 10, 8), (x + 2, 30)], 1.4)
+        ink(d, [(x + 2, 30), (x - 2, 27)], 1.2)
+        ink(d, [(x + 2, 30), (x + 3, 25)], 1.2)
+    cup = [(14, 40), (20, 66), (48, 84), (76, 66), (82, 40), (70, 42), (64, 60), (48, 68), (32, 60), (26, 42)]
+    poly(d, cup, DARK)
+    hatch(d, (14, 40, 82, 84), 4, 1.0, inside=lambda x, y: y > 46 and (x - 48) ** 2 / 34 ** 2 + (y - 46) ** 2 / 38 ** 2 < 1)
+    for i in range(7):
+        a = math.pi * (0.1 + 0.8 * i / 6)
+        cx = 48 - math.cos(a) * 20
+        cy = 46 + math.sin(a) * 16
+        oval(d, (cx - 4.5, cy - 4.5, cx + 4.5, cy + 4.5), YELLOW, 1.6)
+    return img
+
+
+def membrane_repair():
+    img, d = new()
+    # a phospholipid bilayer: round phosphate heads with two fatty tails,
+    # one gap being closed by a new lipid sliding in
+    for row, y0, dy in ((0, 26, 1), (1, 74, -1)):
+        for i in range(6):
+            x = 14 + i * 13.6
+            if row == 0 and i == 3:
+                continue
+            ink(d, [(x - 2, y0 + dy * 5), (x - 2.5, y0 + dy * 20)], 1.6)
+            ink(d, [(x + 2, y0 + dy * 5), (x + 2.5, y0 + dy * 19)], 1.6)
+            oval(d, (x - 5.5, y0 - 5.5, x + 5.5, y0 + 5.5), YELLOW, 2.0)
+    # the new lipid arriving from above
+    x = 14 + 3 * 13.6
+    ink(d, [(x - 2, 10 + 5), (x - 2.5, 10 + 20)], 1.6)
+    ink(d, [(x + 2, 10 + 5), (x + 2.5, 10 + 19)], 1.6)
+    oval(d, (x - 5.5, 4.5, x + 5.5, 15.5), PAPER, 2.0)
+    ink(d, [(x + 12, 6), (x + 12, 22)], 1.2)
+    ink(d, [(x + 9, 18), (x + 12, 22), (x + 15, 18)], 1.2)
+    return img
+
+
 ICONS = {
     "adapt_grow_calcite_spines": calcite_spines,
     "adapt_grow_shell_plates": shell_plates,
+    "adapt_grow_photoreceptors": photoreceptors,
     "adapt_grow_calcite_lenses": calcite_lenses,
     "adapt_grow_bone": bone,
+    "adapt_grow_membrane_repair": membrane_repair,
     "adapt_grow_phosphagen": phosphagen,
     "adapt_grow_regeneration": regeneration,
     "adapt_grow_electric_organ": electric_organ,

@@ -389,10 +389,17 @@ func show_grow_screen():
     if grow_modal == null:
         _create_grow_screen()
     grow_selected = ""
+    _just_grown = ""
     _fill_grow_screen()
     grow_modal.visible = true
     UI.reveal(grow_modal)
     get_tree().paused = true
+    # Start the pad on the first part you can grow
+    if PadInput.using_pad:
+        for r in BIOMINERALS.RECIPES:
+            if _can_grow(r):
+                grow_tiles[r.id].tile.grab_focus.call_deferred()
+                break
 
 func hide_grow_screen():
     if grow_modal:
@@ -401,6 +408,66 @@ func hide_grow_screen():
 
 func is_grow_up() -> bool:
     return grow_modal != null and grow_modal.visible
+
+# A thin bar along the bottom of a part's tile: how close you are to it
+class GrowMeter extends Control:
+    var frac: float = 0.0
+    var col: Color = Color.WHITE
+    func _draw():
+        var r = Rect2(Vector2.ZERO, size)
+        draw_rect(r, Color(0, 0, 0, 0.35))
+        if frac > 0.0:
+            draw_rect(Rect2(Vector2.ZERO, Vector2(size.x * frac, size.y)), col)
+
+# A crystal of an element flying from your stores into the creature
+class GrowMote extends Control:
+    var col: Color = Color.WHITE
+    func _draw():
+        var c = size / 2.0
+        var pts = PackedVector2Array([c + Vector2(0, -8), c + Vector2(6, 0), c + Vector2(0, 8), c + Vector2(-6, 0)])
+        draw_colored_polygon(pts, col)
+        draw_polyline(pts + PackedVector2Array([pts[0]]), Color(0.18, 0.11, 0.06), 1.5, true)
+
+# Holds the portrait's drawing and scales it to fill the frame, whatever the
+# form's size (from the outline PlayerBody worked out last frame)
+class PortraitFit extends Node2D:
+    var body: Node2D = null
+    var room: float = 150.0
+    func _process(delta: float):
+        if body == null or body._hull.size() < 3:
+            return
+        var r := 1.0
+        for q in body._hull:
+            r = max(r, q.length())
+        var want = clampf(room / (r + 14.0), 1.0, 4.0)
+        scale = Vector2.ONE * (want if scale.x < 0.01 or absf(scale.x - want) > 0.6 else lerpf(scale.x, want, 1.0 - exp(-delta * 6.0)))
+
+const GROW_VISIBLE = ["calcite_spines", "keratin_horn", "keratin_claws", "magnetite_teeth",
+    "photoreceptors", "calcite_lenses", "shell_plates", "zinc_jaws"]
+var grow_tiles: Dictionary = {} # recipe id -> {tile, name, cost, effect, icon, meter}
+var grow_chips: Dictionary = {} # element -> Label
+var grow_change: RichTextLabel = null
+var grow_caption: Label = null
+var grow_portrait: Control = null
+var grow_vp: SubViewport = null
+var grow_body_art: Node2D = null
+var grow_sheet: TextureRect = null
+var _just_grown: String = ""
+
+func _can_grow(r: Dictionary) -> bool:
+    var player = get_tree().get_first_node_in_group("player")
+    if player and player.has_method("can_grow_part"):
+        return player.can_grow_part(r)
+    return BIOMINERALS.can_grow(r, _have, {})
+
+func _styled_button(text: String, tint: Color, w: float = 240, h: float = 60) -> Button:
+    var b = Button.new()
+    b.text = text
+    b.custom_minimum_size = Vector2(w, h)
+    b.add_theme_font_size_override("font_size", 22)
+    for state in ["normal", "hover", "pressed", "disabled"]:
+        b.add_theme_stylebox_override(state, UI.button_box(state, tint))
+    return b
 
 func _create_grow_screen():
     grow_modal = Control.new()
@@ -413,152 +480,331 @@ func _create_grow_screen():
     bg.color = Color(UI.BACKDROP, 0.99)
     grow_modal.add_child(bg)
     var col = VBoxContainer.new()
-    col.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT, Control.PRESET_MODE_MINSIZE, 40)
-    col.add_theme_constant_override("separation", 14)
+    col.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT, Control.PRESET_MODE_MINSIZE, 28)
+    col.add_theme_constant_override("separation", 10)
     grow_modal.add_child(col)
     var header = Label.new()
     header.text = "GROW FROM WHAT YOU HAVE EATEN"
     header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-    header.add_theme_font_size_override("font_size", 34)
+    header.add_theme_font_size_override("font_size", 32)
     header.add_theme_color_override("font_color", UI.SUN)
     col.add_child(header)
-    grow_have = RichTextLabel.new()
-    grow_have.bbcode_enabled = true
-    grow_have.fit_content = true
-    grow_have.scroll_active = false
-    grow_have.add_theme_font_size_override("normal_font_size", 24)
-    col.add_child(grow_have)
+    # Your stores, one chip per element, so each can pulse as it is spent
+    var have_row = HBoxContainer.new()
+    have_row.alignment = BoxContainer.ALIGNMENT_CENTER
+    have_row.add_theme_constant_override("separation", 26)
+    col.add_child(have_row)
+    var have_l = Label.new()
+    have_l.text = "You have:"
+    have_l.add_theme_font_size_override("font_size", 24)
+    have_l.add_theme_color_override("font_color", UI.CREAM)
+    have_row.add_child(have_l)
+    for el in BIOMINERALS.ORDER:
+        var chip = Label.new()
+        chip.add_theme_font_size_override("font_size", 26)
+        chip.add_theme_color_override("font_color", BIOMINERALS.ELEMENTS[el].color)
+        chip.tooltip_text = BIOMINERALS.ELEMENTS[el].name
+        have_row.add_child(chip)
+        grow_chips[el] = chip
     grow_grid = GridContainer.new()
     grow_grid.columns = 4
     grow_grid.add_theme_constant_override("h_separation", 12)
-    grow_grid.add_theme_constant_override("v_separation", 12)
+    grow_grid.add_theme_constant_override("v_separation", 10)
     grow_grid.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
     col.add_child(grow_grid)
+    for r in BIOMINERALS.RECIPES:
+        _make_grow_tile(r)
+
+    # The info panel: your creature (with the part, if it shows on the body),
+    # what the part is, what it changes, and the buttons
     var info = PanelContainer.new()
-    info.add_theme_stylebox_override("panel", UI.panel(UI.MEMBRANE, 22, 0.9, 18.0))
-    info.custom_minimum_size = Vector2(0, 230)
+    info.add_theme_stylebox_override("panel", UI.panel(UI.MEMBRANE, 22, 0.9, 14.0))
+    info.custom_minimum_size = Vector2(0, 236)
+    info.size_flags_vertical = Control.SIZE_EXPAND_FILL
     col.add_child(info)
     var irow = HBoxContainer.new()
     irow.add_theme_constant_override("separation", 20)
     info.add_child(irow)
+    var pcol = VBoxContainer.new()
+    pcol.add_theme_constant_override("separation", 0)
+    irow.add_child(pcol)
+    grow_portrait = Control.new()
+    grow_portrait.custom_minimum_size = Vector2(300, 260)
+    grow_portrait.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    pcol.add_child(grow_portrait)
+    grow_vp = SubViewport.new()
+    grow_vp.size = Vector2i(400, 360)
+    grow_vp.transparent_bg = true
+    grow_vp.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+    grow_modal.add_child(grow_vp)
+    var holder = PortraitFit.new()
+    holder.position = Vector2(200, 180)
+    holder.rotation = -PI / 2 # head up, like the codex pictures
+    holder.scale = Vector2.ONE * 2.0
+    grow_vp.add_child(holder)
+    grow_body_art = preload("res://PlayerBody.gd").new()
+    holder.body = grow_body_art
+    grow_body_art.preview = true
+    grow_body_art.preview_live = true
+    grow_body_art.move = 0.35
+    holder.add_child(grow_body_art)
+    var tr = TextureRect.new()
+    tr.texture = grow_vp.get_texture()
+    tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+    tr.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+    tr.set_anchors_preset(Control.PRESET_FULL_RECT)
+    tr.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    tr.material = UI.sepia_material()
+    grow_portrait.add_child(tr)
+    # Forms without a drawing show their sheet instead (no grown parts)
+    grow_sheet = TextureRect.new()
+    grow_sheet.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+    grow_sheet.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+    grow_sheet.set_anchors_preset(Control.PRESET_FULL_RECT)
+    grow_sheet.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    grow_sheet.material = UI.sepia_material()
+    grow_portrait.add_child(grow_sheet)
+    grow_caption = Label.new()
+    grow_caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+    grow_caption.add_theme_font_size_override("font_size", 16)
+    grow_caption.add_theme_color_override("font_color", UI.MUTED)
+    pcol.add_child(grow_caption)
+
     var itext = VBoxContainer.new()
     itext.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+    itext.add_theme_constant_override("separation", 4)
     irow.add_child(itext)
     grow_title = Label.new()
     grow_title.add_theme_font_size_override("font_size", 24)
     grow_title.add_theme_color_override("font_color", UI.SUN)
     itext.add_child(grow_title)
+    grow_change = RichTextLabel.new()
+    grow_change.bbcode_enabled = true
+    grow_change.fit_content = true
+    grow_change.scroll_active = false
+    grow_change.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    grow_change.add_theme_font_size_override("normal_font_size", 21)
+    grow_change.add_theme_font_size_override("bold_font_size", 21)
+    itext.add_child(grow_change)
     grow_body = Label.new()
     grow_body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-    grow_body.add_theme_font_size_override("font_size", 19)
+    grow_body.add_theme_font_size_override("font_size", 18)
     grow_body.add_theme_color_override("font_color", UI.CREAM)
     itext.add_child(grow_body)
     var btns = VBoxContainer.new()
     btns.add_theme_constant_override("separation", 10)
     irow.add_child(btns)
-    grow_go = Button.new()
-    grow_go.text = "GROW IT"
-    grow_go.custom_minimum_size = Vector2(240, 60)
-    grow_go.add_theme_font_size_override("font_size", 22)
-    for state in ["normal", "hover", "pressed", "disabled"]:
-        grow_go.add_theme_stylebox_override(state, UI.button_box(state, UI.LEAF))
+    grow_go = _styled_button("GROW IT", UI.LEAF)
     grow_go.pressed.connect(_on_grow_pressed)
     btns.add_child(grow_go)
-    var done = Button.new()
-    done.text = "DONE"
-    done.custom_minimum_size = Vector2(240, 60)
-    done.add_theme_font_size_override("font_size", 22)
-    for state in ["normal", "hover", "pressed", "disabled"]:
-        done.add_theme_stylebox_override(state, UI.button_box(state, UI.MEMBRANE))
+    var done = _styled_button("DONE", UI.MEMBRANE)
     done.pressed.connect(hide_grow_screen)
     btns.add_child(done)
+
+func _make_grow_tile(r: Dictionary):
+    var tile = Button.new()
+    tile.custom_minimum_size = Vector2(415, 116)
+    tile.pressed.connect(_on_grow_tile.bind(r.id))
+    tile.focus_entered.connect(func():
+        # Moving the pad highlight reads the part, like hovering
+        if PadInput.using_pad and grow_selected != r.id:
+            grow_selected = r.id
+            _fill_grow_screen()
+    )
+    var row = HBoxContainer.new()
+    row.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT, Control.PRESET_MODE_MINSIZE, 12)
+    row.offset_bottom = -14
+    row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    row.add_theme_constant_override("separation", 12)
+    tile.add_child(row)
+    var ic = TextureRect.new()
+    var icon_path = "res://assets/ui/icons/adapt_%s.png" % r.get("icon", "")
+    if ResourceLoader.exists(icon_path):
+        ic.texture = load(icon_path)
+    ic.custom_minimum_size = Vector2(62, 62)
+    ic.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+    ic.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+    ic.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+    ic.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    ic.material = UI.sepia_material() # inked like the world
+    row.add_child(ic)
+    var v = VBoxContainer.new()
+    v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+    v.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    v.add_theme_constant_override("separation", 0)
+    row.add_child(v)
+    var t = Label.new()
+    t.add_theme_font_size_override("font_size", 19)
+    t.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    v.add_child(t)
+    var cost = RichTextLabel.new()
+    cost.bbcode_enabled = true
+    cost.fit_content = true
+    cost.scroll_active = false
+    cost.autowrap_mode = TextServer.AUTOWRAP_OFF
+    cost.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    cost.add_theme_font_size_override("normal_font_size", 17)
+    v.add_child(cost)
+    var e = Label.new()
+    e.text = r.effect
+    e.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+    e.add_theme_font_size_override("font_size", 15)
+    e.add_theme_color_override("font_color", UI.LEAF)
+    e.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    v.add_child(e)
+    var meter = GrowMeter.new()
+    meter.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    meter.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
+    meter.offset_left = 22
+    meter.offset_right = -22
+    meter.offset_top = -13
+    meter.offset_bottom = -8
+    tile.add_child(meter)
+    grow_grid.add_child(tile)
+    grow_tiles[r.id] = {"tile": tile, "name": t, "cost": cost, "effect": e, "icon": ic, "meter": meter}
+
+# Tap a part to read it; tap it again (or A again) to grow it
+func _on_grow_tile(id: String):
+    if grow_selected == id and _can_grow(BIOMINERALS.get_recipe(id)):
+        _on_grow_pressed()
+        return
+    grow_selected = id
+    _just_grown = ""
+    _fill_grow_screen()
 
 func _fill_grow_screen():
     var player = get_tree().get_first_node_in_group("player")
     var taken: Dictionary = player.adaptations_taken if player else {}
-    grow_have.text = "[center]You have:   " + _element_text(_have, 24) + "[/center]"
-    for c in grow_grid.get_children():
-        grow_grid.remove_child(c)
-        c.queue_free()
+    var hurt: bool = player != null and player.health < player.max_health
+    for el in BIOMINERALS.ORDER:
+        grow_chips[el].text = "%s %d" % [el, int(_have.get(el, 0.0))]
     for r in BIOMINERALS.RECIPES:
+        var w: Dictionary = grow_tiles[r.id]
+        var tile: Button = w.tile
         var n = taken.get(r.id, 0)
         var maxed = r.get("once", false) and n > 0
-        var ok = BIOMINERALS.can_grow(r, _have, taken)
-        var tile = Button.new()
-        tile.custom_minimum_size = Vector2(415, 120)
-        tile.toggle_mode = false
-        var tint = UI.LEAF if ok else (UI.SUN if r.id == grow_selected else UI.MEMBRANE)
+        var ok = _can_grow(r)
+        var sel = r.id == grow_selected
+        var tint = UI.LEAF if ok else (UI.SUN if sel else UI.MEMBRANE)
         for state in ["normal", "hover", "pressed", "disabled"]:
             tile.add_theme_stylebox_override(state, UI.button_box(state, tint))
-        if r.id == grow_selected:
+        if sel:
             tile.add_theme_stylebox_override("normal", UI.button_box("pressed", tint))
-        tile.modulate = Color(1, 1, 1, 1.0 if (ok or r.id == grow_selected) else 0.6)
-        tile.pressed.connect(func():
-            grow_selected = r.id
-            _fill_grow_screen()
-        )
-        # Picture of the part on the left, words on the right
-        var row = HBoxContainer.new()
-        row.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT, Control.PRESET_MODE_MINSIZE, 14)
-        row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-        row.add_theme_constant_override("separation", 12)
-        tile.add_child(row)
-        var icon_path = "res://assets/ui/icons/adapt_%s.png" % r.get("icon", "")
-        if ResourceLoader.exists(icon_path):
-            var ic = TextureRect.new()
-            ic.texture = load(icon_path)
-            ic.custom_minimum_size = Vector2(64, 64)
-            ic.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-            ic.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-            ic.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-            ic.mouse_filter = Control.MOUSE_FILTER_IGNORE
-            ic.material = UI.sepia_material() # inked like the world
-            if not ok:
-                ic.modulate = Color(1, 1, 1, 0.55)
-            row.add_child(ic)
-        var v = VBoxContainer.new()
-        v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-        v.mouse_filter = Control.MOUSE_FILTER_IGNORE
-        v.add_theme_constant_override("separation", 2)
-        row.add_child(v)
-        var t = Label.new()
-        t.text = r.name + (" ×%d" % n if n > 0 else "")
-        t.add_theme_font_size_override("font_size", 19)
-        t.add_theme_color_override("font_color", UI.SUN if ok else UI.CREAM)
-        t.mouse_filter = Control.MOUSE_FILTER_IGNORE
-        v.add_child(t)
-        var cost = RichTextLabel.new()
-        cost.bbcode_enabled = true
-        cost.fit_content = true
-        cost.scroll_active = false
-        cost.mouse_filter = Control.MOUSE_FILTER_IGNORE
-        cost.add_theme_font_size_override("normal_font_size", 17)
-        cost.text = "GROWN" if maxed else _cost_bbcode(BIOMINERALS.cost_of(r, n))
-        v.add_child(cost)
-        var e = Label.new()
-        e.text = r.effect
-        e.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-        e.add_theme_font_size_override("font_size", 15)
-        e.add_theme_color_override("font_color", UI.LEAF)
-        e.mouse_filter = Control.MOUSE_FILTER_IGNORE
-        v.add_child(e)
-        grow_grid.add_child(tile)
-        # The tiles are rebuilt on every pick; keep the pad's highlight on
-        # the part just picked
-        if r.id == grow_selected and PadInput.using_pad:
+            tile.add_theme_stylebox_override("hover", UI.button_box("pressed", tint))
+        tile.modulate = Color(1, 1, 1, 1.0 if (ok or sel) else 0.62)
+        w.icon.modulate = Color(1, 1, 1, 1.0 if ok else 0.55)
+        w.name.text = r.name + (" ×%d" % n if n > 0 and not r.has("heal") else "")
+        w.name.add_theme_color_override("font_color", UI.SUN if ok else UI.CREAM)
+        var frac = BIOMINERALS.progress(r, _have, taken)
+        if maxed:
+            w.cost.text = "[color=#%s]GROWN[/color]" % UI.LEAF.to_html(false)
+            frac = 1.0
+        elif r.has("heal") and not hurt and frac >= 1.0:
+            w.cost.text = _cost_bbcode(BIOMINERALS.cost_of(r, 0)) + "  [color=#%s](full health)[/color]" % UI.MUTED.to_html(false)
+        else:
+            w.cost.text = _cost_bbcode(BIOMINERALS.cost_of(r, BIOMINERALS.times_for_cost(r, taken)))
+        w.meter.frac = frac
+        w.meter.col = UI.LEAF if (ok or maxed) else Color(UI.SUN, 0.85)
+        w.meter.queue_redraw()
+        if sel and PadInput.using_pad and not tile.has_focus() and grow_modal.visible:
             tile.grab_focus.call_deferred()
-    var sel = BIOMINERALS.get_recipe(grow_selected)
-    if sel.is_empty():
-        grow_title.text = PadInput.prompt("Pick a part (A) to see what it is made of", "Tap a part to see what it is made of", "Click a part to see what it is made of")
-        grow_body.text = "Prey leaves behind the elements its body was built from. Hunt different animals to gather different elements. Parts lit green can be grown now."
+
+    _update_grow_portrait(player, taken)
+    var sel_r = BIOMINERALS.get_recipe(grow_selected)
+    if sel_r.is_empty():
+        grow_title.text = PadInput.prompt("Move to a part to see what it is made of", "Tap a part to see what it is made of", "Click a part to see what it is made of")
+        grow_change.text = ""
+        grow_body.text = "Prey leaves behind the elements its body was built from. Hunt different animals to gather different elements. Parts lit green can be grown now; the bar under each part shows how close you are."
         grow_go.disabled = true
+        return
+    var ok_sel = _can_grow(sel_r)
+    grow_title.text = sel_r.name
+    if _just_grown == sel_r.id:
+        grow_title.text = sel_r.name + "  ·  GROWN!"
+    var lines = _grow_changes(sel_r, player)
+    var how = ""
+    if ok_sel:
+        how = "   [color=#%s]%s[/color]" % [UI.MUTED.to_html(false), PadInput.prompt("Press A to grow it", "Tap again to grow it", "Click again to grow it")]
+    grow_change.text = "[color=#%s][b]%s[/b][/color]%s" % [UI.LEAF.to_html(false), "   ".join(lines), how]
+    var el_facts: Array = []
+    for el in sel_r.cost:
+        el_facts.append(BIOMINERALS.ELEMENTS[el].name + ": " + BIOMINERALS.ELEMENTS[el].fact)
+    grow_body.text = sel_r.fact + "\n" + "\n".join(el_facts)
+    grow_go.disabled = not ok_sel
+
+# Your creature, drawn live, with every part grown so far, plus the picked
+# part when it is one that shows on the body
+func _update_grow_portrait(player, taken: Dictionary):
+    var form_id: String = player.current_character_id if player else "ancestral_collar_cell"
+    var drawn = preload("res://PlayerBody.gd").has_form(form_id)
+    grow_portrait.get_child(0).visible = drawn
+    grow_sheet.visible = not drawn
+    if drawn:
+        if grow_body_art.form_id != form_id or grow_body_art.get_meta("set", false) == false:
+            grow_body_art.set_form(form_id)
+            grow_body_art.set_meta("set", true)
+        var parts = taken.duplicate()
+        var showing = grow_selected in GROW_VISIBLE and _just_grown != grow_selected
+        if showing:
+            parts[grow_selected] = parts.get(grow_selected, 0) + 1
+        grow_body_art.preview_parts = parts
+        grow_caption.text = ("With " + BIOMINERALS.get_recipe(grow_selected).name.to_lower()) if showing else "You now"
     else:
-        grow_title.text = sel.name
-        var el_facts: Array = []
-        for el in sel.cost:
-            el_facts.append(BIOMINERALS.ELEMENTS[el].name + ": " + BIOMINERALS.ELEMENTS[el].fact)
-        grow_body.text = sel.fact + "\n" + sel.effect + "\n\n" + "\n".join(el_facts)
-        grow_go.disabled = not BIOMINERALS.can_grow(sel, _have, taken)
+        var sheet = "res://assets/lineages/%s_sheet.png" % form_id
+        if ResourceLoader.exists(sheet):
+            var at = AtlasTexture.new()
+            at.atlas = load(sheet)
+            at.region = Rect2(0, 0, at.atlas.get_width() / 4.0, at.atlas.get_height())
+            grow_sheet.texture = at
+        grow_caption.text = "You now"
+
+const GROW_STAT_NAMES = {"fire": "Attack rate", "range": "Reach", "crit": "Double-damage hits",
+    "dash_cd": "Dash recharge", "zap_power": "Zap power", "stealth": "Stealth"}
+
+# What growing a part would change, as "Sight: Blind → Very poor"
+func _grow_changes(r: Dictionary, player) -> Array:
+    var out: Array = []
+    if player == null:
+        return [r.effect]
+    if r.has("heal"):
+        out.append("Health ♥ %s → %s" % [_hearts(player.health), _hearts(min(player.max_health, player.health + int(r.heal)))])
+        return out
+    var m: Dictionary = player.adaptation_mods()
+    var words = lineages.VISION_WORDS
+    for k in r.get("mods", {}):
+        var d = r.mods[k]
+        match k:
+            "vision":
+                var v = int(player.vision)
+                out.append("Sight %s → %s" % [words[v], words[min(10, v + int(d))]])
+            "sense":
+                out.append("Other sense +%d" % int(d))
+            "hp":
+                out.append("Hearts %s → %s" % [_hearts(player.max_health), _hearts(player.max_health + int(d))])
+            "damage":
+                var cur = m.get("damage", 0.0)
+                out.append("Damage %.1f → %.1f" % [player.damage, player.damage * (1.0 + cur + d) / (1.0 + cur)])
+            "speed":
+                var cur = m.get("speed", 0.0)
+                out.append("Speed %d → %d" % [int(player.speed), int(player.speed * (1.0 + cur + d) / (1.0 + cur))])
+            "armour":
+                out.append("Armour %d → %d" % [int(m.get("armour", 0)), int(m.get("armour", 0) + d)])
+            "thorns":
+                out.append("Spine pricks %d → %d" % [int(m.get("thorns", 0)), int(m.get("thorns", 0) + d)])
+            "regen":
+                out.append("Heal per room ½♥ × %d → %d" % [int(m.get("regen", 0)), int(m.get("regen", 0) + d)])
+            "knockback":
+                out.append("Knockback %d → %d" % [int(m.get("knockback", 0) / 260.0), int((m.get("knockback", 0) + d) / 260.0)])
+            "perk":
+                out.append("New: " + r.effect)
+            _:
+                var name = GROW_STAT_NAMES.get(k, k.capitalize())
+                out.append("%s +%d%% → +%d%%" % [name, int(round(m.get(k, 0.0) * 100)), int(round((m.get(k, 0.0) + d) * 100))])
+    return out
+
+func _hearts(hp: int) -> String:
+    var h = hp / 2.0
+    return ("%d" % int(h)) if is_equal_approx(h, floor(h)) else ("%.1f" % h)
 
 func _cost_bbcode(cost: Dictionary) -> String:
     var parts: Array = []
@@ -571,13 +817,99 @@ func _cost_bbcode(cost: Dictionary) -> String:
 
 func _on_grow_pressed():
     var player = get_tree().get_first_node_in_group("player")
-    if player and player.grow(grow_selected):
-        var r = BIOMINERALS.get_recipe(grow_selected)
+    var r = BIOMINERALS.get_recipe(grow_selected)
+    if r.is_empty() or player == null:
+        return
+    var before = _grow_changes(r, player)
+    var cost = BIOMINERALS.cost_of(r, BIOMINERALS.times_for_cost(r, player.adaptations_taken))
+    if player.grow(grow_selected):
         last_banner = [r.name, r.effect + "\n" + r.fact]
+        _just_grown = r.id
         _fill_grow_screen()
+        _grow_feedback(r, cost, before)
         var main = get_tree().get_first_node_in_group("main")
         if main and main.has_method("check_challenges"):
             main.check_challenges()
+
+# Elements fly out of your stores into the creature, which swells as the
+# part appears; what changed floats up from it
+func _grow_feedback(r: Dictionary, cost: Dictionary, changes: Array):
+    PadInput.rumble(0.6, 0.25)
+    var target = grow_portrait.get_global_rect().get_center()
+    var delay := 0.0
+    for el in cost:
+        var chip: Label = grow_chips[el]
+        var from = chip.get_global_rect().get_center()
+        var ctw = chip.create_tween()
+        chip.pivot_offset = chip.size / 2.0
+        ctw.tween_property(chip, "scale", Vector2.ONE * 1.35, 0.08)
+        ctw.tween_property(chip, "scale", Vector2.ONE, 0.25).set_trans(Tween.TRANS_BACK)
+        for i in min(int(cost[el]), 8):
+            var mote = GrowMote.new()
+            mote.col = BIOMINERALS.ELEMENTS[el].color
+            mote.size = Vector2(16, 16)
+            mote.mouse_filter = Control.MOUSE_FILTER_IGNORE
+            grow_modal.add_child(mote)
+            mote.global_position = from - mote.size / 2.0 + Vector2(randf_range(-14, 14), randf_range(-6, 6))
+            var mid = from.lerp(target, 0.5) + Vector2(randf_range(-160, 160), randf_range(-60, 40))
+            var end = target - mote.size / 2.0 + Vector2(randf_range(-20, 20), randf_range(-20, 20))
+            var start = mote.global_position
+            var mtw = mote.create_tween()
+            mtw.tween_interval(delay)
+            mtw.tween_method(func(u: float):
+                if is_instance_valid(mote):
+                    var a = start.lerp(mid, u)
+                    var b2 = mid.lerp(end, u)
+                    mote.global_position = a.lerp(b2, u)
+                    mote.rotation = u * 6.0
+            , 0.0, 1.0, 0.5).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
+            mtw.tween_callback(mote.queue_free)
+            delay += 0.035
+    # The creature swells and flashes as the part grows in
+    var arrive = delay + 0.45
+    var ptw = grow_portrait.create_tween()
+    grow_portrait.pivot_offset = grow_portrait.size / 2.0
+    ptw.tween_interval(arrive)
+    ptw.tween_property(grow_portrait, "scale", Vector2.ONE * 1.18, 0.1).set_trans(Tween.TRANS_SINE)
+    ptw.parallel().tween_property(grow_portrait, "modulate", Color(1.6, 1.5, 1.2), 0.1)
+    ptw.tween_property(grow_portrait, "scale", Vector2.ONE, 0.45).set_trans(Tween.TRANS_ELASTIC).set_ease(Tween.EASE_OUT)
+    ptw.parallel().tween_property(grow_portrait, "modulate", Color.WHITE, 0.4)
+    # Hold back the new part until the elements arrive
+    if r.id in GROW_VISIBLE and grow_body_art.visible:
+        var parts: Dictionary = grow_body_art.preview_parts.duplicate()
+        var now = parts.duplicate()
+        parts[r.id] = max(0, int(parts.get(r.id, 0)) - 1)
+        grow_body_art.preview_parts = parts
+        var btw = grow_body_art.create_tween()
+        btw.tween_interval(arrive)
+        btw.tween_callback(func(): grow_body_art.preview_parts = now)
+    # The change, floating up
+    var pop = Label.new()
+    pop.text = "\n".join(changes) if not changes.is_empty() else r.effect
+    pop.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+    pop.add_theme_font_size_override("font_size", 40)
+    pop.add_theme_color_override("font_color", UI.LEAF)
+    pop.add_theme_color_override("font_outline_color", Color(0.08, 0.05, 0.03))
+    pop.add_theme_constant_override("outline_size", 8)
+    pop.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    pop.modulate.a = 0.0
+    grow_modal.add_child(pop)
+    pop.reset_size()
+    # Big, in the middle above the info panel, rising like a banner
+    var top = grow_portrait.get_global_rect().position.y
+    pop.global_position = Vector2(grow_modal.size.x / 2.0 - pop.size.x / 2.0, top - 30)
+    var ltw = pop.create_tween()
+    ltw.tween_interval(arrive)
+    ltw.tween_property(pop, "modulate:a", 1.0, 0.12)
+    ltw.parallel().tween_property(pop, "global_position:y", top - 170, 1.3).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+    ltw.tween_property(pop, "modulate:a", 0.0, 0.35)
+    ltw.tween_callback(pop.queue_free)
+    # The tile glows
+    var tile: Button = grow_tiles[r.id].tile
+    var ttw = tile.create_tween()
+    ttw.tween_interval(arrive)
+    ttw.tween_property(tile, "self_modulate", Color(1.7, 1.6, 1.2), 0.08)
+    ttw.tween_property(tile, "self_modulate", Color.WHITE, 0.5)
 
 func update_dna(current_dna: int, max_dna: int, level: int):
     dna_label.text = "BIOMASS %d / %d" % [current_dna, max_dna]
