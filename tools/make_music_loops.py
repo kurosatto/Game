@@ -70,7 +70,7 @@ def main(src,dst,native=False,maxstart=30.0,maxlen=200.0,minlen=60.0,xf=1.5,star
     I=float([l for l in meas.splitlines() if l.strip().startswith('I:')][-1].split()[1])
     gain=lufs-I
     peak=np.abs(seg).max()*10**(gain/20)
-    if peak>0.97: gain-=20*np.log10(peak/0.97)
+    if peak>0.7: gain-=20*np.log10(peak/0.7)  # keep peaks under -3 dBFS so the encoder never clips
     subprocess.run(["ffmpeg","-nostdin","-v","error","-y","-f","f32le","-ar",str(SR),"-ac","2","-i",tmp,"-af",f"volume={gain:.2f}dB","-c:a","libvorbis","-q:a","3",dst],check=True)
     import os; os.remove(tmp)
     info['gain_db']=round(float(gain),1); info['kb']=os.path.getsize(dst)//1024
