@@ -38,25 +38,24 @@ func _initialize():
 	for floor_num in eras:
 		main.floor_number = floor_num
 		main.generate_floor()
+		var room_pos = main.current_room_pos
 		for pos in main.dungeon_rooms:
 			var r = main.dungeon_rooms[pos]
 			if r.type == 1 and (pos - main.current_room_pos).length() == 1:
-				main.current_room_pos = pos
-				main.load_room(pos)
+				room_pos = pos
 				break
-		main.player.global_position = Vector2(760, 560)
-		main.player.reset_physics_interpolation()
-		main.player.health = 999
-		main.get_node("VisionFog").set_vision(7, true)
-		for i in 60: await process_frame
-		main.hud.item_banner.visible = false
-		# Freeze the room so every style shows the same moment
-		main.current_room_node.process_mode = Node.PROCESS_MODE_DISABLED
-		main.player.process_mode = Node.PROCESS_MODE_DISABLED
 		for id in styles:
+			# The room is rebuilt in each style (the colour styles repaint its floor)
 			settings.set_art_style(id)
+			seed(floor_num * 1000)
+			main.current_room_pos = room_pos
+			main.load_room(room_pos)
+			main.player.global_position = Vector2(760, 560)
+			main.player.reset_physics_interpolation()
+			main.player.health = 999
+			main.get_node("VisionFog").set_vision(7, true)
+			for i in 45: await process_frame
+			main.hud.item_banner.visible = false
 			await snap("era%d_%s" % [floor_num, id])
-		main.current_room_node.process_mode = Node.PROCESS_MODE_INHERIT
-		main.player.process_mode = Node.PROCESS_MODE_INHERIT
 	settings.set_art_style(before)
 	quit()

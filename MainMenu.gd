@@ -54,6 +54,7 @@ func build_background():
 	room.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
 	room.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	room.modulate = look.tint * (SettingsManager.brightness / 1.2)
+	room.material = preload("res://data/ArtStyles.gd").floor_material(SettingsManager.art_style, "res://assets/eras/ediacaran/")
 	add_child(room)
 	# Sunlight rippling over the sea floor, as in the first era
 	var light = ColorRect.new()
@@ -67,7 +68,8 @@ func build_background():
 	mat.set_shader_parameter("strength", look.light_power)
 	mat.set_shader_parameter("rect_size", Vector2(1920, 1080))
 	light.material = mat
-	add_child(light)
+	if preload("res://data/ArtStyles.gd").keeps_floor(SettingsManager.art_style):
+		add_child(light)
 	# Ediacaran scenery on the open floor around the buttons, like a room
 	var view = get_viewport_rect().size
 	for p in SCENERY:
@@ -106,6 +108,8 @@ func build_background():
 	# is tuned by eye so the bare floor is as pale as the first room in play
 	var ink = preload("res://InkFilter.gd").new()
 	ink.fixed_light = 0.32
+	# The floor key is drawn with the room's own modulate, not a CanvasModulate
+	ink.fixed_floor_tint = Color.WHITE
 	add_child(ink)
 
 func _process(delta: float):

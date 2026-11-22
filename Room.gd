@@ -241,6 +241,8 @@ func spawn_fullscreen_background():
             4: bg.modulate = Color(1.12, 1.0, 0.85)
             5: bg.modulate = Color(1.05, 1.08, 1.0)
             3: bg.modulate = Color(0.85, 0.75, 0.95)
+    # Colour art styles paint the open floor in their own backdrop key
+    bg.material = preload("res://data/ArtStyles.gd").floor_material(SettingsManager.art_style, era_dir())
     add_child(bg)
     # Screens taller than 16:9 (the Legion Go's 1920x1200) see past the top
     # and bottom of the room: mirror the rocky rim out into that strip
@@ -384,13 +386,15 @@ func spawn_ambient_particles():
     add_child(particles2)
 
     if look.shafts.a > 0:
-        spawn_light_shafts(look.shafts)
+        if preload("res://data/ArtStyles.gd").keeps_floor(SettingsManager.art_style):
+            spawn_light_shafts(look.shafts)
     if look.bubbles:
         spawn_bubble_streams()
     if look.mote_kind == "ash":
         spawn_embers()
     spawn_floor_light(look)
-    spawn_passing_shadow(look)
+    if preload("res://data/ArtStyles.gd").keeps_floor(SettingsManager.art_style):
+        spawn_passing_shadow(look)
 
 # Soft sunlight rays slanting down from the surface, gently swaying.
 # Additive polygons with vertex alpha: no shader, cheap on phones.
@@ -473,6 +477,8 @@ func spawn_embers():
 static var floor_light_shader: Shader = null
 
 func spawn_floor_light(look: Dictionary):
+    if not preload("res://data/ArtStyles.gd").keeps_floor(SettingsManager.art_style):
+        return
     if floor_light_shader == null:
         floor_light_shader = Shader.new()
         floor_light_shader.code = era_look.FLOOR_LIGHT_SHADER

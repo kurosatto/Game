@@ -22,6 +22,8 @@ var is_transitioning: bool = false
 var camera_shake_amount: float = 0.0
 
 func _ready():
+    preload("res://data/ArtStyles.gd").apply_environment($WorldEnvironment.environment, SettingsManager.art_style)
+    SettingsManager.art_style_changed.connect(func(id): preload("res://data/ArtStyles.gd").apply_environment($WorldEnvironment.environment, id))
     add_to_group("main")
     setup_inputs()
     
