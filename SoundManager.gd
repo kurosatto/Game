@@ -23,7 +23,23 @@ const SOUND_VOLUMES: Dictionary = {
     "evolve":       -4.0,   # Evolution card chosen
     "boss_intro":   -2.0,   # Boss room entered
     "room_clear":   -6.0,   # Last enemy in a room died
+    # Combat (generate_combat_sfx.py): one attack sound per weapon...
+    "atk_vesicle": -6.0, "atk_jet": -6.0, "atk_spit": -6.0, "atk_harpoon": -6.0,
+    "atk_slime": -6.0, "atk_silk": -7.0, "atk_spray": -7.0, "atk_engulf": -5.0,
+    "atk_clamp": -4.0, "atk_bite": -4.0, "atk_rasp": -6.0, "atk_pincer": -4.0,
+    "atk_claw": -5.0, "atk_lash": -4.0, "atk_sting": -5.0, "atk_arms": -5.0,
+    "atk_tongue": -5.0, "atk_spines": -5.0, "atk_smash": -3.0,
+    # ...hits that sound like what they struck, and kills to match
+    "hit_soft": -4.0, "hit_shell": -5.0, "hit_flesh": -3.0, "hit_crit": -2.0,
+    "hit_glance": -8.0, "parry": -6.0,
+    "kill_soft": -2.0, "kill_shell": -2.0, "kill_flesh": -2.0,
+    "enemy_lunge": -9.0, "enemy_spit": -7.0, "hurt_thud": -2.0,
 }
+
+# The same sound fired twice within this many seconds plays once: a spray of
+# three droplets, or a sweep through a swarm, shouldn't stack into a roar
+const REPEAT_GAP := 0.035
+var last_played: Dictionary = {}
 
 # Looping soundtrack (generate_soundtrack.py): one theme, re-voiced per era
 const ERA_TRACKS := ["ediacaran", "cambrian", "ordovician", "carboniferous", "permian"]
@@ -129,9 +145,35 @@ func music_for_floor(floor_num: int) -> String:
 func boss_music_for_floor(floor_num: int) -> String:
     return "boss_" + music_for_floor(floor_num)
 
+# The attack sound of a form's weapon (Lineages.WEAPONS key)
+func play_attack(weapon: String, pitch_scale: float = 1.0):
+    if sound_streams.has("atk_" + weapon):
+        play_sfx("atk_" + weapon, pitch_scale)
+    else:
+        play_sfx("shoot", pitch_scale)
+
+# A blow landing on an animal: soft bodies squelch, shells clack, bony
+# backs thud (Fauna.body_of). A signature move adds a crunch on top.
+func play_hit(body: String, crit: bool = false, volume_db: float = 0.0):
+    var s_name = "hit_" + body
+    play_sfx(s_name if sound_streams.has(s_name) else "hit", randf_range(0.92, 1.1), volume_db)
+    if crit:
+        play_sfx("hit_crit", randf_range(0.95, 1.05))
+
+func play_kill(body: String, boss: bool = false):
+    var s_name = "kill_" + body
+    if sound_streams.has(s_name):
+        play_sfx(s_name, 0.75 if boss else randf_range(0.92, 1.08), 2.0 if boss else 0.0)
+    if boss or not sound_streams.has(s_name):
+        play_sfx("enemy_die", 0.6 if boss else 1.0, -4.0 if sound_streams.has(s_name) else 0.0)
+
 func play_sfx(s_name: String, pitch_scale: float = 1.0, volume_db: float = 0.0):
     if not sound_streams.has(s_name):
         return
+    var now = Time.get_ticks_msec() / 1000.0
+    if now - last_played.get(s_name, -1.0) < REPEAT_GAP:
+        return
+    last_played[s_name] = now
 
     # Start from per-sound base volume, then apply any caller adjustment
     var base_vol = SOUND_VOLUMES.get(s_name, 0.0)
