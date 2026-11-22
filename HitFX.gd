@@ -76,3 +76,35 @@ static func impact(parent: Node, pos: Vector2, dir: Vector2, col: Color, strengt
 	p.emitting = true
 	parent.add_child(p)
 	p.get_tree().create_timer(0.4).timeout.connect(p.queue_free)
+
+# ── Ink marks (StrikeMark.gd): what each kind of blow leaves where it lands ──
+const StrikeMarkScript = preload("res://StrikeMark.gd")
+
+static func _mark(parent: Node, pos: Vector2, rot: float, kind: String, col: Color, size: float, crit: bool = false) -> Node2D:
+	if parent == null:
+		return null
+	var m = StrikeMarkScript.new()
+	m.kind = kind
+	m.color = col
+	m.size = clamp(size, 14.0, 70.0)
+	m.crit = crit
+	m.position = pos
+	m.rotation = rot
+	parent.add_child(m)
+	return m
+
+# A weapon's own mark on a struck animal (jaws snapping shut for a bite,
+# raking streaks for a claw, a puncture star for a sting...)
+static func strike(parent: Node, pos: Vector2, dir: Vector2, weapon: String, col: Color, size: float, crit: bool = false):
+	_mark(parent, pos, dir.angle(), StrikeMarkScript.kind_for(weapon), col, size, crit)
+
+# A kill: ink soaks into the floor and bits fly (shell chips or droplets)
+static func kill_marks(parent: Node, pos: Vector2, col: Color, body: String, size: float):
+	_mark(parent, pos, randf() * TAU, "stain", col, size * 1.2)
+	var c = _mark(parent, pos, 0.0, "chips", col, size)
+	if c:
+		c.shelled = body == "shell"
+
+# The player is struck: a jagged red-ink burst round the body
+static func hurt(parent: Node, pos: Vector2, size: float = 26.0):
+	_mark(parent, pos, randf() * TAU, "hurt", Color(1.0, 0.6, 0.5), size)

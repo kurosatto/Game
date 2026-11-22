@@ -7,6 +7,7 @@
 extends CharacterBody2D
 
 signal enemy_died
+const HitFX = preload("res://HitFX.gd")
 signal boss_health_changed(current, max_value, boss_title)
 
 # Shared lighting (preloaded: works even before the editor has rescanned)
@@ -211,6 +212,10 @@ func take_damage(amount: float):
 	if health <= 0:
 		die()
 
+# Soft, shelled or bony: what hits and the kill sound like (Fauna.BODIES)
+func body_material() -> String:
+	return preload("res://data/Fauna.gd").body_of(boss_title.split(" ")[0].capitalize())
+
 func take_damage_if_alive(amount: float):
 	if not dead and health > 0:
 		take_damage(amount)
@@ -228,8 +233,9 @@ func die():
 	if dead:
 		return
 	dead = true
-	SoundManager.play_sfx("enemy_die", 0.6)
+	SoundManager.play_kill(body_material(), true)
 	death_burst()
+	HitFX.kill_marks(get_parent(), global_position, burst_color(), body_material(), 90.0)
 	var main = get_tree().get_first_node_in_group("main")
 	drop_elements(main.floor_number if main else 1)
 	preload("res://data/Codex.gd").note_eaten(boss_title.split(" ")[0].capitalize())
