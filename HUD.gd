@@ -1666,7 +1666,7 @@ func show_pause_info():
             _pause_chip(chips, _icon("stat_speed"), "%d" % int(player.speed), UI.AQUA)
             var senses = lineages.sense_words(form)
             _pause_chip(chips, _icon("stat_sight"), senses[0])
-            _pause_chip(chips, _icon("stat_sense"), senses[2], UI.LEAF)
+            _pause_chip(chips, _icon("stat_sense"), "%s: %s" % [senses[1], senses[2]], UI.LEAF)
             _pause_chip(chips, _icon("stat_attack"), player.current_weapon_name, UI.SUN)
 
     # The era's animals, drawn with their own sprite sheets
@@ -1820,6 +1820,7 @@ func show_era_card(floor_num: int, form: Dictionary):
             ["PAUSE", "Esc"],
         ]
     rows.append(["SIGHT", lineages.describe_vision(form).trim_prefix("Vision: ")])
+    rows.append(["SENSE", lineages.describe_sense(form) + ". Its ink marks at the edge of your sight point to animals hidden in the dark"])
     var color: Color = form.get("color", Color(0.0, 0.95, 1.0))
     var era: Dictionary = ERA_INFO.get(clampi(floor_num, 1, 5), {})
     var vbox = _open_card(color, 1300)
