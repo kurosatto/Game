@@ -44,7 +44,7 @@ func pick_adaptation():
 		return
 	var options: Array = []
 	for r in p.biominerals.RECIPES:
-		if p.biominerals.can_grow(r, p.elements, p.adaptations_taken):
+		if p.can_grow_part(r):
 			options.append(r.id)
 	if options.is_empty():
 		return

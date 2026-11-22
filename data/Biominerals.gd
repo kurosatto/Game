@@ -48,12 +48,18 @@ const RECIPES = [
 	{"id": "shell_plates", "name": "Aragonite Shell Plates", "cost": {"Ca": 6}, "icon": "grow_shell_plates", "once": true,
 		"fact": "Molluscs lay down shell as layers of aragonite, a form of calcium carbonate, bound in protein.",
 		"effect": "Big hits do 1 less damage", "mods": {"armour": 1}},
-	{"id": "calcite_lenses", "name": "Calcite Eye Lenses", "cost": {"Ca": 3, "P": 1}, "icon": "grow_calcite_lenses",
+	{"id": "photoreceptors", "name": "Photoreceptor Eyespots", "cost": {"P": 2}, "icon": "grow_photoreceptors",
+		"fact": "Light flips an opsin, and a cascade of phosphate-charged messengers (GTP and cGMP) turns it into a nerve signal; every glimpse spends phosphate.",
+		"effect": "+1 vision", "mods": {"vision": 1}},
+	{"id": "calcite_lenses", "name": "Calcite Eye Lenses", "cost": {"Ca": 2}, "icon": "grow_calcite_lenses",
 		"fact": "Trilobites saw through lenses of clear calcite crystal; chitons and brittle stars still see through mineral lenses today.",
 		"effect": "+1 vision, +1 to your best other sense", "mods": {"vision": 1, "sense": 1}},
-	{"id": "bone", "name": "Bone", "cost": {"P": 4, "Ca": 3}, "icon": "grow_bone",
+	{"id": "bone", "name": "Bone", "cost": {"P": 4, "Ca": 2}, "icon": "grow_bone",
 		"fact": "Bone is hydroxyapatite, a calcium phosphate, threaded with collagen; it first armoured jawless fish.",
 		"effect": "+1 heart, healed now", "mods": {"hp": 2}},
+	{"id": "membrane_repair", "name": "Membrane Repair", "cost": {"P": 2}, "icon": "grow_membrane_repair", "heal": 2,
+		"fact": "Every cell membrane is a double layer of phospholipids, each with a phosphate head; torn membrane is patched by making more.",
+		"effect": "Heal 1 heart now (same price every time)"},
 	{"id": "phosphagen", "name": "Phosphagen Stores", "cost": {"P": 3}, "icon": "grow_phosphagen",
 		"fact": "Phosphocreatine, or phosphoarginine in invertebrates, refills ATP instantly for a burst of speed.",
 		"effect": "Dash or escape recharges 20% faster", "mods": {"dash_cd": 0.2}},
@@ -110,11 +116,16 @@ static func cost_of(r: Dictionary, times_taken: int) -> Dictionary:
 		c[el] = int(ceil(r.cost[el] * COST_SCALE * (1.0 + 0.6 * times_taken)))
 	return c
 
+# Healing parts ("heal") are used up at once: they never get dearer and are
+# not kept as adaptations
+static func times_for_cost(r: Dictionary, taken: Dictionary) -> int:
+	return 0 if r.has("heal") else int(taken.get(r.id, 0))
+
 static func can_grow(r: Dictionary, have: Dictionary, taken: Dictionary) -> bool:
 	var n = taken.get(r.id, 0)
 	if r.get("once", false) and n > 0:
 		return false
-	var c = cost_of(r, n)
+	var c = cost_of(r, times_for_cost(r, taken))
 	for el in c:
 		if int(have.get(el, 0.0)) < c[el]:
 			return false
@@ -126,3 +137,11 @@ static func cost_text(cost: Dictionary) -> String:
 		if cost.has(el):
 			parts.append("%d %s" % [cost[el], el])
 	return "  ".join(parts)
+
+# How close you are to affording a part, 0..1 (the slowest element decides)
+static func progress(r: Dictionary, have: Dictionary, taken: Dictionary) -> float:
+	var c = cost_of(r, times_for_cost(r, taken))
+	var f := 1.0
+	for el in c:
+		f = min(f, float(have.get(el, 0.0)) / max(1.0, c[el]))
+	return clampf(f, 0.0, 1.0)
