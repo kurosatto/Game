@@ -88,6 +88,29 @@ float luma(vec3 c) { return dot(c, vec3(0.299, 0.587, 0.114)); }
 vec3 tex(vec2 uv) { return texture(screen_tex, uv).rgb; }
 vec3 expose(vec3 c) { return clamp(c * mix(1.0, 0.62 / max(light_lum, 0.2), 0.45), 0.0, 1.0); }
 vec3 saturate_by(vec3 c, float k) { float l = luma(c); return clamp(mix(vec3(l), c, k), 0.0, 1.0); }
+// Things (animals, you, scenery, walls) against the open floor: how much
+// this point differs in colour from its surroundings, near and far. The
+// floor's big soft patches score low, so they can be repainted in the
+// style's own backdrop instead of being posterised into murky blotches.
+float thing_mask(vec2 uv, vec2 px) {
+	vec3 c = tex(uv);
+	vec3 a = vec3(0.0);
+	vec3 b = vec3(0.0);
+	for (int i = 0; i < 6; i++) {
+		float ang = float(i) * 1.0472 + 0.3;
+		vec2 d = vec2(cos(ang), sin(ang));
+		a += tex(uv + d * 20.0 * px);
+		b += tex(uv + d * 46.0 * px);
+	}
+	float k = max(length(c - a / 6.0), length(c - b / 6.0)) / max(light_lum, 0.55);
+	return smoothstep(0.13, 0.27, k);
+}
+// The bare floor in the style's backdrop colour, keeping a faint trace of
+// its light and shade so rooms still read as places
+vec3 ground(vec3 bg, vec3 c, float detail) {
+	float k = clamp(luma(c) / max(light_lum, 0.2), 0.0, 1.6) - 1.0;
+	return clamp(bg * (1.0 + k * detail), 0.0, 1.0);
+}
 """
 
 # ---- Sepia sketchbook (the default; unchanged from PR #51) ----
@@ -146,7 +169,13 @@ void fragment() {
 	}
 	vec3 q = floor(saturate_by(c, 1.05) * 3.0 + 0.5) / 3.0;
 	q = mix(q, vec3(0.13, 0.20, 0.24), 0.18); // a cool retro cast
-	COLOR = vec4(mix(q, vec3(0.04, 0.03, 0.06), outline), 1.0);
+	q = mix(q, vec3(0.04, 0.03, 0.06), outline);
+	// The floor: the sample's deep blue-green, in two flat shades
+	float thing = smoothstep(0.3, 0.6, thing_mask(uv, px));
+	vec3 bg = mix(vec3(0.12, 0.20, 0.23), vec3(0.08, 0.13, 0.16), SCREEN_UV.y);
+	float k = floor(clamp(luma(tex(uv)) / max(light_lum, 0.2), 0.0, 1.5) * 2.0) / 2.0;
+	vec3 floor_col = bg * (0.85 + 0.2 * k);
+	COLOR = vec4(mix(floor_col, q, thing), 1.0);
 }
 """
 
@@ -174,7 +203,13 @@ void fragment() {
 	shade = mix(shade, shade * vec3(0.75, 0.80, 1.15), (1.0 - band / 4.0) * 0.5);
 	shade = mix(shade, shade * vec3(1.12, 1.05, 0.85), (band / 4.0) * 0.35);
 	vec3 line_col = shade * vec3(0.30, 0.25, 0.38);
-	COLOR = vec4(mix(shade, line_col, outline), 1.0);
+	shade = mix(shade, line_col, outline);
+	// The floor: a dusky slate in three shades
+	float thing = smoothstep(0.3, 0.6, thing_mask(uv, px));
+	vec3 bg = mix(vec3(0.16, 0.21, 0.27), vec3(0.10, 0.13, 0.18), SCREEN_UV.y);
+	float k = floor(clamp(luma(tex(uv)) / max(light_lum, 0.2), 0.0, 1.5) * 3.0) / 3.0;
+	vec3 floor_col = bg * (0.82 + 0.2 * k);
+	COLOR = vec4(mix(floor_col, shade, thing), 1.0);
 }
 """
 
@@ -189,6 +224,10 @@ void fragment() {
 	vec2 cell = floor(FRAGCOORD.xy / BLOCK);
 	vec2 uv = (cell + 0.5) * BLOCK * px;
 	vec3 c = saturate_by(expose(tex(uv)), 1.15);
+	// The floor: the sample's night blue, dithered like everything else
+	vec3 bg = mix(vec3(0.10, 0.15, 0.27), vec3(0.05, 0.08, 0.16), SCREEN_UV.y);
+	float thing = thing_mask(uv, px);
+	c = mix(ground(bg, tex(uv), 0.25), c, thing);
 	// Gradient over a few pixels for rim light and outlines
 	float o = BLOCK * 1.5;
 	float lx = luma(tex(uv + vec2(o, 0.0) * px)) - luma(tex(uv - vec2(o, 0.0) * px));
@@ -196,12 +235,13 @@ void fragment() {
 	vec2 g = vec2(lx, ly);
 	float edge = length(g);
 	// Light comes from the top left of the screen
+	edge *= thing;
 	float rim = clamp(dot(-g, normalize(vec2(-1.0, -1.0))) * 3.0, 0.0, 1.0) * smoothstep(0.08, 0.25, edge);
 	c += vec3(0.55, 0.75, 0.95) * rim * 0.35;
 	float d = bayer4(cell) - 0.5;
 	vec3 q = floor(c * 5.0 + d + 0.5) / 5.0;
 	q *= 1.0 - smoothstep(0.25, 0.6, edge) * 0.55;
-	q = mix(q, vec3(0.06, 0.10, 0.20), 0.12);
+	q = mix(q, vec3(0.06, 0.10, 0.20), 0.12 * thing);
 	COLOR = vec4(clamp(q, 0.0, 1.0), 1.0);
 }
 """
@@ -228,7 +268,12 @@ void fragment() {
 	// Shine spot on the brightest parts
 	flat_col = mix(flat_col, vec3(1.0, 0.97, 0.88), step(0.88, l) * 0.6);
 	flat_col = mix(flat_col, flat_col * vec3(1.08, 0.98, 0.80), 0.6);
-	COLOR = vec4(mix(flat_col, vec3(0.06, 0.04, 0.03), line), 1.0);
+	flat_col = mix(flat_col, vec3(0.06, 0.04, 0.03), line);
+	// The floor: the sample's warm sand card, with a faint flat shadow band
+	float thing = thing_mask(uv, px);
+	vec3 bg = mix(vec3(0.93, 0.83, 0.64), vec3(0.86, 0.73, 0.53), SCREEN_UV.y);
+	vec3 floor_col = bg * (0.94 + 0.06 * step(0.0, luma(tex(uv)) - light_lum * 0.8));
+	COLOR = vec4(mix(floor_col, flat_col, smoothstep(0.35, 0.6, max(thing, line * smoothstep(0.15, 0.3, thing)))), 1.0);
 }
 """
 
@@ -287,7 +332,10 @@ void fragment() {
 	vec3 wash = 1.0 - (1.0 - c) * 0.8;
 	float pool = 1.0 - edge * 0.28;
 	float granule = 1.0 - vnoise(fc / 3.0) * 0.06 - vnoise(fc / 70.0) * 0.07;
-	COLOR = vec4(paper * wash * pool * granule, 1.0);
+	// The floor stays almost bare paper, with the faintest wash of its colour
+	float thing = thing_mask(uv, px);
+	vec3 floor_wash = 1.0 - (1.0 - c) * 0.18;
+	COLOR = vec4(paper * mix(floor_wash, wash * pool, thing) * granule, 1.0);
 }
 """
 
@@ -383,6 +431,9 @@ void fragment() {
 	vec3 cb = tex((cell + mix(mid, b, 0.7)) * to_uv);
 	vec3 cd = tex((cell + mix(mid, d, 0.7)) * to_uv);
 	vec3 c = expose((cm * 2.0 + ca + cb + cd) / 5.0);
+	// The floor: slate-blue paper facets, like the sample's backdrop
+	vec3 bg = mix(vec3(0.22, 0.30, 0.40), vec3(0.14, 0.20, 0.28), SCREEN_UV.y);
+	c = mix(ground(bg, cm, 0.2), c, thing_mask((cell + mid) * to_uv, px));
 	// Facet tilt from brightness across its corners
 	vec2 slope = vec2(luma(cb) - luma(ca), luma(cd) - luma(cb));
 	float facet = 0.92 + clamp(dot(slope, vec2(-1.2, 1.2)), -0.15, 0.15) + (hash(cell * 2.0 + (lower ? 0.5 : 0.0)) - 0.5) * 0.16;
@@ -390,7 +441,7 @@ void fragment() {
 	// A faint fold along each triangle's edges
 	float seam = min(min(abs(f.x - f.y), f.y), 1.0 - f.x);
 	c *= 1.0 - 0.07 * (1.0 - smoothstep(0.0, 0.08, seam));
-	COLOR = vec4(mix(c, vec3(0.10, 0.14, 0.22), 0.1), 1.0);
+	COLOR = vec4(c, 1.0);
 }
 """
 
@@ -404,9 +455,15 @@ void fragment() {
 	vec3 c = (tex(uv) * 2.0 + tex(uv + vec2(1.5, 0.0) * px) + tex(uv - vec2(1.5, 0.0) * px)
 		+ tex(uv + vec2(0.0, 1.5) * px) + tex(uv - vec2(0.0, 1.5) * px)) / 6.0;
 	c = expose(c);
+	// The floor: the sample's sea teal, softly lit
+	float thing = thing_mask(uv, px);
+	vec3 bg = mix(vec3(0.24, 0.48, 0.48), vec3(0.14, 0.33, 0.34), SCREEN_UV.y);
+	c = mix(ground(bg, c, 0.15), c, thing);
 	float o = 3.0;
 	float hx = luma(tex(uv + vec2(o, 0.0) * px)) - luma(tex(uv - vec2(o, 0.0) * px));
 	float hy = luma(tex(uv + vec2(0.0, o) * px)) - luma(tex(uv - vec2(0.0, o) * px));
+	hx *= thing;
+	hy *= thing;
 	vec3 n = normalize(vec3(-hx * 3.0, -hy * 3.0, 1.0));
 	vec3 L = normalize(vec3(-0.5, -0.6, 0.8));
 	float diff = 0.72 + 0.45 * dot(n, L);
@@ -414,13 +471,12 @@ void fragment() {
 	// Drop shadow: something darker up and to the left casts onto here
 	float l_here = luma(tex(uv));
 	float l_cast = luma(tex(uv - vec2(-7.0, -9.0) * px));
-	float shadow = clamp((l_here - l_cast) / max(light_lum, 0.25), 0.0, 1.0) * 0.35;
+	float shadow = clamp((l_here - l_cast) / max(light_lum, 0.25), 0.0, 1.0) * 0.35 * (1.0 - thing);
 	vec3 col = saturate_by(c, 1.15) * diff * (1.0 - shadow) + vec3(1.0, 0.98, 0.92) * spec;
 	// Caustics: bright wandering ribbons of light through the water
 	vec2 q = fc / 160.0;
 	float k = abs(vnoise(q + vec2(TIME * 0.12, 0.0)) - vnoise(q * 1.3 - vec2(0.0, TIME * 0.10)));
 	col += vec3(0.55, 0.85, 0.80) * smoothstep(0.12, 0.0, k) * 0.07;
-	col = mix(col, vec3(0.10, 0.28, 0.30), 0.08);
 	COLOR = vec4(col, 1.0);
 }
 """
