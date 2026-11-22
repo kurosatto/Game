@@ -75,6 +75,23 @@ var heart_empty_tex = preload("res://assets/pickup_heart_empty.png")
 var dungeon_rooms: Dictionary = {}
 var current_room_pos: Vector2i = Vector2i(4, 4)
 
+# HUD.tscn's own panels and bars follow the art style's palette (UIStyle)
+func restyle_panels():
+    var top = UI.panel(UI.MEMBRANE, 32, 0.84, 0.0)
+    top.set_border_width_all(0)
+    top.border_width_bottom = UI.RIM
+    top.corner_radius_top_left = 0
+    top.corner_radius_top_right = 0
+    $HUDPanel.add_theme_stylebox_override("panel", top)
+    $SettingsModal/Panel.add_theme_stylebox_override("panel", UI.panel(UI.MEMBRANE, 28, 0.96, 0.0))
+    var dna = $HUDPanel/MarginContainer/HBoxContainer/DnaContainer/DnaBar
+    dna.add_theme_stylebox_override("fill", UI.bar_box(UI.LEAF))
+    var ability = $HUDPanel/MarginContainer/HBoxContainer/AbilityContainer/AbilityBar
+    ability.add_theme_stylebox_override("fill", UI.bar_box(UI.AQUA))
+    ability.add_theme_stylebox_override("background", UI.bar_box(UI.INK.darkened(0.5), 0.7))
+    $SettingsModal.color = Color(UI.BACKDROP, $SettingsModal.color.a)
+    UI.restyle_tree(self)
+
 func _ready():
     boss_container.visible = false
     _make_banner_card()
@@ -98,6 +115,7 @@ func _ready():
         minimap_ctrl.draw.connect(_on_minimap_draw)
         
     setup_settings_ui()
+    restyle_panels()
     if TouchControls.should_show():
         use_touch_texts()
     # No shop, so no coin counter; kills leave elements to grow parts from
@@ -618,9 +636,9 @@ func _on_minimap_draw():
         var draw_pos = center_screen + Vector2(offset_grid.x * step.x, offset_grid.y * step.y) - (cell_size / 2.0)
         var rect = Rect2(draw_pos, cell_size)
         
-        var room_col = Color(0.36, 0.27, 0.18, 0.65)
+        var room_col = Color(UI.MEMBRANE.darkened(0.55), 0.65)
         if is_visited:
-            room_col = Color(0.70, 0.58, 0.40, 0.95)
+            room_col = Color(UI.MEMBRANE.darkened(0.15), 0.95)
         var blob = UI.bar_box(room_col)
         blob.set_corner_radius_all(6)
         if is_current:

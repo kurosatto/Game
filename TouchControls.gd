@@ -6,6 +6,7 @@
 class_name TouchControls
 extends CanvasLayer
 
+const UI = preload("res://data/UIStyle.gd")
 const STICK_RADIUS := 130.0
 const KNOB_RADIUS := 55.0
 const DEADZONE := 0.25
@@ -181,18 +182,18 @@ func _notification(what: int):
     if what == NOTIFICATION_APPLICATION_FOCUS_OUT or what == NOTIFICATION_APPLICATION_PAUSED:
         release_all()
 
-# Inked in sepia like the world beneath them (InkFilter.gd): earthy greens
-# and reds that read on paper, with dark ink labels
+# Coloured from the art style's palette (data/UIStyle.gd): in the sepia
+# sketchbook, earthy greens and reds that read on paper with dark ink labels
 func _on_canvas_draw():
-    _draw_stick(move_stick, Color(0.30, 0.42, 0.16))
-    _draw_stick(shoot_stick, Color(0.58, 0.20, 0.12))
+    _draw_stick(move_stick, UI.LEAF.darkened(0.45))
+    _draw_stick(shoot_stick, UI.CORAL.darkened(0.4))
 
     var font = canvas.get_theme_default_font() # the rounded UI font
     var fs = 26
     for i in buttons.size():
         var b = buttons[i]
         var bc = button_center(i)
-        var col: Color = b.color
+        var col: Color = UI.AQUA.darkened(0.5) if b.action == "dash" else UI.SUN.darkened(0.35)
         var alpha = 0.55 if b.touch != -1 else 0.25
         canvas.draw_circle(bc, BUTTON_RADIUS, Color(col.r, col.g, col.b, alpha))
         canvas.draw_arc(bc, BUTTON_RADIUS, 0.0, TAU, 48, Color(col.r, col.g, col.b, 0.8), 3.0)
@@ -202,7 +203,7 @@ func _on_canvas_draw():
             if player and player.has_method("dash_label"):
                 label = player.dash_label()
         var tw = font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
-        canvas.draw_string(font, bc + Vector2(-tw / 2.0, fs * 0.35), label, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(0.27, 0.16, 0.09, 0.95))
+        canvas.draw_string(font, bc + Vector2(-tw / 2.0, fs * 0.35), label, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(UI.TITLE, 0.95))
 
 func _draw_stick(stick: Dictionary, col: Color):
     var active = stick.touch != -1
