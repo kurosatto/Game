@@ -21,7 +21,25 @@ func _ready():
 	_build_key_badge()
 	# Deferred: reacting can add/remove physics nodes, which Godot forbids mid physics step
 	body_entered.connect(_on_body_entered, CONNECT_DEFERRED)
+	_add_outer_stop()
 	update_visuals()
+
+# An always-solid strip across the outer edge of the doorway. If the room
+# change is refused for a moment (just arrived, still on cooldown), the
+# player waits in the doorway instead of walking out of the room; the
+# overlap check in _process then takes them through.
+func _add_outer_stop():
+	var body = StaticBody2D.new()
+	body.name = "OuterStop"
+	body.collision_layer = 4 | 16
+	body.collision_mask = 0
+	var col = CollisionShape2D.new()
+	var shape = RectangleShape2D.new()
+	shape.size = Vector2(160, 40)
+	col.shape = shape
+	col.position = Vector2(0, -60) # door space: -y points out of the room (the wall's outer edge is at -68); close enough that a player stopped here still overlaps the trigger
+	body.add_child(col)
+	add_child(body)
 
 func _process(delta: float):
 	if hint_cooldown > 0:
@@ -173,7 +191,7 @@ func _on_body_entered(body: Node):
 				trigger_cooldown = 1.0
 				door_entered.emit(direction)
 		elif is_open:
-			trigger_cooldown = 1.0
+			trigger_cooldown = 0.5
 			door_entered.emit(direction)
 
 func _room_cleared() -> bool:
@@ -185,10 +203,14 @@ func _room_cleared() -> bool:
 func _show_hint(title: String, desc: String):
 	if hint_cooldown > 0:
 		return
-	hint_cooldown = 3.0
 	var main = get_tree().get_first_node_in_group("main")
+	# Just came in through this door (it shuts behind you while animals are
+	# about): that's not bumping into it, so no "creatures left" banner
+	if main and "room_entered_at" in main and (main.is_transitioning or Time.get_ticks_msec() - main.room_entered_at < 1500):
+		return
+	hint_cooldown = 3.0
 	if main and main.has_method("display_item_banner"):
-		main.display_item_banner(title, desc)
+		main.display_item_banner(title, desc, 1.5) # a quick note, not a long read
 
 func _player_keys() -> int:
 	var p = get_tree().get_first_node_in_group("player")

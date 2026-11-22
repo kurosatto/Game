@@ -721,7 +721,7 @@ func _make_banner_card():
     item_desc.add_theme_color_override("font_color", UI.CREAM)
     item_banner = card
 
-func show_item_banner(title: String, desc: String, near_top: bool = false):
+func show_item_banner(title: String, desc: String, near_top: bool = false, hold_for: float = -1.0):
     item_banner.offset_left = -560.0
     item_banner.offset_right = 560.0
     item_banner.offset_top = -430.0 if near_top else -90.0
@@ -735,7 +735,7 @@ func show_item_banner(title: String, desc: String, near_top: bool = false):
     # pause screen keeps the latest one for later
     if banner_tween and banner_tween.is_valid():
         banner_tween.kill()
-    var hold = clamp(4.0 + desc.length() / 25.0, 4.0, 10.0)
+    var hold = clamp(4.0 + desc.length() / 25.0, 4.0, 10.0) if hold_for < 0.0 else hold_for
     banner_tween = create_tween()
     banner_tween.tween_property(item_banner, "modulate:a", 0.0, 0.6).set_delay(hold)
     banner_tween.tween_callback(func(): item_banner.visible = false)
