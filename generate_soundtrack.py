@@ -15,7 +15,8 @@ from floor to floor:
 Chords are picked bar by bar to fit the melody in each mode, so the theme
 always sounds harmonised. Tracks are rendered as stereo, the reverb is
 circular so loops are seamless, and they are written as Ogg Vorbis (needs
-ffmpeg). SoundManager.gd loads assets/music/<name>.ogg and loops it.
+ffmpeg). The game now plays OpenGameArt tracks instead (see CREDITS.md), so
+this writes to assets/music_procedural/, which the game does not load.
 
 Run from the project root:  python generate_soundtrack.py [track ...]
 """
@@ -576,7 +577,8 @@ for name, cfg in TRACKS.items():
 def main(names):
     for name in names or TRACKS:
         print(name)
-        write_ogg(f"assets/music/{name}.ogg", render(TRACKS[name]))
+        os.makedirs("assets/music_procedural", exist_ok=True)
+        write_ogg(f"assets/music_procedural/{name}.ogg", render(TRACKS[name]))
 
 
 if __name__ == "__main__":
