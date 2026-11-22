@@ -7,6 +7,7 @@
 extends CharacterBody2D
 
 signal enemy_died
+const HitFX = preload("res://HitFX.gd")
 signal boss_health_changed(current, max_value, boss_title)
 
 # Shared lighting (preloaded: works even before the editor has rescanned)
@@ -71,7 +72,7 @@ func setup_enemy(_floor_number: int):
 	setup()
 	health = max_health
 	call_deferred("emit_boss_health")
-	set_state("intro", 1.0)
+	set_state("intro", 1.4) # a moment to see it before it moves
 
 # ── Overridden by each boss ──
 func setup():
@@ -94,6 +95,12 @@ func emit_boss_health():
 	boss_health_changed.emit(health, max_health, boss_title)
 
 func _physics_process(delta: float):
+	# ARENA and the moves are in room coordinates, which only match the world
+	# once the room has slid into place: while the room slides in it sits a
+	# whole room away, and a move then clamped the boss to the near wall,
+	# right where the player walks in. Hold still until the slide is over.
+	if _room_sliding():
+		return
 	t += delta
 	state_time += delta
 	if hit_flash > 0:
@@ -121,6 +128,10 @@ func _draw():
 	draw_body()
 
 # ── State and movement helpers ──
+func _room_sliding() -> bool:
+	var main = get_tree().get_first_node_in_group("main")
+	return main != null and main.get("is_transitioning") == true
+
 func set_state(s: String, _unused: float = 0.0):
 	state = s
 	state_time = 0.0
@@ -211,6 +222,10 @@ func take_damage(amount: float):
 	if health <= 0:
 		die()
 
+# Soft, shelled or bony: what hits and the kill sound like (Fauna.BODIES)
+func body_material() -> String:
+	return preload("res://data/Fauna.gd").body_of(boss_title.split(" ")[0].capitalize())
+
 func take_damage_if_alive(amount: float):
 	if not dead and health > 0:
 		take_damage(amount)
@@ -228,8 +243,9 @@ func die():
 	if dead:
 		return
 	dead = true
-	SoundManager.play_sfx("enemy_die", 0.6)
+	SoundManager.play_kill(body_material(), true)
 	death_burst()
+	HitFX.kill_marks(get_parent(), global_position, burst_color(), body_material(), 90.0)
 	var main = get_tree().get_first_node_in_group("main")
 	drop_elements(main.floor_number if main else 1)
 	preload("res://data/Codex.gd").note_eaten(boss_title.split(" ")[0].capitalize())

@@ -71,6 +71,21 @@ static func get_fauna(floor_num: int, enemy_type: String) -> Dictionary:
 	var f = FLOORS.get(clampi(floor_num, 1, 5), {})
 	return f.get(enemy_type, {})
 
+# What a blow lands on, for hit and kill sounds and the bits a kill throws:
+# "shell" (mineralised shell or a chitin exoskeleton), "flesh" (backboned
+# animals with bone and scales) or "soft" (everything without a hard part).
+const BODIES = {
+	"Marrella": "shell", "Olenoides": "shell", "Isotelus": "shell", "Wiwaxia": "shell",
+	"Orthoceras": "shell", "Cameroceras": "shell", "Megalograptus": "shell",
+	"Pulmonoscorpius": "shell", "Archimylacris": "shell", "Meganeura": "shell",
+	"Arthropleura": "shell", "Anomalocaris": "shell", "Sacabambaspis": "shell",
+	"Diictodon": "flesh", "Dimetrodon": "flesh", "Inostrancevia": "flesh",
+	"Lystrosaurus": "flesh", "Euchambersia": "flesh",
+}
+
+static func body_of(species: String) -> String:
+	return BODIES.get(species, "soft")
+
 const SPECIAL_TYPES = ["tank", "armoured", "charger", "swarm", "burrower", "colony", "skittish", "enroll", "snarer", "orbiter"]
 
 # The era's third animal type ("tank", "swarm"...), or "" if none

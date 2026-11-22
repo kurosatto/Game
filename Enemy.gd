@@ -510,6 +510,7 @@ func process_lunge(delta: float) -> bool:
 	if lunge_cooldown <= 0 and global_position.distance_to(player.global_position) < 420.0:
 		lunge_state = "windup"
 		lunge_timer = 0.45
+		SoundManager.play_sfx("enemy_lunge", randf_range(0.95, 1.1))
 		lunge_dir = (player.global_position - global_position).normalized()
 		velocity = Vector2.ZERO
 		return true
@@ -939,6 +940,7 @@ func process_charger(delta: float):
 			if charge_cooldown <= 0 and to_p.length() < 900.0:
 				charge_state = "windup"
 				charge_timer = 0.65
+				SoundManager.play_sfx("enemy_lunge", 0.8)
 				charge_dir = to_p.normalized()
 
 # Archimylacris: a jittery pack; when one is hit the ones nearby scatter
@@ -1124,7 +1126,7 @@ func process_snarer(delta: float):
 		spray_timer = 0.5
 
 func spray_slime(dir: Vector2):
-	SoundManager.play_sfx("shoot", 0.5, -4.0)
+	SoundManager.play_sfx("atk_slime", 0.75, -2.0)
 	for i in 5:
 		var tear = tear_scene.instantiate()
 		tear.position = global_position + dir * 26.0
@@ -1174,6 +1176,7 @@ func process_orbiter(delta: float):
 			if charge_cooldown <= 0 and d < 480.0:
 				charge_state = "windup"
 				charge_timer = 0.35
+				SoundManager.play_sfx("enemy_lunge", 1.25)
 
 func set_burrowed(on: bool):
 	$Sprite2D.visible = not on
@@ -1211,6 +1214,10 @@ func killer_name() -> String:
 		return ""
 	return ("an elder " if elder else "") + fauna_name
 
+# Soft, shelled or bony: what hits and kills sound like (Fauna.BODIES)
+func body_material() -> String:
+	return fauna.body_of(fauna_name)
+
 func is_burrowed() -> bool:
 	return burrow_state in ["under", "rise"]
 
@@ -1236,7 +1243,7 @@ func shoot_at_player():
 	tear.speed = 460.0
 	get_parent().add_child(tear)
 	
-	SoundManager.play_sfx("shoot", 0.65, -5.0)  # Quieter, lower pitch than player shots
+	SoundManager.play_sfx("enemy_spit", randf_range(0.9, 1.1))  # Duller than the player's shots
 
 func fire_radial_tears(num_tears: int = 12):
 	for i in range(num_tears):
@@ -1308,20 +1315,19 @@ func take_damage(amount: float):
 		return
 	if is_enrolled():
 		# Rolled up: the blow glances off the shell
-		if randf() < 0.5:
-			SoundManager.play_sfx("hit", 2.0, -8.0)
+		SoundManager.play_sfx("hit_glance", randf_range(0.9, 1.1))
 		return
 	# Serrated Edges adaptation: some hits do double
 	if player and is_instance_valid(player) and player.get("crit_chance") and randf() < player.crit_chance:
 		amount *= 2.0
 		player.popup_text(global_position, "×2", Color(1.0, 0.8, 0.4))
+		SoundManager.play_sfx("hit_crit", randf_range(0.95, 1.05))
 	# Stolen stingers (item): some hits fire a nematocyst and stun
 	if player and is_instance_valid(player) and player.get("stun_chance") and randf() < player.stun_chance:
 		apply_stun(0.9)
 	if armour_blocks():
 		amount *= 0.25
-		if randf() < 0.5:
-			SoundManager.play_sfx("hit", 1.8, -6.0)
+		SoundManager.play_sfx("hit_glance", randf_range(0.8, 0.95))
 	if enemy_type == "swarm":
 		scatter_swarm()
 	# Hurt, any animal fights back
@@ -1346,7 +1352,7 @@ func die():
 	if dead:
 		return
 	dead = true
-	SoundManager.play_sfx("enemy_die", 0.6 if is_boss() else 1.0)
+	SoundManager.play_kill(body_material(), is_boss())
 	if not is_boss():
 		drop_biomass()
 		if player and is_instance_valid(player) and "kills" in player:
@@ -1371,6 +1377,7 @@ func die():
 	# Shockwave ring where it popped
 	HitFX.pop(get_parent(), global_position, species_burst_color().lerp(Color.WHITE, 0.4), 30.0, 170.0 * max(1.0, base_scale), 0.28)
 
+	HitFX.kill_marks(get_parent(), global_position, species_burst_color(), body_material(), $CollisionShape2D.shape.radius * absf(scale.x))
 	kill_effects()
 	spawn_corpse()
 	enemy_died.emit()

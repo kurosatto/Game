@@ -312,6 +312,7 @@ func _on_room_transition_requested(direction: Vector2i):
     next_room_node.position = room_offset
     add_child(next_room_node)
     move_child(next_room_node, 0)
+    next_room_node.entry_dir = direction
     next_room_node.setup_room(next_room_data, floor_number)
     
     # Safe entry position inside new room (safely away from door trigger area)

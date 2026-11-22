@@ -2142,3 +2142,51 @@ static func describe_perks(data: Dictionary) -> String:
     if passive_text.has(data.passive):
         lines.append(passive_text[data.passive])
     return "\n".join(lines)
+
+# ---- Evolution card stat bars ----
+# The raw numbers behind the bars on the evolution cards (HUD), so a pick can
+# be compared at a glance: movement speed, damage per hit, hits per second,
+# and how far the eyes and the other sense reach (1-10).
+static func card_stats(data: Dictionary) -> Dictionary:
+    var w = weapon_stats(data.get("weapon", "vesicle"))
+    var per_hit: float = data.damage * (w.get("damage", 1.0) if w.melee else w.get("shot_damage", 1.0))
+    if data.get("weapon", "") == "spray":
+        per_hit *= 3.0 # three droplets a shot
+    var delay: float = data.fire_delay * (w.get("cooldown", 1.0) if w.melee else 1.0)
+    var eyes = VISION.get(data.get("id", ""), [1, ""])
+    var other = SENSES.get(data.get("id", ""), [1, "Touch", ""])
+    return {
+        "speed": float(data.speed),
+        "power": per_hit,
+        "rate": 1.0 / max(0.05, delay),
+        "sight": float(eyes[0]),
+        "sense": float(other[0]),
+        "sense_name": other[1],
+    }
+
+static var _card_ranges: Dictionary = {}
+
+# Lowest and highest of each card stat over every playable form
+static func card_ranges() -> Dictionary:
+    if not _card_ranges.is_empty():
+        return _card_ranges
+    for key in TREE:
+        var s = card_stats(TREE[key])
+        for k in ["speed", "power", "rate"]:
+            if not _card_ranges.has(k):
+                _card_ranges[k] = Vector2(s[k], s[k])
+            _card_ranges[k] = Vector2(min(_card_ranges[k].x, s[k]), max(_card_ranges[k].y, s[k]))
+    _card_ranges["sight"] = Vector2(1, 10)
+    _card_ranges["sense"] = Vector2(1, 10)
+    return _card_ranges
+
+# A card stat as a bar fill: the weakest form still shows a sliver
+static func card_fill(key: String, v: float) -> float:
+    var r: Vector2 = card_ranges()[key]
+    if key in ["power", "rate"]:
+        # These spread over several times, so compare them on a log scale
+        r = Vector2(log(max(0.001, r.x)), log(max(0.001, r.y)))
+        v = log(max(0.001, v))
+    if r.y - r.x < 0.0001:
+        return 0.6
+    return 0.1 + 0.9 * clampf((v - r.x) / (r.y - r.x), 0.0, 1.0)

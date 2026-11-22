@@ -1221,11 +1221,13 @@ func show_evolution_modal(floor_num: int, current_path: Array = []):
         subheader.text = "No real split is known for your lineage in this era, so it adapts instead:"
         _build_choice_card(cards_row, floor_num, 0, {
             "title": "REFINE: " + name_text,
-            "clade": "Lineage: " + form.get("clade", "in-clade adaptation"),
+            "clade": form.get("clade", "in-clade adaptation").get_slice(" — ", 0),
             "desc": "Evolution does not always branch. Your lineage stays itself and gets better at what it does.",
             "perks": "+1.5 damage, +20 speed, faster fire\n+2 max health (heals 2)",
             "color": form.get("color", Color(0.0, 1.0, 0.85)),
             "sheet": "res://assets/lineages/%s_sheet.png" % form.get("id", ""),
+            "stats": _card_stat_rows(form, form, 2, true) if not form.is_empty() else [],
+            "attack": "Attack: " + form.get("weapon_name", "") if not form.is_empty() else "",
         }, 1)
     else:
         # Every card is a direct branch of the current form (Lineages.TREE is
@@ -1234,21 +1236,49 @@ func show_evolution_modal(floor_num: int, current_path: Array = []):
         for i in range(child_paths.size()):
             var child = lineages.get_form(child_paths[i])
             var desc = child.fact + "\n\nLiving today: " + child.living_example + "\n" + child.clade_path
-            if not codex.is_discovered(child.id):
-                desc = "NEW TO YOUR CODEX\n" + desc
-            _build_choice_card(cards_row, floor_num, i, {
+            var is_new = not codex.is_discovered(child.id)
+            var card_btn = _build_choice_card(cards_row, floor_num, i, {
                 "title": child.name,
-                "clade": "Lineage: " + child.clade,
+                "clade": ("NEW · " if is_new else "") + child.clade.get_slice(" — ", 0),
                 "desc": desc,
                 "perks": lineages.describe_perks(child),
                 "color": child.color,
                 "sheet": "res://assets/lineages/%s_sheet.png" % child.id,
+                "stats": _card_stat_rows(child, form, child.get("max_health_add", 0)),
+                "attack": "Attack: " + child.get("weapon_name", "Engulf (phagocytosis)"),
             }, child_paths.size())
+            if i == 0:
+                card_btn.set_meta("pad_default", true)
 
     evolution_modal.visible = true
     UI.reveal(evolution_modal)
     UI.deal(cards_row.get_children())
     get_tree().paused = true
+
+# Stat bar rows for an evolution card: the offered form against the form you
+# are now (the tick on each bar). A refine is your form with its bonuses.
+func _card_stat_rows(offer: Dictionary, now: Dictionary, health_add: int, refine: bool = false) -> Array:
+    var a = lineages.card_stats(offer)
+    var b = lineages.card_stats(now) if not now.is_empty() else {}
+    if refine:
+        a.speed += 20.0
+        a.power += 1.5
+        a.rate = 1.0 / max(0.05, 1.0 / a.rate - 0.02)
+    var player = get_tree().get_first_node_in_group("player")
+    var hp_now: int = player.max_health if player else 6
+    var hp_top: float = max(16.0, hp_now + health_add + 2.0)
+    var rows: Array = []
+    var same = b.is_empty()
+    for k in [["speed", "stat_speed", "Speed", UI.AQUA], ["power", "stat_damage", "Damage", UI.SUN],
+            ["rate", "stat_attack", "Attack rate", UI.SUN]]:
+        rows.append([_icon(k[1]), k[2], lineages.card_fill(k[0], a[k[0]]),
+            -1.0 if same else lineages.card_fill(k[0], b[k[0]]), k[3], true])
+    rows.append([heart_full_tex, "Health", (hp_now + health_add) / hp_top, hp_now / hp_top, UI.CORAL, false])
+    rows.append([_icon("stat_sight"), "Sight", lineages.card_fill("sight", a.sight),
+        -1.0 if same else lineages.card_fill("sight", b.sight), UI.CREAM, true])
+    rows.append([_icon("stat_sense"), a.sense_name, lineages.card_fill("sense", a.sense),
+        -1.0 if same else lineages.card_fill("sense", b.sense), UI.LEAF, true])
+    return rows
 
 func _create_evolution_modal():
     if evolution_modal:
@@ -1307,10 +1337,11 @@ func _build_choice_card(parent: HBoxContainer, floor_num: int, choice_idx: int, 
     data["color"] = UI.ink_tint(data["color"]) # muted, sketchbook-style rims
     card.add_theme_stylebox_override("panel", UI.panel(data["color"], 32, 0.96, 0.0))
     
+    var compact = total >= 3
     var margin = MarginContainer.new()
-    margin.add_theme_constant_override("margin_left", 36)
+    margin.add_theme_constant_override("margin_left", 26 if compact else 36)
     margin.add_theme_constant_override("margin_top", 30)
-    margin.add_theme_constant_override("margin_right", 36)
+    margin.add_theme_constant_override("margin_right", 26 if compact else 36)
     margin.add_theme_constant_override("margin_bottom", 30)
     card.add_child(margin)
     
@@ -1350,40 +1381,94 @@ func _build_choice_card(parent: HBoxContainer, floor_num: int, choice_idx: int, 
     title_lbl.add_theme_color_override("font_color", UI.SUN)
     head.add_child(title_lbl)
     
+    # The text that used to fill the card: the fact, where the lineage lives
+    # today and every perk. With stat bars it waits behind a DETAILS button.
+    var details = VBoxContainer.new()
+    details.add_theme_constant_override("separation", 12)
+    details.size_flags_vertical = Control.SIZE_EXPAND_FILL
     var desc_lbl = Label.new()
     desc_lbl.text = data["desc"]
     desc_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-    desc_lbl.add_theme_font_size_override("font_size", 17)
+    desc_lbl.add_theme_font_size_override("font_size", 15 if compact else 17)
     desc_lbl.add_theme_color_override("font_color", UI.CREAM)
-    vbox.add_child(desc_lbl)
-    
-    var sep = HSeparator.new()
-    vbox.add_child(sep)
-    
+    details.add_child(desc_lbl)
+    details.add_child(HSeparator.new())
     var perks_lbl = Label.new()
     perks_lbl.text = data["perks"]
     perks_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-    perks_lbl.add_theme_font_size_override("font_size", 19)
+    perks_lbl.add_theme_font_size_override("font_size", 16 if compact else 19)
     perks_lbl.add_theme_color_override("font_color", UI.LEAF)
-    vbox.add_child(perks_lbl)
-    
+    details.add_child(perks_lbl)
+
+    var stats: Array = data.get("stats", [])
+    var bars: VBoxContainer = null
+    if stats.is_empty():
+        vbox.add_child(details)
+    else:
+        bars = VBoxContainer.new()
+        bars.add_theme_constant_override("separation", 8)
+        bars.size_flags_vertical = Control.SIZE_EXPAND_FILL
+        vbox.add_child(bars)
+        for st in stats:
+            var sb = StatBar.new()
+            if compact:
+                sb.label_w = 124.0
+                sb.font_px = 17
+            bars.add_child(sb.setup(st[0], st[1], st[2], st[3], st[4], st[5]))
+        if data.get("attack", "") != "":
+            var atk = Label.new()
+            atk.text = data["attack"]
+            atk.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+            atk.add_theme_font_size_override("font_size", 19)
+            atk.add_theme_color_override("font_color", UI.SUN)
+            bars.add_child(atk)
+        var scroll = ScrollContainer.new()
+        scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+        scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+        scroll.visible = false
+        details.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+        scroll.add_child(details)
+        vbox.add_child(scroll)
+        details = scroll
+
     var spacer = Control.new()
-    spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
+    spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL if bars == null else Control.SIZE_SHRINK_BEGIN
     vbox.add_child(spacer)
-    
+
+    var btn_row = HBoxContainer.new()
+    btn_row.add_theme_constant_override("separation", 14)
+    vbox.add_child(btn_row)
+    if bars != null:
+        var info_btn = Button.new()
+        var info_word = "INFO" if compact else "DETAILS"
+        info_btn.text = info_word
+        info_btn.custom_minimum_size = Vector2(96 if compact else 150, 56)
+        info_btn.add_theme_font_size_override("font_size", 20)
+        for state in ["normal", "hover", "pressed", "disabled"]:
+            info_btn.add_theme_stylebox_override(state, UI.button_box(state, UI.MEMBRANE))
+        info_btn.pressed.connect(func():
+            var open = not details.visible
+            details.visible = open
+            bars.visible = not open
+            info_btn.text = "STATS" if open else info_word
+            SoundManager.play_sfx("dna_pickup", 1.4, -8.0)
+        )
+        btn_row.add_child(info_btn)
+
     var btn = Button.new()
-    btn.text = button_text
+    btn.text = "EVOLVE" if compact and bars != null and button_text == "MUTATE & ADAPT" else button_text
     btn.custom_minimum_size = Vector2(0, 56)
     btn.add_theme_font_size_override("font_size", 22)
     for state in ["normal", "hover", "pressed", "disabled"]:
         btn.add_theme_stylebox_override(state, UI.button_box(state, data["color"]))
+    btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
     if on_pick.is_valid():
         btn.pressed.connect(on_pick)
     else:
         btn.pressed.connect(func():
             _on_evolution_choice_clicked(floor_num, choice_idx)
         )
-    vbox.add_child(btn)
+    btn_row.add_child(btn)
     
     parent.add_child(card)
     return btn
@@ -1400,6 +1485,7 @@ func _on_evolution_choice_clicked(floor_num: int, choice_idx: int):
 # adaptations. Tapping (or hovering) one shows its details in the box at the
 # bottom, so the screen reads at a glance and the facts wait until asked for.
 const PauseTile = preload("res://PauseTile.gd")
+const StatBar = preload("res://StatBar.gd")
 var pause_box: PanelContainer = null
 var pause_era: Label
 var pause_dates: Label

@@ -910,7 +910,7 @@ func shoot_tear(dir: Vector2):
         melee_attack(dir)
         return
     shoot_cooldown = fire_delay
-    SoundManager.play_sfx("shoot", 1.05 + randf_range(-0.08, 0.08))
+    SoundManager.play_attack(current_weapon, 1.0 + randf_range(-0.06, 0.06))
     shot_kick = 1.0
     recoil_velocity = -dir * 110.0
     var glow: Color = TearScript.PROJECTILE_GLOW.get(current_weapon, Color(0.0, 0.95, 1.0))
@@ -999,8 +999,10 @@ func spawn_tear(dir: Vector2, alpha: bool = false, boomerang: bool = false):
 func melee_attack(dir: Vector2):
     var w = lineages.weapon_stats(current_weapon)
     shoot_cooldown = fire_delay * w.cooldown
-    SoundManager.play_sfx("dash", 1.6 + randf_range(-0.1, 0.1))
+    SoundManager.play_attack(current_weapon, 1.0 + randf_range(-0.05, 0.05))
     shot_kick = 1.0
+    # Strikes and their marks are drawn in the colour of the form's own body
+    var body_col: Color = body_art.main_color if body_art and body_art.visible else current_modulate
 
     var reach: float = w.reach * range_mult
     var half_arc: float = min(PI, w.arc * 0.5 + melee_arc_bonus)
@@ -1023,6 +1025,10 @@ func melee_attack(dir: Vector2):
         if is_instance_valid(e) and e.has_method("take_damage") and in_melee_arc(e.global_position, body_radius(e, 30.0), dir, reach, half_arc):
             victims.append(e)
     var special_hit := false
+    var struck_body := "soft"
+    if not victims.is_empty() and victims[0].has_method("body_material"):
+        struck_body = victims[0].body_material()
+    var marks := 0
     if current_weapon == "bite":
         bite_chain = bite_chain + 1 if bite_chain_time > 0.0 else 1
         bite_chain_time = 1.6
@@ -1041,7 +1047,12 @@ func melee_attack(dir: Vector2):
             e.apply_knockback(away * k, max(stun, 0.15))
         elif e.has_method("apply_hit_push"):
             e.apply_hit_push(away * 260.0)
-        HitFX.impact(get_parent(), e.global_position - away * body_radius(e, 30.0) * 0.6, away, current_modulate, 1.2)
+        var er = body_radius(e, 30.0)
+        HitFX.impact(get_parent(), e.global_position - away * er * 0.6, away, current_modulate, 1.2)
+        # The weapon's own mark on the first few animals it lands on
+        if marks < 3:
+            marks += 1
+            HitFX.strike(get_parent(), e.global_position - away * er * 0.25, away, current_weapon, body_col, er, mult > 1.0)
         e.take_damage(dmg * mult)
         if venom:
             apply_venom(e, dmg * 0.25)
@@ -1054,12 +1065,18 @@ func melee_attack(dir: Vector2):
     for o in get_tree().get_nodes_in_group("obstacles"):
         if is_instance_valid(o) and o.has_method("take_damage") and in_melee_arc(o.global_position, 40.0, dir, reach, half_arc):
             o.take_damage(dmg)
+    var swatted := 0
     for t in get_tree().get_nodes_in_group("enemy_tears"):
         if is_instance_valid(t) and in_melee_arc(t.global_position, 14.0, dir, reach + 10.0, half_arc) and t.has_method("destroy_tear"):
+            if swatted < 2:
+                HitFX.strike(get_parent(), t.global_position, (t.global_position - global_position).normalized(), "vesicle", body_col, 12.0)
+            swatted += 1
             t.destroy_tear()
+    if swatted > 0:
+        SoundManager.play_sfx("parry", randf_range(0.95, 1.1))
 
     if not victims.is_empty():
-        SoundManager.play_sfx("hit", 0.85)
+        SoundManager.play_hit(struck_body, special_hit)
         var first = victims[0]
         var hit_pos: Vector2 = first.global_position if is_instance_valid(first) else global_position + dir * reach
         if drain and randf() < 0.3:
@@ -1086,8 +1103,7 @@ func melee_attack(dir: Vector2):
     swing.style = current_weapon
     swing.reach = reach
     swing.half_arc = half_arc
-    # Strikes are drawn in the colour of the form's own body
-    swing.color = body_art.main_color if body_art and body_art.visible else current_modulate
+    swing.color = body_col
     swing.rotation = dir.angle()
     add_child(swing)
 
@@ -1538,6 +1554,8 @@ func take_damage(amount: int, source: String = ""):
     invincibility_time = 2.0 if current_passive == "double_iframes" else 1.0
     
     SoundManager.play_sfx("player_hurt", 1.0)
+    SoundManager.play_sfx("hurt_thud", randf_range(0.9, 1.05))
+    HitFX.hurt(get_parent(), global_position, body_radius(self, 26.0))
     $Sprite2D.scale = Vector2(0.7, 1.4)
     
     # White flash tween
