@@ -865,7 +865,7 @@ func handle_shooting():
     
     if shoot_dir != Vector2.ZERO:
         var aim = shoot_dir.normalized()
-        if TouchControls.should_show() and SettingsManager.aim_assist:
+        if (TouchControls.should_show() or PadInput.using_pad) and SettingsManager.aim_assist:
             aim = aim_assist(aim)
         shoot_tear(aim)
     # On touch screens taps are also reported as left clicks, so mouse aiming

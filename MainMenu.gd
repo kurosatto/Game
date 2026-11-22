@@ -174,6 +174,7 @@ func build_menu():
 	col.add_theme_constant_override("separation", 16)
 	membrane.add_child(col)
 	var play = button("▶  PLAY", start_game, UI.SUN)
+	play.set_meta("pad_default", true) # where the gamepad highlight starts
 	play.custom_minimum_size = Vector2(600, 92)
 	play.add_theme_font_size_override("font_size", 40)
 	play.add_theme_font_override("font", UI.font(650))
@@ -315,6 +316,9 @@ func pick_style(id: String):
 
 # ---- Overlays ----
 func open_overlay(title: String, scrolling: bool = true) -> VBoxContainer:
+	var f = get_viewport().gui_get_focus_owner()
+	if f and menu_box.is_ancestor_of(f):
+		menu_focus = f
 	close_overlay()
 	menu_box.visible = false
 	overlay = PanelContainer.new()
@@ -364,6 +368,23 @@ func close_overlay():
 		menu_box.visible = true
 		update_trait_text()
 		update_style_text()
+		_refocus_menu.call_deferred()
+
+# The menu button that opened a page, so the gamepad highlight goes back to it
+var menu_focus: Control = null
+
+func _refocus_menu():
+	if overlay == null and PadInput.using_pad and is_instance_valid(menu_focus) and menu_focus.is_visible_in_tree():
+		menu_focus.grab_focus()
+
+# Gamepad B (PadInput.gd): close the codex panel or page; never quits
+func pad_back():
+	if overlay:
+		var tree = overlay.find_children("*", "Control", true, false).filter(func(c): return c.has_method("pad_back"))
+		if not tree.is_empty() and tree[0].pad_back():
+			return
+		SoundManager.play_sfx("dna_pickup", 0.8)
+		close_overlay()
 
 func row(parent: Container, title: String, body: String, color: Color):
 	var t = label(title, 26, color)

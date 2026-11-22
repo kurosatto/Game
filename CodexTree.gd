@@ -64,6 +64,12 @@ func _ready():
 	add_child(icon_layer)
 	build_info_panel()
 	resized.connect(fit_view)
+	# Gamepad: the tree takes the highlight, and the d-pad hops between forms
+	focus_mode = Control.FOCUS_ALL
+	focus_entered.connect(func():
+		if PadInput.using_pad and selected == NONE:
+			pad_select("")
+	)
 
 # ---- Layout ----
 func layout_tree():
@@ -417,3 +423,43 @@ func select(path: String):
 	if screen.x > free_w - 80 or screen.x < 80:
 		offset.x += free_w * 0.5 - screen.x
 		clamp_offset()
+
+# ---- Gamepad (PadInput.gd) ----
+# The d-pad or stick hops to the nearest form that way; past the edge of the
+# tree the highlight moves on to the page's buttons
+func pad_navigate(dir: Vector2) -> bool:
+	if selected == NONE:
+		pad_select("")
+		return true
+	var cur: Vector2 = nodes[selected].pos
+	var best = null
+	var best_score = INF
+	for p in nodes:
+		var v: Vector2 = nodes[p].pos - cur
+		var along = v.dot(dir)
+		if along <= 1.0:
+			continue
+		var score = along + absf(v.cross(dir)) * 2.0
+		if score < best_score:
+			best_score = score
+			best = p
+	if best == null:
+		return false
+	pad_select(best)
+	return true
+
+func pad_select(path: String):
+	select(path)
+	# Bring it to the middle of the space beside the info panel
+	var free_w = size.x - (info.size.x + 24 if info.visible else 0.0)
+	offset = Vector2(free_w * 0.5, size.y * 0.5) - nodes[path].pos * zoom
+	clamp_offset()
+	queue_redraw()
+
+# Gamepad B: close the info panel first
+func pad_back() -> bool:
+	if selected != NONE:
+		select(NONE)
+		queue_redraw()
+		return true
+	return false

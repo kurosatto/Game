@@ -150,8 +150,16 @@ static func button_box(state: String, tint: Color = MEMBRANE) -> StyleBoxFlat:
 			s.bg_color = Color(INK_SOFT, 0.6)
 			s.border_color = Color(MUTED.r, MUTED.g, MUTED.b, 0.3)
 		"focus":
+			# The gamepad / keyboard highlight: a bright ring with a glow
 			s.draw_center = false
-			s.border_color = Color(SUN.r, SUN.g, SUN.b, 0.6)
+			s.set_border_width_all(4)
+			s.border_color = SUN
+			s.expand_margin_left = 5
+			s.expand_margin_right = 5
+			s.expand_margin_top = 5
+			s.expand_margin_bottom = 5
+			s.shadow_color = Color(SUN.r, SUN.g, SUN.b, 0.45)
+			s.shadow_size = 14
 	return s
 
 # A rounded bar track or fill

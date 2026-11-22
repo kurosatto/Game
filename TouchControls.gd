@@ -43,6 +43,11 @@ func _ready():
 
     if visible:
         _connect_player_haptics.call_deferred()
+    # Playing on a gamepad (the Legion Go has both): the sticks get out of
+    # the way until the screen is touched again
+    PadInput.mode_changed.connect(func(_pad):
+        release_all()
+    )
 
 static func should_show() -> bool:
     return OS.has_feature("mobile") or DisplayServer.is_touchscreen_available()
@@ -70,7 +75,7 @@ func rest_origin(stick: Dictionary) -> Vector2:
 func _process(_delta: float):
     # Menus, the evolution cards and end screens: get the sticks out of the way
     if canvas:
-        canvas.visible = not get_tree().paused and not _end_screen_up()
+        canvas.visible = not get_tree().paused and not _end_screen_up() and not PadInput.using_pad
 
 func _end_screen_up() -> bool:
     var main = get_tree().get_first_node_in_group("main")
@@ -93,7 +98,7 @@ func _on_player_health_changed(health, _max_health):
     last_health = health
 
 func _input(event: InputEvent):
-    if not visible:
+    if not visible or PadInput.using_pad:
         return
     if get_tree().paused:
         if move_stick.touch != -1 or shoot_stick.touch != -1 or any_button_held():
