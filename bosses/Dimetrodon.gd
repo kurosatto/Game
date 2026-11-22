@@ -14,6 +14,7 @@ const STRIPE = Color(0.36, 0.26, 0.2)
 const SAIL = Color(0.78, 0.44, 0.30)
 const SAIL_SPINE = Color(0.95, 0.88, 0.72)
 const TOOTH = Color(1.0, 0.97, 0.88)
+const SAIL_H := 135.0 # height of the tallest sail spine
 
 var gait: float = 0.0
 var walk: float = 0.0          # 0 standing .. 1 striding
@@ -29,6 +30,9 @@ var tail_swing: float = 0.0    # tail sweep angle
 var sweep_side: float = 1.0
 var bend: float = 0.0
 var attacks: int = 0           # since it last warmed up
+# Phase 2: a warm Dimetrodon sprints the length of the room at you
+var charge_dir: Vector2 = Vector2.DOWN
+const CHARGE_SPEED := 1100.0
 
 func setup():
 	boss_title = "DIMETRODON — SAIL-BACKED SYNAPSID"
@@ -90,6 +94,10 @@ func think(delta: float):
 				attacks = 0
 				sun_pos = pick_sun()
 				set_state("to_sun")
+			elif phase2 and d > 380.0 and state_time > 1.0 and randf() < 0.02:
+				attacks += 1
+				set_state("charge_wind")
+				SoundManager.play_sfx("boss_roar", 0.6)
 			elif d < 360.0 and abs(facing.angle_to(to_p)) < 0.5 and state_time > 0.8:
 				attacks += 1
 				bites_left = 2 if phase2 else 1
@@ -138,6 +146,28 @@ func think(delta: float):
 			if state_time > 0.55 * wind:
 				bites_left -= 1
 				set_state("bite_wind" if bites_left > 0 else "stalk")
+		"charge_wind":
+			# Crouches low, sail flushed, and lines up on you
+			walk = 0.0
+			warmth = move_toward(warmth, 1.0, delta * 2.0)
+			turn_toward(to_p, 5.0, delta)
+			charge_dir = facing
+			gape = move_toward(gape, 0.6, delta * 2.0)
+			if state_time > 0.85 * wind:
+				set_state("charge")
+				did_hit = false
+				SoundManager.play_sfx("dash", 0.45)
+		"charge":
+			walk = 1.6
+			gape = 1.0
+			turn_toward(to_p, 0.5, delta)
+			charge_dir = facing
+			if not did_hit:
+				did_hit = hurt_circle(global_position + facing * 130.0, 60.0, 2)
+			if move_by(charge_dir * CHARGE_SPEED * delta, 70.0) or state_time > 1.1:
+				shake(12.0)
+				SoundManager.play_sfx("explosion", 0.9, -3.0)
+				set_state("stalk")
 		"tail_wind":
 			walk = 0.0
 			tail_swing = move_toward(tail_swing, -sweep_side * 0.5, delta * 3.0)
@@ -189,8 +219,14 @@ func draw_body():
 		warn_line(facing * 100.0, facing * 380.0, 110.0)
 	if state == "tail_wind":
 		warn_sector(Vector2.ZERO, 300.0, (-facing).angle(), 1.3)
+	if state == "charge_wind":
+		warn_line(facing * 100.0, facing * (100.0 + CHARGE_SPEED * 1.1), 120.0)
 
-	var up = Vector2(0, -1).rotated(-facing.angle())
+	# Screen-up in the body's frame. Facing up or down the screen that runs
+	# along the spine and the sail folded flat onto the back, so it always
+	# keeps a sideways lean and stands clear of the body
+	var up_raw = Vector2(0, -1).rotated(-facing.angle())
+	var up = Vector2(up_raw.x * 0.55, -1.0 if up_raw.y <= 0.0 else 1.0).normalized()
 	draw_set_transform(Vector2.ZERO, facing.angle(), Vector2.ONE)
 	light_rot = facing.angle()
 	shadow(Vector2(-30, 14), 190, 64)
@@ -234,7 +270,7 @@ func draw_body():
 	for i in n:
 		var x = 55.0 - i * 11.0
 		var f = i / float(n - 1)
-		var h = sin(f * PI) * 105.0 + 8.0
+		var h = sin(f * PI) * SAIL_H + 8.0
 		var b = Vector2(x, sway(x))
 		base.append(b)
 		tips.append(b + up * (h + 10.0))
@@ -242,14 +278,14 @@ func draw_body():
 		# The membrane sags a little between spine tips
 		if i < n - 1:
 			var x2 = x - 5.5
-			var h2 = sin((i + 0.5) / float(n - 1) * PI) * 105.0 + 8.0
+			var h2 = sin((i + 0.5) / float(n - 1) * PI) * SAIL_H + 8.0
 			top.append(Vector2(x2, sway(x2)) + up * (h2 - 9.0))
 	var glow = SAIL.lerp(Color(1.0, 0.45, 0.15), warmth)
 	var membrane := base.duplicate()
 	var rev := top.duplicate()
 	rev.reverse()
 	membrane.append_array(rev)
-	shape(membrane, Color(glow.r, glow.g, glow.b, 0.9), 3.0)
+	shape(membrane, Color(glow.r, glow.g, glow.b, 0.97), 4.0)
 	# Darker blotches along the membrane, as many reconstructions show
 	for i in range(2, n - 2, 3):
 		draw_circle(base[i].lerp(tips[i], 0.5), 7.0, shade(glow, 0.8), true, -1.0, true)

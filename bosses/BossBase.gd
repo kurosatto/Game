@@ -123,9 +123,55 @@ func _physics_process(delta: float):
 func on_phase2():
 	SoundManager.play_sfx("boss_roar", 0.8)
 	shake(14.0)
+	# Half health: it rears up in a splash of ink and fights differently
+	HitFX.pop(get_parent(), global_position, burst_color().lerp(Color.WHITE, 0.3), 60.0, 420.0, 0.5)
+	enraged = 1.0
+	tell_time = 1.0
 
 func _draw():
 	draw_body()
+	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+	draw_tell()
+
+# ── Tells ──
+# Every attack wind-up (a state ending in "_wind") flashes ink marks over
+# the boss with a short hiss, on top of the floor warnings each move draws,
+# so a new boss can be read on its first attack.
+var tell_time: float = 0.0
+var enraged: float = 0.0
+const TELL_TIME := 0.55
+const INK = Color(0.2, 0.12, 0.06)
+
+func tell():
+	tell_time = TELL_TIME
+	SoundManager.play_sfx("enemy_lunge", 0.7, -4.0)
+
+func tell_height() -> float:
+	var cs = get_node_or_null("CollisionShape2D")
+	return (cs.shape.radius if cs else 60.0) + 46.0
+
+func draw_tell():
+	enraged = max(0.0, enraged - get_process_delta_time() * 0.8)
+	if enraged > 0.0:
+		# Phase change: ink rings burst off the boss
+		var k = 1.0 - enraged
+		for i in 3:
+			draw_arc(Vector2.ZERO, tell_height() * (0.8 + k * (1.2 + i * 0.5)), 0, TAU, 48, Color(INK, enraged * 0.7), 5.0 - i, true)
+	if tell_time <= 0.0:
+		return
+	tell_time = max(0.0, tell_time - get_process_delta_time())
+	var k = tell_time / TELL_TIME
+	var pop = 1.0 + 0.35 * smoothstep(0.7, 1.0, k)
+	var top = Vector2(0, -tell_height())
+	var marks = 2 if phase2 else 1
+	for m in marks:
+		var x = (m - (marks - 1) * 0.5) * 22.0
+		var a = top + Vector2(x, -30.0 * pop)
+		var b = top + Vector2(x, -6.0 * pop)
+		draw_line(a, b, Color(0.98, 0.93, 0.82, 0.9 * min(1.0, k * 2.0)), 11.0 * pop, true)
+		draw_line(a, b, Color(INK, min(1.0, k * 2.0)), 6.0 * pop, true)
+		draw_circle(top + Vector2(x, 6.0 * pop), 5.5 * pop, Color(0.98, 0.93, 0.82, 0.9 * min(1.0, k * 2.0)), true, -1.0, true)
+		draw_circle(top + Vector2(x, 6.0 * pop), 3.5 * pop, Color(INK, min(1.0, k * 2.0)), true, -1.0, true)
 
 # ── State and movement helpers ──
 func _room_sliding() -> bool:
@@ -135,6 +181,8 @@ func _room_sliding() -> bool:
 func set_state(s: String, _unused: float = 0.0):
 	state = s
 	state_time = 0.0
+	if s.ends_with("_wind"):
+		tell()
 
 func to_player() -> Vector2:
 	return player.global_position - global_position

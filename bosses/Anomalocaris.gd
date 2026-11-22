@@ -24,6 +24,8 @@ var lunge_dir: Vector2 = Vector2.DOWN
 var lunges_left: int = 0
 var did_hit: bool = false
 var eye_look: float = 0.0
+# Phase 2: rakes the sea floor with both arms, flushing up bursts of silt
+const RAKE_R := 340.0
 
 func setup():
 	boss_title = "ANOMALOCARIS CANADENSIS — CAMBRIAN RADIODONT"
@@ -65,7 +67,9 @@ func think(delta: float):
 				orbit_dir = -orbit_dir
 			turn_toward(vel, 4.0, delta)
 			if state_time > randf_range(1.8, 2.6) / spd:
-				if d < 430.0:
+				if phase2 and randf() < 0.4:
+					set_state("rake_wind")
+				elif d < 430.0:
 					set_state("grab_wind")
 				else:
 					lunges_left = 3 if phase2 else 1
@@ -119,6 +123,31 @@ func think(delta: float):
 					set_state("lunge_wind")
 				else:
 					set_state("recover")
+		"rake_wind":
+			# Arms flung wide and low over the floor
+			flap_rate = 10.0
+			turn_toward(to_p, 5.0, delta)
+			curl = move_toward(curl, 0.0, delta * 3.0)
+			spread = move_toward(spread, 1.0, delta * 3.0)
+			vel = vel.move_toward(Vector2.ZERO, 600.0 * delta)
+			move_by(vel * delta, 60.0)
+			if state_time > 0.7:
+				set_state("rake")
+				did_hit = false
+				SoundManager.play_sfx("dash", 0.7)
+				for k in 5:
+					var a = facing.angle() + (k - 2) * 0.42
+					spawn_hazard("zone", clamp_arena(global_position + Vector2.RIGHT.rotated(a) * RAKE_R * 0.85, 30.0), {"delay": 0.55, "r": 75.0, "dmg": 1, "color": Color(0.8, 0.7, 0.5)})
+		"rake":
+			# The arms sweep in from both sides and curl shut
+			curl = move_toward(curl, 1.0, delta * 5.0)
+			spread = move_toward(spread, 0.0, delta * 5.0)
+			if not did_hit and state_time < 0.25:
+				if to_p.length() < RAKE_R and abs(facing.angle_to(to_p)) < 1.15:
+					player.take_damage(1, killer_name())
+					did_hit = true
+			if state_time > 0.7:
+				set_state("recover")
 		"recover":
 			flap_rate = 5.0
 			vel = vel.move_toward(Vector2.ZERO, 900.0 * delta)
@@ -147,6 +176,8 @@ func draw_body():
 		warn_sector(Vector2.ZERO, 230.0, facing.angle(), 0.75)
 	if state == "lunge_wind":
 		warn_line(Vector2.ZERO, lunge_dir * 1400.0, 90.0)
+	if state == "rake_wind":
+		warn_sector(Vector2.ZERO, RAKE_R, facing.angle(), 1.15)
 
 	draw_set_transform(Vector2.ZERO, facing.angle(), Vector2.ONE)
 	light_rot = facing.angle()

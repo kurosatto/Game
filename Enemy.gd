@@ -41,6 +41,18 @@ var base_tint: Color = Color.WHITE
 var base_scale: float = 1.0
 var fauna_name: String = ""
 var has_species_art: bool = false
+# An extra era animal (Fauna.EXTRAS) chosen by name when spawned; drawn and
+# animated in code by PlayerBody.gd, like the playable forms
+var species_name: String = ""
+const PlayerBody = preload("res://PlayerBody.gd")
+const DRAWN_SCALE := 1.15 # drawn body units to world pixels, before the species scale
+var body_art: Node2D = null
+# Read by PlayerBody: lunges and charges stretch the body like a dash, rolling
+# up tucks it in, and enemies grow no parts
+var is_dashing: bool = false
+var rooted_time: float = 0.0
+var adaptations_taken: Dictionary = {}
+var _was_striking: bool = false
 var behavior: String = ""
 var weave_phase: float = 0.0
 var shoot_delay_mult: float = 1.0
@@ -186,6 +198,10 @@ func hit_feedback(amount: float):
 	var strength = clamp(amount / max(1.0, max_health) * 2.5, 0.12, 0.3)
 	hit_material.set_shader_parameter("flash", 0.85)
 	hit_material.set_shader_parameter("punch", strength)
+	if body_art:
+		# The shader only reaches the sprite: flash the drawing by hand
+		body_art.modulate = Color(2.2, 2.2, 2.2)
+		create_tween().tween_property(body_art, "modulate", Color.WHITE, 0.14)
 	_squash_v += 1.2 + strength * 4.0
 	hit_fx_tween = create_tween().set_parallel(true)
 	hit_fx_tween.tween_method(func(v): hit_material.set_shader_parameter("flash", v), 0.85, 0.0, 0.12)
@@ -313,6 +329,21 @@ func update_motion(delta: float):
 	_squash += _squash_v * delta
 
 	var stretch = _stretch_s * Vector2(1.0 + _squash * 0.6, 1.0 - _squash)
+	if body_art:
+		# Lunges and charges read as a dash; rolled up, the body tucks in;
+		# the moment an attack goes off, claws snap and jaws gape
+		var pose = attack_pose()
+		is_dashing = pose > 0.1
+		rooted_time = 1.0 if is_enrolled() else 0.0
+		var striking = pose > 0.1
+		if striking and not _was_striking:
+			drawn_strike()
+		_was_striking = striking
+		# Snap at the player up close, as the contact hit lands
+		if damage > 0 and mood == "hostile" and player and is_instance_valid(player) and body_art.atk > 0.7 \
+				and global_position.distance_to(player.global_position) < $CollisionShape2D.shape.radius + 60.0:
+			drawn_strike()
+		body_art.scale = Vector2.ONE * DRAWN_SCALE * Vector2(1.0 + _squash * 0.3, 1.0 - _squash * 0.5)
 	hit_material.set_shader_parameter("wave", wave)
 	hit_material.set_shader_parameter("waves", m.get("waves", 1.0))
 	hit_material.set_shader_parameter("wphase", gait_phase)
@@ -458,16 +489,20 @@ func draw_elder_ring():
 		elder_ring.draw_line(Vector2.from_angle(a) * (r + 9.0), Vector2.from_angle(a) * (r + 15.0), Color(ink, 0.6), 2.0, true)
 
 func apply_fauna(floor_number: int):
-	var f = fauna.get_fauna(floor_number, enemy_type)
+	var f = fauna.get_species(floor_number, species_name) if species_name != "" else {}
+	if f.is_empty():
+		f = fauna.get_fauna(floor_number, enemy_type)
 	if f.is_empty():
 		return
 	fauna_name = f.name
 	base_tint = f.tint
 	# Species art from generate_fauna_art.py, when there is a sheet for it
-	var sheet_path = "res://assets/fauna/%s_sheet.png" % fauna_name.to_lower()
+	var sheet_path = fauna.sheet_path(f)
 	if ResourceLoader.exists(sheet_path):
 		$Sprite2D.texture = load(sheet_path)
 		has_species_art = true
+	if f.has("form") and PlayerBody.has_form(f.form):
+		make_drawn(f.form)
 	base_scale = f.scale
 	speed *= f.speed
 	$Sprite2D.modulate = base_tint
@@ -487,6 +522,27 @@ func apply_fauna(floor_number: int):
 		notice_time = t.notice
 		mood = "calm"
 		idle_timer = randf_range(0.0, 2.0)
+
+# Drawn animals: the playable form's drawing hangs under the (now invisible)
+# sprite, so facing, tint, squash and the elder size all still apply to it.
+# The sprite keeps the form's rendered sheet for the corpse and burst colour.
+func make_drawn(form_id: String):
+	body_art = PlayerBody.new()
+	body_art.name = "Body"
+	body_art.foe = true
+	body_art.player = self
+	body_art.set_form(form_id)
+	# Sheets face up, drawings face +X
+	body_art.rotation = -PI / 2
+	body_art.scale = Vector2.ONE * DRAWN_SCALE
+	$Sprite2D.add_child(body_art)
+	$Sprite2D.self_modulate = Color(1, 1, 1, 0)
+	# Sheet frames are 256 px holding a drawing at 2 px per unit
+	$Sprite2D.set_meta("sheet_scale", DRAWN_SCALE * 0.5)
+
+func drawn_strike():
+	if body_art:
+		body_art.on_attack()
 
 # Ambush predators wind up, then dash at the player. Returns true while lunging.
 func process_lunge(delta: float) -> bool:
@@ -569,8 +625,9 @@ func _physics_process(delta: float):
 		velocity = dir * speed
 		move_and_slide()
 
-		var sx = 1.0 + sin(anim_timer * 8.0) * 0.12
-		var sy = 1.0 - sin(anim_timer * 8.0) * 0.12
+		var wob = 0.03 if body_art else 0.12 # drawn bodies animate themselves
+		var sx = 1.0 + sin(anim_timer * 8.0) * wob
+		var sy = 1.0 - sin(anim_timer * 8.0) * wob
 		$Sprite2D.scale = Vector2(sx, sy) * base_scale
 		$Sprite2D.frame = int(fmod(anim_timer * 6.0, 4.0))
 		# Animal sprites face up; turn them toward where they swim
@@ -1234,6 +1291,7 @@ func shoot_at_player():
 	if not player:
 		return
 	var dir = (player.global_position - global_position).normalized()
+	drawn_strike()
 	var tear = tear_scene.instantiate()
 	tear.position = global_position
 	tear.direction = dir
@@ -1396,7 +1454,7 @@ func spawn_corpse():
 	get_parent().add_child(c)
 	c.global_position = spr.global_position
 	c.rotation = spr.global_rotation
-	c.scale = spr.global_scale
+	c.scale = spr.global_scale * float(spr.get_meta("sheet_scale", 1.0))
 	c.skew = 0.0
 	c.z_index = z_index - 1
 	c.modulate = base_tint

@@ -83,6 +83,7 @@ func think(delta: float):
 					SoundManager.play_sfx("boss_roar", 1.3)
 				else:
 					set_state("vortex")
+					tell()
 			elif phase2 and state == "feed" and fmod(state_time, 1.1) < delta:
 				egest()
 		"vortex":

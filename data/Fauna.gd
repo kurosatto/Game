@@ -55,6 +55,60 @@ const FLOORS = {
 	},
 }
 
+# More animals of each era, drawn and animated in code with the same
+# drawings as the playable forms (PlayerBody.gd, "form"), so they walk, swim
+# and strike like the player does. Each borrows the behaviour of an existing
+# type ("type") and is named after a real fossil animal of that era that the
+# drawing fits. Room.roll_enemy_type picks one of them about a third of the
+# time. "tint" shades the drawing so it reads apart from the player.
+const EXTRAS = {
+	1: [
+		{"type": "pacer", "form": "early_echinoderm", "name": "Arkarua", "temper": "docile", "idle": "graze", "fact": "A small Ediacaran disc with a five-part star on top. If it was an echinoderm it is the oldest one known, though that is still argued.", "tip": "Slow and shy; it puffs grit at you if bothered.", "tint": Color(1.0, 0.92, 0.82), "scale": 0.8, "speed": 0.7, "shoot_delay": 1.6},
+	],
+	2: [
+		{"type": "fly", "form": "pikaia_chordate", "name": "Pikaia", "temper": "timid", "idle": "school", "fact": "A small Burgess Shale swimmer with a stiff rod along its back. It is one of the oldest known relatives of all backboned animals, us included.", "tip": "Quick and wriggly; it weaves as it swims.", "tint": Color(1.0, 0.95, 0.85), "scale": 0.95, "speed": 1.05, "behavior": "weave"},
+		{"type": "fly", "form": "early_arthropod", "name": "Waptia", "temper": "wary", "idle": "school", "fact": "A shrimp-like Burgess Shale arthropod with a two-part shell and a forked tail. Some fossils carry clutches of eggs under the shell.", "tip": "Darts in short bursts.", "tint": Color(0.95, 0.9, 0.8), "scale": 0.9, "speed": 1.0, "behavior": "burst"},
+		{"type": "pacer", "form": "chelicerate", "name": "Sanctacaris", "temper": "predator", "idle": "ambush", "fact": "A Burgess Shale hunter whose name means Santa's claws, after its five pairs of spiny head limbs. It may be an early relative of spiders and horseshoe crabs.", "tip": "Lies in wait, then pounces.", "tint": Color(0.95, 0.85, 0.75), "scale": 1.0, "speed": 1.0, "behavior": "lunge", "shoot_delay": 1.5},
+		{"type": "charger", "form": "cephalopod", "name": "Plectronoceras", "temper": "territorial", "idle": "drift", "fact": "The oldest known cephalopod, from the very end of the Cambrian: a tiny curved shell divided into gas-filled chambers.", "tip": "It jets at you in a straight line and is dazed when it hits a wall.", "tint": Color(1.0, 0.92, 0.8), "scale": 0.85, "speed": 1.0},
+	],
+	3: [
+		{"type": "fly", "form": "jawless_fish", "name": "Arandaspis", "temper": "timid", "idle": "school", "fact": "One of the oldest fish known well: a jawless Ordovician swimmer with a head armoured in bony plates and no fins but its tail.", "tip": "Schools and weaves.", "tint": Color(0.9, 0.95, 1.0), "scale": 1.0, "speed": 1.0, "behavior": "weave"},
+		{"type": "armoured", "form": "horseshoe_crab", "name": "Lunataspis", "temper": "docile", "idle": "graze", "fact": "The oldest horseshoe crab, about 445 million years old. Its living relatives have barely changed shape since.", "tip": "Its shield faces you: hit it from the side or behind.", "tint": Color(1.0, 0.95, 0.85), "scale": 0.9, "speed": 1.0},
+		{"type": "tank", "form": "sea_star", "name": "Petraster", "temper": "docile", "idle": "rest", "fact": "One of the first sea stars, from the Ordovician. Sea stars creep on hundreds of tiny water-filled tube feet.", "tip": "Slow and tough, it barely flinches.", "tint": Color(1.0, 0.88, 0.8), "scale": 0.8, "speed": 1.0},
+		{"type": "enroll", "form": "sea_snail", "name": "Maclurites", "temper": "docile", "idle": "graze", "fact": "A big Ordovician sea snail. Its thick shell door, the operculum, is a common fossil on its own.", "tip": "Hit it and it pulls in and shuts its door; strike again once it comes out.", "tint": Color(0.95, 0.9, 0.82), "scale": 0.95, "speed": 1.0},
+	],
+	4: [
+		{"type": "orbiter", "form": "spider", "name": "Arthrolycosa", "temper": "predator", "idle": "stalk", "fact": "A Carboniferous spider with a segmented belly, like the living trapdoor-like Mesothelae. Spiders of its age had venom but spun no webs to catch prey.", "tip": "It circles you, then darts in to bite. The venom slows you.", "tint": Color(1.0, 0.9, 0.85), "scale": 0.95, "speed": 1.0},
+		{"type": "enroll", "form": "millipede", "name": "Euphoberia", "temper": "docile", "idle": "forage", "fact": "A spiny Carboniferous millipede from the coal swamps. Millipedes curl up to guard their soft underside.", "tip": "Hit it and it coils up, untouchable for a moment.", "tint": Color(1.0, 0.92, 0.85), "scale": 1.0, "speed": 1.0},
+		{"type": "fly", "form": "centipede", "name": "Latzelia", "temper": "predator", "idle": "stalk", "fact": "A Carboniferous centipede from Mazon Creek. Its first pair of legs were already venom fangs, as in every centipede today.", "tip": "Sprints in bursts.", "tint": Color(1.0, 0.92, 0.85), "scale": 0.95, "speed": 1.05, "behavior": "burst"},
+		{"type": "skittish", "form": "sauropsid", "name": "Hylonomus", "fact": "The oldest known reptile, about 312 million years old. Its bones were found inside the stumps of fossil trees, where it hunted insects.", "tip": "Harmless and quick. It flees, but one caught is a big meal.", "tint": Color(1.0, 0.95, 0.85), "scale": 0.85, "speed": 1.0},
+		{"type": "charger", "form": "early_shark", "name": "Orthacanthus", "temper": "territorial", "idle": "patrol", "fact": "A freshwater shark of the coal swamps, up to 3 m long, with a long spine behind its head.", "tip": "It rushes you in a straight line and is dazed when it hits a wall.", "tint": Color(0.92, 0.95, 1.0), "scale": 1.05, "speed": 1.0},
+	],
+	5: [
+		{"type": "fly", "form": "sauropsid", "name": "Captorhinus", "temper": "wary", "idle": "forage", "fact": "A small Early Permian reptile with several rows of teeth, good for crushing tough food.", "tip": "Sprints in bursts.", "tint": Color(0.95, 0.85, 0.75), "scale": 1.0, "speed": 1.0, "behavior": "burst"},
+		{"type": "pacer", "form": "lissamphibian", "name": "Cacops", "temper": "predator", "idle": "ambush", "fact": "A stocky Early Permian amphibian with a row of bony plates down its back and a big eardrum notch, probably for hearing prey at night.", "tip": "Lies in wait, then lunges.", "tint": Color(0.9, 0.82, 0.7), "scale": 1.1, "speed": 0.9, "behavior": "lunge", "shoot_delay": 1.8},
+		{"type": "swarm", "form": "beetle", "name": "Permocupes", "temper": "timid", "idle": "forage", "fact": "A Late Permian beetle, one of the earliest. Its living relatives, the reticulated beetles, still bore into rotting wood.", "tip": "They come in packs and scatter when one is hit.", "tint": Color(0.9, 0.85, 0.75), "scale": 0.55, "speed": 1.0},
+		{"type": "tank", "form": "synapsid", "name": "Edaphosaurus", "temper": "docile", "idle": "graze", "fact": "A 3 m sail-backed plant-eater of the Early Permian, living beside Dimetrodon. Its sail spines carried little knobby crossbars.", "tip": "Slow and massive, it barely flinches.", "tint": Color(0.88, 0.85, 0.72), "scale": 1.5, "speed": 1.0},
+	],
+}
+
+static func extras(floor_num: int) -> Array:
+	return EXTRAS.get(clampi(floor_num, 1, 5), [])
+
+# An era animal by name: a regular one or an extra
+static func get_species(floor_num: int, species_name: String) -> Dictionary:
+	for sp in era_species(floor_num):
+		if sp.name == species_name:
+			return sp
+	return {}
+
+# Picture for the pause screen and fossil record: drawn forms use the sheets
+# rendered from their drawings (tools/render_forms.gd)
+static func sheet_path(f: Dictionary) -> String:
+	if f.has("form"):
+		return "res://assets/lineages/%s_sheet.png" % f.form
+	return "res://assets/fauna/%s_sheet.png" % String(f.name).to_lower()
+
 # aggro: how close you can get before it notices you. calm: how far you must
 # get before it loses interest (predators never do). Timid animals back off
 # when you come near and only fight once hurt; docile ones only when hurt or
@@ -79,6 +133,12 @@ const BODIES = {
 	"Orthoceras": "shell", "Cameroceras": "shell", "Megalograptus": "shell",
 	"Pulmonoscorpius": "shell", "Archimylacris": "shell", "Meganeura": "shell",
 	"Arthropleura": "shell", "Anomalocaris": "shell", "Sacabambaspis": "shell",
+	"Waptia": "shell", "Sanctacaris": "shell", "Plectronoceras": "shell", "Lunataspis": "shell",
+	"Petraster": "shell", "Maclurites": "shell", "Arthrolycosa": "shell", "Euphoberia": "shell",
+	"Latzelia": "shell", "Permocupes": "shell", "Arandaspis": "shell", "Pentecopterus": "shell",
+	"Sidneyia": "shell", "Salpingoeca": "soft",
+	"Hylonomus": "flesh", "Orthacanthus": "flesh", "Captorhinus": "flesh", "Eryops": "flesh", "Cacops": "flesh",
+	"Edaphosaurus": "flesh", "Rhizodus": "flesh",
 	"Diictodon": "flesh", "Dimetrodon": "flesh", "Inostrancevia": "flesh",
 	"Lystrosaurus": "flesh", "Euchambersia": "flesh",
 }
@@ -121,10 +181,20 @@ const BOSSES = {
 	5: {"name": "Dimetrodon", "fact": "A Permian sail-backed synapsid: not a dinosaur but closer kin to mammals, with a skull opening like ours."},
 }
 
+# The other boss each era can have instead (bosses/DrawnBoss.gd)
+const ALT_BOSSES = {
+	1: {"name": "Salpingoeca", "form": "ancestral_collar_cell", "fact": "A living choanoflagellate, the closest single-celled relative of animals. Its collar cells stick together into a spinning rosette."},
+	2: {"name": "Sidneyia", "form": "early_arthropod", "fact": "One of the biggest arthropods of the Burgess Shale. Its gut is often found packed with crushed shells, cracked by spiny bases on its legs."},
+	3: {"name": "Pentecopterus", "form": "chelicerate", "fact": "The oldest known big sea scorpion, about 1.7 m long, named after a Greek warship. It swept prey up in a basket of spiny limbs."},
+	4: {"name": "Rhizodus", "form": "lobe_finned_shorewalker", "fact": "A 7 m lobe-finned fish of the coal swamps with fangs as long as a hand, the top predator of its rivers."},
+	5: {"name": "Eryops", "form": "lissamphibian", "fact": "A 2 m Permian amphibian with a broad, flat skull that probably gulped its prey, living beside Dimetrodon."},
+}
+
 # Every species of an era in the order the fossil record lists them
 static func era_species(floor_num: int) -> Array:
 	var f = FLOORS.get(clampi(floor_num, 1, 5), {})
 	var out: Array = [f.fly, f.pacer]
 	for t in special_types(floor_num):
 		out.append(f[t])
+	out.append_array(extras(floor_num))
 	return out
