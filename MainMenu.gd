@@ -199,10 +199,19 @@ func build_menu():
 		b.add_theme_font_size_override("font_size", 26)
 		pair.add_child(b)
 	if not OS.has_feature("mobile") and not OS.has_feature("web"):
+		var row2 = HBoxContainer.new()
+		row2.add_theme_constant_override("separation", 16)
+		col.add_child(row2)
+		# Fullscreen on and off (also F11 or Alt+Enter, and in the pause menu)
+		var fs = button("", SettingsManager.toggle_fullscreen)
+		fullscreen_btn = fs
+		_update_fullscreen_text(SettingsManager.is_fullscreen())
+		SettingsManager.fullscreen_changed.connect(_update_fullscreen_text)
 		var q = button("QUIT", func(): get_tree().quit(), UI.CORAL)
-		q.custom_minimum_size = Vector2(600, 60)
-		q.add_theme_font_size_override("font_size", 22)
-		col.add_child(q)
+		for b in [fs, q]:
+			b.custom_minimum_size = Vector2(292, 60)
+			b.add_theme_font_size_override("font_size", 22)
+			row2.add_child(b)
 	var done = progress.completed().size()
 	var stats = label("Codex %d / %d lineages  ·  Fossils %d / 25  ·  Challenges %d / %d" % [
 		codex.load_discovered().size(), lineages.TREE.size(), codex.load_eaten().size(), done, progress.CHALLENGES.size()], 20, UI.MUTED)
@@ -226,6 +235,11 @@ func build_menu():
 	var tw = title.create_tween().set_loops().set_trans(Tween.TRANS_SINE)
 	tw.tween_property(title, "position:y", -6.0, 2.2).as_relative()
 	tw.tween_property(title, "position:y", 6.0, 2.2).as_relative()
+
+var fullscreen_btn: Button
+
+func _update_fullscreen_text(on: bool):
+	fullscreen_btn.text = "FULLSCREEN: " + ("ON" if on else "OFF")
 
 func start_game():
 	SoundManager.play_sfx("evolve")
