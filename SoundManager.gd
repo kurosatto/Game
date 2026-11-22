@@ -49,7 +49,7 @@ var last_played: Dictionary = {}
 
 # Looping soundtrack (generate_soundtrack.py): one theme, re-voiced per era
 const ERA_TRACKS := ["ediacaran", "cambrian", "ordovician", "carboniferous", "permian"]
-const MUSIC_VOLUME_DB := -8.0
+const MUSIC_VOLUME_DB := -10.0 # music sits under the hit and kill sounds
 const MUSIC_FADE := 1.6
 
 var music_streams: Dictionary = {}

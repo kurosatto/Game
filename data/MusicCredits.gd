@@ -4,8 +4,8 @@
 # OpenGameArt.org; tools/make_music_loops.py cut them into seamless loops.
 
 const TRACKS = [
-	{"track": "Main menu", "title": "Underwater", "artist": "Cleyton Kauffman", "license": "CC0",
-		"url": "https://opengameart.org/content/underwater-theme"},
+	{"track": "Main menu", "title": "First Light Particles", "artist": "Yoiyami", "license": "CC0",
+		"url": "https://opengameart.org/content/first-light-particles-%E2%80%93-cc0-atmospheric-pianoambient-track"},
 	{"track": "Ediacaran", "title": "Nautilus", "artist": "poinl", "license": "CC0",
 		"url": "https://opengameart.org/content/nautilus"},
 	{"track": "Cambrian", "title": "Krakatoa", "artist": "Kistol", "license": "CC0",
@@ -20,8 +20,8 @@ const TRACKS = [
 		"url": "https://opengameart.org/content/free-music-pack"},
 	{"track": "Cambrian boss", "title": "Waking the Devil", "artist": "Alexander Ehlers", "license": "CC0",
 		"url": "https://opengameart.org/content/free-music-pack"},
-	{"track": "Ordovician boss", "title": "Doomed", "artist": "Alexander Ehlers", "license": "CC0",
-		"url": "https://opengameart.org/content/free-music-pack"},
+	{"track": "Ordovician boss", "title": "Final Hour", "artist": "isaiah658", "license": "CC0",
+		"url": "https://opengameart.org/content/final-hour"},
 	{"track": "Carboniferous boss", "title": "Life of the Tribe", "artist": "Alexandr Zhelanov", "license": "CC-BY 4.0",
 		"url": "https://opengameart.org/content/tribal-music"},
 	{"track": "Permian boss", "title": "Predynastic Dawn", "artist": "bobjt", "license": "CC0",
