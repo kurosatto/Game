@@ -14,6 +14,7 @@ uniform float softness = 300.0;
 uniform float darkness = 0.85;
 // Unseen parts of the room are blank sketchbook paper (see InkFilter.gd)
 uniform vec3 fog_color : source_color = vec3(0.93, 0.87, 0.74);
+uniform vec3 rim_color : source_color = vec3(0.55, 0.42, 0.3);
 float hash(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
 // Doorways stay visible even to a nearly blind form, so exits can be found
 uniform vec2 doors[8];
@@ -29,7 +30,7 @@ void fragment() {
 	vec3 col = fog_color + (hash(FRAGCOORD.xy) - 0.5) * 0.05;
 	// A faint brown edge where the sketch stops, like a vignette of ink
 	float rim = smoothstep(0.0, 0.5, a) * (1.0 - smoothstep(0.5, 1.0, a));
-	col = mix(col, vec3(0.55, 0.42, 0.3), rim * 0.35);
+	col = mix(col, rim_color, rim * 0.35);
 	COLOR = vec4(col, a * darkness);
 }
 """
@@ -60,12 +61,21 @@ func _ready():
 	mat.shader = shader
 	rect.material = mat
 	add_child(rect)
+	apply_style(SettingsManager.art_style)
+	SettingsManager.art_style_changed.connect(apply_style)
 	# Doorways drawn over the fog and ink so exits always show
 	add_child(preload("res://DoorMarks.gd").new())
 	hints = preload("res://SenseHints.gd").new()
 	hints.fog = self
 	add_child(hints)
 	set_vision(1, true)
+
+# Fog and its rim follow the art style: paper for the ink styles, the dark
+# sea for pixel, neon and the rest (data/ArtStyles.gd)
+func apply_style(id: String):
+	var st: Dictionary = preload("res://data/ArtStyles.gd").get_style(id)
+	mat.set_shader_parameter("fog_color", st.fog)
+	mat.set_shader_parameter("rim_color", st.rim)
 
 # rating: 1-10 and the sense's name from Lineages.SENSES
 func set_sense(rating: int, kind: String):

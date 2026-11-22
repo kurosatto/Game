@@ -176,7 +176,10 @@ void fragment() {
 """
 static var _sepia: ShaderMaterial = null
 
+# Only for the ink-on-paper art styles; the others leave pictures in colour
 static func sepia_material() -> ShaderMaterial:
+	if not preload("res://data/ArtStyles.gd").uses_sepia(SettingsManager.art_style):
+		return null
 	if _sepia == null:
 		var sh = Shader.new()
 		sh.code = SEPIA_SHADER

@@ -3,6 +3,7 @@ extends Node
 
 signal brightness_changed(value: float)
 signal sfx_volume_changed(value: float)
+signal art_style_changed(id: String)
 
 var brightness: float = 1.2 # Default bright & vibrant
 var sfx_volume: float = 1.0
@@ -10,6 +11,8 @@ var music_volume: float = 0.8
 var window_mode_index: int = 1 # Default 1920x1080 (Full HD)
 var aim_assist: bool = true # touch shots bend onto a nearby animal (Player.aim_assist)
 var screen_shake: bool = true
+# The whole world's look (data/ArtStyles.gd), chosen on the main menu
+var art_style: String = "sepia"
 
 var config_path: String = "user://settings.cfg"
 
@@ -38,6 +41,9 @@ func load_settings():
         window_mode_index = config.get_value("display", "window_mode", 1)
         aim_assist = config.get_value("controls", "aim_assist", true)
         screen_shake = config.get_value("graphics", "screen_shake", true)
+        art_style = config.get_value("graphics", "art_style", "sepia")
+        if not preload("res://data/ArtStyles.gd").ids().has(art_style):
+            art_style = "sepia"
 
 func save_settings():
     var config = ConfigFile.new()
@@ -47,6 +53,7 @@ func save_settings():
     config.set_value("display", "window_mode", window_mode_index)
     config.set_value("controls", "aim_assist", aim_assist)
     config.set_value("graphics", "screen_shake", screen_shake)
+    config.set_value("graphics", "art_style", art_style)
     config.save(config_path)
 
 func apply_all_settings():
@@ -65,6 +72,13 @@ func set_brightness(val: float):
     elif main and main.has_node("CanvasModulate"):
         var cm = main.get_node("CanvasModulate")
         cm.color = Color(brightness, brightness, brightness, 1.0)
+
+func set_art_style(id: String):
+    if id == art_style:
+        return
+    art_style = id
+    save_settings()
+    art_style_changed.emit(id)
 
 func set_sfx_volume(val: float):
     sfx_volume = clamp(val, 0.0, 1.5)
