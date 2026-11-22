@@ -465,7 +465,7 @@ func show_fossils():
 	var eaten: Array = codex.load_eaten()
 	var total := 0
 	for era in range(1, 6):
-		total += FAUNA.era_species(era).size() + 1
+		total += FAUNA.era_species(era).size() + 2
 	var list = open_overlay("FOSSIL RECORD  %d / %d" % [eaten.size(), total])
 	add_overlay_button(list.get_parent(), "CODEX", show_codex)
 	list.add_child(label("Every animal you eat is added here, with what is known about it.", 19, UI.MUTED))
@@ -477,6 +477,9 @@ func show_fossils():
 		var boss: Dictionary = FAUNA.BOSSES[era].duplicate()
 		boss["boss"] = true
 		species.append(boss)
+		var alt: Dictionary = FAUNA.ALT_BOSSES[era].duplicate()
+		alt["boss"] = true
+		species.append(alt)
 		for f in species:
 			list.add_child(fossil_row(f, eaten.has(f.name), ERA_NAMES[era - 1]))
 
@@ -490,7 +493,7 @@ func fossil_row(f: Dictionary, known: bool, era_name: String) -> Control:
 	pic.custom_minimum_size = Vector2(96, 96)
 	pic.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	pic.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	var path = "res://assets/fauna/%s_sheet.png" % f.name.to_lower()
+	var path = FAUNA.sheet_path(f)
 	var icon = "res://assets/fossils/%s.png" % f.name.to_lower() # bosses, tools/fossil_icons.gd
 	if ResourceLoader.exists(icon):
 		pic.texture = load(icon)

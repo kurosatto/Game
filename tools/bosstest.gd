@@ -3,7 +3,8 @@
 # circles the arena (kept alive), checking every attack runs without errors.
 # With SHOT_DIR set (and a window, e.g. xvfb-run) it saves screenshots.
 #   godot --headless --path . -s res://tools/bosstest.gd
-# Optional BOSS=3 tests one floor; FIGHT_SECONDS=25 sets the length.
+# Optional BOSS=3 tests one floor; FIGHT_SECONDS=25 sets the length;
+# BOSS_ALT=1 fights the alternate drawn bosses (bosses/DrawnBoss.gd), 0 the originals.
 extends SceneTree
 
 var out := OS.get_environment("SHOT_DIR")
@@ -35,12 +36,15 @@ func run():
 		for e in get_nodes_in_group("enemies"):
 			e.queue_free()
 		var player = main.player
-		var boss = load(room_script.BOSSES[floor_num]).new()
+		var boss = load(main.current_room_node.pick_boss_script(floor_num)).new()
 		boss.position = Vector2(960, 540)
 		boss.setup_enemy(floor_num)
 		main.current_room_node.add_child(boss)
 		main.register_boss(boss)
 		player.global_position = Vector2(960, 860)
+		if out != "":
+			# Light the whole room so the pictures show the boss
+			main.get_node("VisionFog").set_vision(10, true)
 		var states := {}
 		var frames := int(secs * 60.0)
 		var shots := 0
@@ -68,11 +72,17 @@ func run():
 				await snap("boss%d_%d_%s" % [floor_num, shots, boss.state])
 				shots += 1
 		# Force the rarer attacks once each so they are exercised too
-		var force = {4: ["rear", "coil"], 5: ["tail_wind", "to_sun", "bask"], 3: ["ram_wind", "blast_wind"], 1: ["detach", "contract"]}
-		for st in force.get(floor_num, []):
+		var force = {2: ["rake_wind"], 4: ["rear", "coil"], 5: ["tail_wind", "to_sun", "bask"], 3: ["ram_wind", "blast_wind"], 1: ["detach", "contract"]}
+		var forced: Array = force.get(floor_num, [])
+		if boss.has_method("start_move"):
+			forced = boss.kit.duplicate()
+		for st in forced:
 			if not is_instance_valid(boss):
 				break
-			boss.set_state(st)
+			if boss.has_method("start_move"):
+				boss.start_move(st)
+			else:
+				boss.set_state(st)
 			for f in 120:
 				await physics_frame
 				if not is_instance_valid(boss):

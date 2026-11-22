@@ -65,11 +65,13 @@ func think(delta: float):
 				var r = randf()
 				if phase2 and r < 0.35:
 					set_state("rear")
+					tell()
 					spawn_slam_zones()
 				elif r < 0.6:
 					set_state("charge_wind")
 				else:
 					start_coil()
+					tell()
 				SoundManager.play_sfx("boss_roar", 0.7)
 		"charge_wind":
 			move_speed = 30.0

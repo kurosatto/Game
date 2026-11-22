@@ -1490,7 +1490,7 @@ var pause_box: PanelContainer = null
 var pause_era: Label
 var pause_dates: Label
 var pause_you: HBoxContainer
-var pause_wildlife: HBoxContainer
+var pause_wildlife: HFlowContainer
 var pause_adapt: HFlowContainer
 var pause_info_title: Label
 var pause_info_body: Label
@@ -1531,8 +1531,10 @@ func _create_pause_info():
     col.add_child(pause_you)
 
     col.add_child(_pause_label(17, UI.LEAF, true, "ANIMALS OF THIS ERA"))
-    pause_wildlife = HBoxContainer.new()
-    pause_wildlife.add_theme_constant_override("separation", 10)
+    # Up to nine animals an era: they wrap onto a second row
+    pause_wildlife = HFlowContainer.new()
+    pause_wildlife.add_theme_constant_override("h_separation", 10)
+    pause_wildlife.add_theme_constant_override("v_separation", 6)
     col.add_child(pause_wildlife)
 
     col.add_child(_pause_label(17, UI.LEAF, true, "FINDS AND ADAPTATIONS"))
@@ -1671,14 +1673,14 @@ func show_pause_info():
 
     # The era's animals, drawn with their own sprite sheets
     var fauna = preload("res://data/Fauna.gd")
-    var f = fauna.FLOORS.get(clampi(current_floor, 1, 5), {})
-    for key in ["fly", "pacer"] + fauna.special_types(current_floor):
-        var a: Dictionary = f[key]
-        var p = "res://assets/fauna/%s_sheet.png" % a.name.to_lower()
+    var era_animals: Array = fauna.era_species(current_floor)
+    var tile_size = 128.0 if era_animals.size() <= 6 else 104.0
+    for a in era_animals:
+        var p = fauna.sheet_path(a)
         var tex: Texture2D = load(p) if ResourceLoader.exists(p) else null
         var frames = int(round(tex.get_width() / float(tex.get_height()))) if tex else 1
         var body = a.fact + ("\n" + a.tip if a.has("tip") else "")
-        _pause_tile(pause_wildlife, tex, frames, 128.0, a.name, a.name, body)
+        _pause_tile(pause_wildlife, tex, frames, tile_size, a.name, a.name, body)
 
     # Treasure finds first (on a sunny disc), then adaptations as icons,
     # stacked ones with a count

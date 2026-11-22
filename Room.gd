@@ -633,19 +633,32 @@ func maybe_promote_elder(floor_number: int):
 
 # About a third of spawns become one of the era's special animals
 # (data/Fauna.gd: the third and fourth animal of each era)
+# A behaviour type, or "type@Species" for one of the era's extra animals
+# (Fauna.EXTRAS), which spawn_enemy splits apart
 func roll_enemy_type(base: String, floor_number: int) -> String:
+    var extras: Array = fauna.extras(floor_number)
+    if not extras.is_empty() and randf() < EXTRA_CHANCE:
+        var sp: Dictionary = extras.pick_random()
+        return "%s@%s" % [sp.type, sp.name]
     var specials = fauna.special_types(floor_number)
     if not specials.is_empty() and randf() < 0.36:
         return specials.pick_random()
     return base
 
+const EXTRA_CHANCE := 0.34
+
 func spawn_enemy(pos: Vector2, type: String, floor_number: int):
-    # Roachoids come as a pack of four
+    var species := ""
+    if "@" in type:
+        species = type.get_slice("@", 1)
+        type = type.get_slice("@", 0)
+    # Roachoids and beetles come as a pack of four
     var count = 4 if type == "swarm" else 1
     for i in count:
         var enemy = enemy_scene.instantiate()
         enemy.position = free_spot(pos + (Vector2.RIGHT.rotated(TAU * i / count) * 50.0 if count > 1 else Vector2.ZERO))
         enemy.enemy_type = type
+        enemy.species_name = species
         enemy.setup_enemy(floor_number)
         add_child(enemy)
         active_enemies.append(enemy)
@@ -660,8 +673,23 @@ const BOSSES = {
     5: "res://bosses/Dimetrodon.gd",
 }
 
+# Or, half the time, a giant drawn with the playable forms' drawings
+# (bosses/DrawnBoss.gd). The pick holds for the whole floor.
+const ALT_BOSS := "res://bosses/DrawnBoss.gd"
+
+func pick_boss_script(floor_number: int) -> String:
+    var main = get_parent()
+    var key = "boss_pick_%d" % floor_number
+    var forced = OS.get_environment("BOSS_ALT")
+    if forced != "":
+        return ALT_BOSS if forced == "1" else BOSSES.get(clampi(floor_number, 1, 5))
+    if main and not main.has_meta(key):
+        main.set_meta(key, randf() < 0.5)
+    var alt = main.get_meta(key) if main else false
+    return ALT_BOSS if alt else BOSSES.get(clampi(floor_number, 1, 5))
+
 func spawn_boss(floor_number: int):
-    var boss = load(BOSSES.get(clampi(floor_number, 1, 5))).new()
+    var boss = load(pick_boss_script(floor_number)).new()
     # Away from the door the player came through, never on top of them
     boss.position = Vector2(960, 540) + Vector2(entry_dir) * Vector2(420.0 + side_margin * 0.5, 220.0)
     boss.setup_enemy(floor_number)

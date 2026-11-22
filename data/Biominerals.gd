@@ -34,6 +34,12 @@ const FAUNA = {
 	"Sacabambaspis": ["P", "Fe"], "Megalograptus": ["Zn", "Cu"], "Orthoceras": ["Ca", "Cu"], "Isotelus": ["Ca"],
 	"Meganeura": ["Zn", "Cu"], "Pulmonoscorpius": ["Zn", "Cu"], "Archimylacris": ["S", "Cu"], "Helenodora": ["S", "Cu"],
 	"Lystrosaurus": ["P", "Ca"], "Inostrancevia": ["Fe", "P"], "Diictodon": ["Ca", "P"], "Euchambersia": ["S", "P"],
+	# Extra era animals (Fauna.EXTRAS)
+	"Arkarua": ["Ca", "P"], "Pikaia": ["P", "S"], "Waptia": ["Cu", "S"], "Sanctacaris": ["Zn", "Cu"],
+	"Plectronoceras": ["Ca", "Cu"], "Arandaspis": ["P", "Ca"], "Lunataspis": ["Cu", "S"], "Petraster": ["Ca"],
+	"Maclurites": ["Ca", "Fe"], "Arthrolycosa": ["Zn", "Cu"], "Euphoberia": ["Ca", "Cu"], "Latzelia": ["Zn", "Cu"],
+	"Hylonomus": ["P", "Ca"], "Orthacanthus": ["P", "Fe"], "Captorhinus": ["P", "Ca"], "Cacops": ["P", "Ca"],
+	"Permocupes": ["S", "Cu"], "Edaphosaurus": ["P", "Ca"],
 }
 # A boss is a feast of everything it was made of
 const BOSSES = {1: ["P", "S"], 2: ["Cu", "S", "Zn"], 3: ["Ca", "Cu", "Fe"], 4: ["Ca", "Cu", "Zn"], 5: ["P", "Fe", "Ca"]}

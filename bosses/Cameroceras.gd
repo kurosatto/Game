@@ -24,6 +24,8 @@ var aim: Vector2 = Vector2.RIGHT
 var rams_left: int = 0
 var caught: bool = false
 var did_hit: bool = false
+# Phase 2: the ram glances off the walls and comes straight back at you
+var bounces_left: int = 0
 
 func setup():
 	boss_title = "CAMEROCERAS — ORDOVICIAN ORTHOCONE NAUTILOID"
@@ -121,6 +123,7 @@ func think(delta: float):
 			move_by(vel * delta, 70.0)
 			if state_time > 0.9 / spd:
 				set_state("ram")
+				bounces_left = 2 if phase2 else 0
 				vel = -facing * 1050.0
 				SoundManager.play_sfx("dash", 0.5)
 		"ram":
@@ -128,7 +131,18 @@ func think(delta: float):
 			funnel_pulse = 1.0
 			for k in [0.3, 0.6, 0.9]:
 				hurt_circle(global_position - facing * SHELL_LEN * k, 46.0 * (1.0 - k * 0.6))
-			if move_by(vel * delta, 70.0) or state_time > 1.1:
+			var hit_wall = move_by(vel * delta, 70.0)
+			if hit_wall and bounces_left > 0:
+				# Glances off the wall, swings its point round at you and
+				# fires the funnel again without stopping
+				bounces_left -= 1
+				shake(9.0)
+				SoundManager.play_sfx("explosion", 1.3, -4.0)
+				facing = -dir_to_player()
+				vel = -facing * 1050.0
+				state_time = 0.0
+				tell()
+			elif hit_wall or state_time > 1.1:
 				shake(14.0)
 				SoundManager.play_sfx("explosion", 1.0)
 				vel = Vector2.ZERO
@@ -170,6 +184,9 @@ func draw_body():
 		warn_sector(Vector2.ZERO, 500.0, facing.angle(), 0.5)
 	if state == "ram_wind":
 		warn_line(-facing * SHELL_LEN, -facing * 1600.0, 100.0)
+	if state == "ram" and bounces_left > 0:
+		# Where the next glance off a wall will send it: back at you
+		warn_line(Vector2.ZERO, -facing * 1600.0, 60.0)
 	if state == "blast_wind":
 		warn_line(to_local(funnel_pos()), to_local(funnel_pos()) + aim * 760.0, 120.0)
 	if state == "blast":

@@ -28,6 +28,9 @@ var strike: float = 0.0   # 1 on attack, fades out
 var dash: float = 0.0     # 1 while dashing
 var tuck: float = 0.0     # 1 while withdrawn or hunkered (escape moves)
 var preview: bool = false # driven by the sheet renderer instead of a player
+# Worn by an era animal or a boss instead of the player (Enemy.gd,
+# bosses/DrawnBoss.gd): no paper halo, since that rim marks the player
+var foe: bool = false
 # In preview the grown parts to show (the GROW screen's portrait sets these),
 # and whether the clock runs so the drawing idles and breathes
 var preview_parts: Dictionary = {}
@@ -172,8 +175,15 @@ func _process(delta: float):
 	var acc = (vel - _last_vel) / dt
 	_last_vel = vel
 	var target = (-acc * 0.0035).rotated(-rot).limit_length(5.0)
-	_lag_v += ((target - _lag) * 160.0 - _lag_v * 16.0) * dt
-	_lag += _lag_v * dt
+	# Stiff spring: step it in small slices so a slow frame (a big dt) can't
+	# blow it up, and never let it wander far
+	var left = dt
+	while left > 0.0:
+		var step = min(left, 1.0 / 90.0)
+		left -= step
+		_lag_v += ((target - _lag) * 160.0 - _lag_v * 16.0) * step
+		_lag += _lag_v * step
+	_lag = _lag.limit_length(8.0)
 	# Stretch along the body while dashing, a slight breath while still
 	var breath = sin(t * 2.6) * 0.012 * (1.0 - clamp(move, 0.0, 1.0))
 	var want = Vector2(1.0 + 0.16 * dash + breath, 1.0 - 0.1 * dash - breath) * (1.0 - 0.07 * hurt)
@@ -213,8 +223,13 @@ func _update_chain(dt: float):
 	# Loose appendages (arms, feelers, flagella) are dragged by the water:
 	# a spring toward the opposite of the body's own velocity
 	var want_drift = (-player.velocity / max(player.speed, 1.0)).rotated(-global_rotation).limit_length(1.0)
-	_drift_v += ((want_drift - _drift) * 60.0 - _drift_v * 9.0) * dt
-	_drift += _drift_v * dt
+	var left = dt
+	while left > 0.0:
+		var step = min(left, 1.0 / 60.0)
+		left -= step
+		_drift_v += ((want_drift - _drift) * 60.0 - _drift_v * 9.0) * step
+		_drift += _drift_v * step
+	_drift = _drift.limit_length(1.5)
 
 func _draw():
 	if not FORMS.has(form_id):
@@ -241,8 +256,9 @@ func _draw():
 	_draw_parts()
 	_draw_shadow_pass(spec)
 	draw_set_transform(off, _radial_rot, _stretch)
-	_draw_parts()
-	_draw_form(spec)
+	if not foe:
+		_draw_parts()
+		_draw_form(spec)
 	halo_pass = false
 	_main_area = 0.0
 	_draw_parts()
