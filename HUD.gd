@@ -590,7 +590,7 @@ func _create_grow_screen():
         have_row.add_child(chip)
         grow_chips[el] = chip
     grow_grid = GridContainer.new()
-    grow_grid.columns = 4
+    grow_grid.columns = 5
     grow_grid.add_theme_constant_override("h_separation", 12)
     grow_grid.add_theme_constant_override("v_separation", 10)
     grow_grid.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
@@ -686,7 +686,7 @@ func _create_grow_screen():
 
 func _make_grow_tile(r: Dictionary):
     var tile = Button.new()
-    tile.custom_minimum_size = Vector2(440, 130)
+    tile.custom_minimum_size = Vector2(358, 130)
     tile.pressed.connect(_on_grow_tile.bind(r.id))
     tile.focus_entered.connect(func():
         # Moving the pad highlight reads the part, like hovering
@@ -1759,8 +1759,16 @@ func show_pause_info():
             _pause_chip(chips, _icon("stat_speed"), "%d" % int(player.speed), UI.AQUA)
             var senses = lineages.sense_words(form)
             _pause_chip(chips, _icon("stat_sight"), senses[0])
-            _pause_chip(chips, _icon("stat_sense"), "%s: %s" % [senses[1], senses[2]], UI.LEAF)
             _pause_chip(chips, _icon("stat_attack"), player.current_weapon_name, UI.SUN)
+            # Every sense as an icon with strength pips; tap one for what it does
+            var sense_row = HBoxContainer.new()
+            sense_row.add_theme_constant_override("separation", 8)
+            side.add_child(sense_row)
+            for k in lineages.SENSE_ORDER:
+                var b = preload("res://SenseBadge.gd").new().setup(k, int(player.sense_profile.get(k, 0)), 58.0)
+                b.picked.connect(_on_pause_tile_picked)
+                sense_row.add_child(b)
+                pause_tiles.append(b)
 
     # The era's animals, drawn with their own sprite sheets
     var fauna = preload("res://data/Fauna.gd")

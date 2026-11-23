@@ -506,7 +506,7 @@ func current_form() -> Dictionary:
 func _on_player_creature_changed(c_name: String, _c_clade: String, _c_color: Color):
     hud.set_current_creature(c_name)
     $VisionFog.set_vision(player.vision)
-    $VisionFog.set_sense(player.sense, player.sense_kind)
+    $VisionFog.set_sense(player.sense, player.sense_kind, player.sense_profile)
     hud.update_floor(floor_number)
 
 func get_room_theme_color(room_type: int) -> Color:

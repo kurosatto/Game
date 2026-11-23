@@ -47,7 +47,7 @@ func _initialize():
 		for e in get_nodes_in_group("enemies"):
 			room.active_enemies.erase(e)
 			e.queue_free()
-		var kinds = ["fly", "pacer"] + preload("res://data/Fauna.gd").special_types(floor_num)
+		var kinds = ["fly", "pacer"] + preload("res://data/Fauna.gd").special_types(floor_num).filter(func(t): return t != "frond")
 		var spots = [Vector2(1200, 420), Vector2(1420, 470), Vector2(1260, 640), Vector2(1450, 680)]
 		for i in kinds.size():
 			room.spawn_enemy(spots[i], kinds[i], floor_num)

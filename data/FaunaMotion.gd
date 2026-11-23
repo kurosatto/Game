@@ -31,6 +31,7 @@ const SPECIES = {
 	"Spriggina": {"style": "swim", "wave": 0.035, "waves": 1.2, "stride": 60.0, "sway": 0.02, "curve": 1.2, "hz": 0.5},
 	"Kimberella": {"style": "creep", "wave": 0.008, "waves": 1.0, "stride": 46.0, "pulse": 0.07, "curve": 0.5, "hz": 0.35},
 	"Dickinsonia": {"style": "creep", "wave": 0.012, "waves": 1.5, "stride": 70.0, "pulse": 0.04, "curve": 0.2, "hz": 0.25},
+	"Charnia": {"style": "rooted", "wave": 0.0, "waves": 1.0, "stride": 999.0, "pulse": 0.0, "curve": 0.0, "hz": 0.3},
 	"Fractofusus": {"style": "rooted", "wave": 0.015, "waves": 0.7, "stride": 999.0, "pulse": 0.0, "curve": 0.0, "hz": 0.35},
 	# Cambrian
 	"Opabinia": {"style": "swim", "wave": 0.045, "waves": 1.6, "stride": 70.0, "sway": 0.015, "curve": 1.4, "hz": 1.1},

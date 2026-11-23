@@ -697,6 +697,21 @@ def main():
                 name = slot + ("" if v == 1 else "_2") + ".png"
                 c.done().save(os.path.join(out, name))
         print("  wrote", out)
+    charnia_sheet()
+
+
+def charnia_sheet():
+    # The Ediacaran Charnia fronds are animals you can fight (Enemy.gd
+    # "frond"), so their painted art doubles as a 4-frame fauna sheet:
+    # frames 0/2 are variant 1, frames 1/3 variant 2. Footprint at (80,100).
+    era = os.path.join("assets", "eras", "ediacaran")
+    a = Image.open(os.path.join(era, "tall.png")).convert("RGBA")
+    b = Image.open(os.path.join(era, "tall_2.png")).convert("RGBA")
+    sheet = Image.new("RGBA", (a.width * 4, a.height), (0, 0, 0, 0))
+    for i, im in enumerate((a, b, a, b)):
+        sheet.paste(im, (i * a.width, 0))
+    sheet.save(os.path.join("assets", "fauna", "charnia_sheet.png"))
+    print("  wrote assets/fauna/charnia_sheet.png")
 
 
 if __name__ == "__main__":

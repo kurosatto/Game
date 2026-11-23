@@ -214,6 +214,12 @@ func _on_body_entered(body: Node):
             body.apply_slow(2.0, 0.5, "SNARED")
             destroy_tear()
         elif body.is_in_group("player") and body.has_method("take_damage"):
+            # Touch: feelers sometimes feel the shot coming and brush it aside
+            if body.has_method("feelers_deflect") and body.get("invincibility_time") <= 0 and body.feelers_deflect():
+                SoundManager.play_sfx("hit_glance", randf_range(1.2, 1.4), -6.0)
+                get_tree().call_group("sense_hints", "felt_shot", global_position, velocity)
+                destroy_tear()
+                return
             body.take_damage(damage, shooter_name)
             destroy_tear()
         elif body.is_in_group("obstacles") or body.is_in_group("walls"):

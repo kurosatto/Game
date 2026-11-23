@@ -26,7 +26,7 @@ const STYLES := [
 		"ui": {"INK": Color(0.06, 0.08, 0.11), "INK_SOFT": Color(0.11, 0.15, 0.19), "MEMBRANE": Color(0.45, 0.78, 0.82), "CREAM": Color(0.95, 0.97, 0.92), "MUTED": Color(0.62, 0.72, 0.74), "SUN": Color(1.0, 0.84, 0.30), "LEAF": Color(0.55, 0.90, 0.40), "CORAL": Color(1.0, 0.40, 0.35), "SHADE": Color(0, 0, 0, 0.9), "BACKDROP": Color(0.04, 0.05, 0.08), "TITLE": Color(1.0, 0.84, 0.30), "TITLE_OUTLINE": Color(0.04, 0.03, 0.06), "ROUND": 0.0, "RIM": 6, "CORNER_DETAIL": 1, "SMOOTH": false, "SHADOW_SIZE": 1, "SHADOW_OFFSET": Vector2(8, 8)}},
 	{"id": "pixel_16bit", "name": "16-bit pixel", "desc": "Console-era sprites with coloured outlines and hue-shifted shades.",
 		"fog": Color(0.09, 0.12, 0.16), "rim": Color(0.22, 0.30, 0.38), "dark": true, "floor": Color(0.16, 0.21, 0.27), "swatch": Color(0.36, 0.50, 0.62),
-		"ui": {"INK": Color(0.10, 0.09, 0.20), "INK_SOFT": Color(0.17, 0.15, 0.32), "MEMBRANE": Color(0.70, 0.62, 0.98), "CREAM": Color(0.98, 0.96, 0.90), "MUTED": Color(0.70, 0.68, 0.85), "SUN": Color(1.0, 0.82, 0.42), "LEAF": Color(0.60, 0.92, 0.50), "CORAL": Color(1.0, 0.48, 0.48), "SHADE": Color(0.02, 0.0, 0.08, 0.85), "BACKDROP": Color(0.06, 0.05, 0.12), "TITLE": Color(1.0, 0.86, 0.50), "TITLE_OUTLINE": Color(0.20, 0.10, 0.35), "ROUND": 0.18, "RIM": 5, "CORNER_DETAIL": 2, "SMOOTH": false, "SHADOW_SIZE": 1, "SHADOW_OFFSET": Vector2(6, 6)}},
+		"ui": {"INK": Color(0.08, 0.11, 0.16), "INK_SOFT": Color(0.13, 0.18, 0.25), "MEMBRANE": Color(0.55, 0.75, 0.90), "CREAM": Color(0.98, 0.96, 0.90), "MUTED": Color(0.66, 0.74, 0.82), "SUN": Color(1.0, 0.82, 0.42), "LEAF": Color(0.60, 0.92, 0.50), "CORAL": Color(1.0, 0.48, 0.48), "SHADE": Color(0.0, 0.02, 0.05, 0.85), "BACKDROP": Color(0.04, 0.06, 0.09), "TITLE": Color(1.0, 0.86, 0.50), "TITLE_OUTLINE": Color(0.10, 0.16, 0.26), "ROUND": 0.18, "RIM": 5, "CORNER_DETAIL": 2, "SMOOTH": false, "SHADOW_SIZE": 1, "SHADOW_OFFSET": Vector2(6, 6)}},
 	{"id": "hibit_pixel", "name": "Hi-bit pixel", "desc": "Fine modern pixel art with dithering and rim light.",
 		"fog": Color(0.05, 0.08, 0.14), "rim": Color(0.18, 0.28, 0.42), "dark": true, "floor": Color(0.10, 0.15, 0.27), "swatch": Color(0.30, 0.46, 0.70),
 		"ui": {"INK": Color(0.04, 0.07, 0.14), "INK_SOFT": Color(0.08, 0.13, 0.24), "MEMBRANE": Color(0.45, 0.68, 0.98), "CREAM": Color(0.92, 0.96, 1.0), "MUTED": Color(0.58, 0.68, 0.82), "SUN": Color(0.55, 0.92, 1.0), "LEAF": Color(0.55, 0.95, 0.65), "CORAL": Color(1.0, 0.45, 0.50), "SHADE": Color(0, 0.02, 0.06, 0.8), "BACKDROP": Color(0.02, 0.04, 0.09), "TITLE": Color(0.80, 0.94, 1.0), "TITLE_OUTLINE": Color(0.05, 0.10, 0.25), "ROUND": 0.3, "RIM": 3, "CORNER_DETAIL": 3, "SMOOTH": false, "SHADOW_SIZE": 10, "SHADOW_OFFSET": Vector2(0, 6)}},
@@ -88,6 +88,31 @@ float luma(vec3 c) { return dot(c, vec3(0.299, 0.587, 0.114)); }
 vec3 tex(vec2 uv) { return texture(screen_tex, uv).rgb; }
 vec3 expose(vec3 c) { return clamp(c * mix(1.0, 0.62 / max(light_lum, 0.2), 0.45), 0.0, 1.0); }
 vec3 saturate_by(vec3 c, float k) { float l = luma(c); return clamp(mix(vec3(l), c, k), 0.0, 1.0); }
+// The eras' rocks, walls and sea lilies are painted in violets and pinks
+// that sepia ink turns brown, but the few posterised colour bands of the
+// pixel and facet styles blow them up into candy pink and purple. Move
+// violet hues to slate blue and pink ones to warm stone, a little greyer,
+// so the walls sit in the samples' teal-blue-brown palette. k = strength.
+vec3 rgb2hsv(vec3 c) {
+	vec4 K = vec4(0.0, -1.0 / 3.0, 2.0 / 3.0, -1.0);
+	vec4 p = mix(vec4(c.bg, K.wz), vec4(c.gb, K.xy), step(c.b, c.g));
+	vec4 q = mix(vec4(p.xyw, c.r), vec4(c.r, p.yzx), step(p.x, c.r));
+	float d = q.x - min(q.w, q.y);
+	return vec3(abs(q.z + (q.w - q.y) / (6.0 * d + 1e-10)), d / (q.x + 1e-10), q.x);
+}
+vec3 hsv2rgb(vec3 c) {
+	vec3 p = abs(fract(c.xxx + vec3(0.0, 2.0 / 3.0, 1.0 / 3.0)) * 6.0 - 3.0);
+	return c.z * mix(vec3(1.0), clamp(p - 1.0, 0.0, 1.0), c.y);
+}
+vec3 tame_magenta(vec3 c, float k) {
+	vec3 h = rgb2hsv(c);
+	// 0.68 (blue-violet) .. 0.97 (rose): violet half -> slate, pink half -> stone
+	float w = smoothstep(0.63, 0.68, h.x) * (1.0 - smoothstep(0.985, 1.0, h.x));
+	if (w <= 0.0) return c;
+	float target = h.x < 0.82 ? 0.56 : 1.08;
+	vec3 moved = hsv2rgb(vec3(fract(target), h.y * 0.3, h.z * 0.92));
+	return mix(c, moved, w * k);
+}
 // Things (animals, you, scenery, walls) against the open floor. In the
 // colour styles Room.gd paints the open floor one flat key colour (the
 // style's "floor", see floor_material()), which reaches the screen as
@@ -149,18 +174,22 @@ void fragment() {
 	vec2 px = SCREEN_PIXEL_SIZE;
 	vec2 cell = floor(FRAGCOORD.xy / BLOCK);
 	vec2 uv = (cell + 0.5) * BLOCK * px;
-	vec3 c = expose(tex(uv));
+	vec3 c = tame_magenta(expose(tex(uv)), 0.85);
 	float l = luma(c);
 	float outline = 0.0;
 	vec2 dirs[4] = vec2[4](vec2(1.0, 0.0), vec2(-1.0, 0.0), vec2(0.0, 1.0), vec2(0.0, -1.0));
 	for (int i = 0; i < 4; i++) {
-		vec3 n = expose(tex(uv + dirs[i] * BLOCK * px));
+		vec3 n = tame_magenta(expose(tex(uv + dirs[i] * BLOCK * px)), 0.85);
 		float d = length(n - c);
 		if (d > 0.30 && luma(n) > l) outline = 1.0;
 	}
-	vec3 q = floor(saturate_by(c, 1.05) * 3.0 + 0.5) / 3.0;
+	// Few shades: brightness in four steps and colour in coarse steps of its
+	// own, so a faint tint rounds to grey instead of jumping to pink or green
+	float ql = floor(l * 4.0 + 0.5) / 4.0;
+	vec3 qc = floor((c - l) * 5.0 + 0.5) / 5.0;
+	vec3 q = clamp(ql + qc, 0.0, 1.0);
 	q = mix(q, vec3(0.13, 0.20, 0.24), 0.18); // a cool retro cast
-	q = mix(q, vec3(0.04, 0.03, 0.06), outline);
+	q = mix(q, vec3(0.03, 0.05, 0.06), outline);
 	// The floor: the sample's deep blue-green, in two flat shades
 	float thing = thing_mask(uv, px);
 	vec3 bg = mix(vec3(0.12, 0.20, 0.23), vec3(0.08, 0.13, 0.16), SCREEN_UV.y);
@@ -177,22 +206,22 @@ void fragment() {
 	vec2 px = SCREEN_PIXEL_SIZE;
 	vec2 cell = floor(FRAGCOORD.xy / BLOCK);
 	vec2 uv = (cell + 0.5) * BLOCK * px;
-	vec3 c = expose(tex(uv));
+	vec3 c = tame_magenta(expose(tex(uv)), 0.8);
 	float l = luma(c);
 	float outline = 0.0;
 	vec2 dirs[4] = vec2[4](vec2(1.0, 0.0), vec2(-1.0, 0.0), vec2(0.0, 1.0), vec2(0.0, -1.0));
 	for (int i = 0; i < 4; i++) {
-		vec3 n = expose(tex(uv + dirs[i] * BLOCK * px));
+		vec3 n = tame_magenta(expose(tex(uv + dirs[i] * BLOCK * px)), 0.8);
 		if (length(n - c) > 0.26 && luma(n) > l) outline = 1.0;
 	}
 	float band = floor(clamp(l, 0.0, 0.999) * 5.0);
 	float target = (band + 0.5) / 5.0;
-	vec3 hue = saturate_by(c, 1.1) / max(l, 0.05);
+	vec3 hue = c / max(l, 0.05);
 	vec3 shade = clamp(hue * target, 0.0, 1.0);
-	// Hue shift: dark bands lean blue-violet, light bands lean warm yellow
-	shade = mix(shade, shade * vec3(0.75, 0.80, 1.15), (1.0 - band / 4.0) * 0.5);
-	shade = mix(shade, shade * vec3(1.12, 1.05, 0.85), (band / 4.0) * 0.35);
-	vec3 line_col = shade * vec3(0.30, 0.25, 0.38);
+	// Hue shift: dark bands lean blue-green, light bands lean warm yellow
+	shade = mix(shade, shade * vec3(0.82, 0.95, 1.05), (1.0 - band / 4.0) * 0.4);
+	shade = mix(shade, shade * vec3(1.08, 1.04, 0.88), (band / 4.0) * 0.3);
+	vec3 line_col = shade * vec3(0.28, 0.32, 0.34);
 	shade = mix(shade, line_col, outline);
 	// The floor: a dusky slate in three shades
 	float thing = thing_mask(uv, px);
@@ -212,7 +241,7 @@ void fragment() {
 	vec2 px = SCREEN_PIXEL_SIZE;
 	vec2 cell = floor(FRAGCOORD.xy / BLOCK);
 	vec2 uv = (cell + 0.5) * BLOCK * px;
-	vec3 c = saturate_by(expose(tex(uv)), 1.15);
+	vec3 c = tame_magenta(expose(tex(uv)), 0.8);
 	// The floor: the sample's night blue, dithered like everything else
 	vec3 bg = mix(vec3(0.10, 0.15, 0.27), vec3(0.05, 0.08, 0.16), SCREEN_UV.y);
 	float thing = thing_mask(uv, px);
@@ -419,14 +448,14 @@ void fragment() {
 	vec3 ca = tex((cell + mix(mid, a, 0.7)) * to_uv);
 	vec3 cb = tex((cell + mix(mid, b, 0.7)) * to_uv);
 	vec3 cd = tex((cell + mix(mid, d, 0.7)) * to_uv);
-	vec3 c = expose((cm * 2.0 + ca + cb + cd) / 5.0);
+	vec3 c = tame_magenta(expose((cm * 2.0 + ca + cb + cd) / 5.0), 0.8);
 	// The floor: slate-blue paper facets, like the sample's backdrop
 	vec3 bg = mix(vec3(0.22, 0.30, 0.40), vec3(0.14, 0.20, 0.28), SCREEN_UV.y);
 	c = mix(ground(bg, cm, 0.2), c, thing_mask((cell + mid) * to_uv, px));
 	// Facet tilt from brightness across its corners
 	vec2 slope = vec2(luma(cb) - luma(ca), luma(cd) - luma(cb));
 	float facet = 0.92 + clamp(dot(slope, vec2(-1.2, 1.2)), -0.15, 0.15) + (hash(cell * 2.0 + (lower ? 0.5 : 0.0)) - 0.5) * 0.16;
-	c = saturate_by(c, 1.1) * facet;
+	c = c * facet;
 	// A faint fold along each triangle's edges
 	float seam = min(min(abs(f.x - f.y), f.y), 1.0 - f.x);
 	c *= 1.0 - 0.07 * (1.0 - smoothstep(0.0, 0.08, seam));

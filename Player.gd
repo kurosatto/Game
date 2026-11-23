@@ -58,6 +58,9 @@ var sense: int = 1 # 1-10, best non-visual sense, see Lineages.SENSES
 var stealth: float = 1.0
 var cloak_time: float = 0.0 # ink, smoke or a camouflage dash: hard to see
 var sense_kind: String = ""
+# Every non-visual sense the form has, {name: 1-10} (Lineages.SENSE_PROFILES);
+# the best one also takes the +sense bonuses. SenseHints.gd turns each into its own effect.
+var sense_profile: Dictionary = {}
 
 # The current form's own stats; recompute_stats() adds items and adaptations
 var form_stats: Dictionary = {}
@@ -1133,7 +1136,7 @@ func grip_grab(e: Node, col: Color):
     tether.color = col
     tether.last_end = e.global_position
     var boss = e.has_method("is_boss") and e.is_boss()
-    var big = e.get("enemy_type") in ["tank", "colony"]
+    var big = e.get("enemy_type") in ["tank", "frond", "colony"]
     var hidden = (e.has_method("is_burrowed") and e.is_burrowed()) or (e.has_method("is_enrolled") and e.is_enrolled())
     tether.hold = not boss and not big and not hidden and e.get("knockback_velocity") != null
     get_parent().add_child(tether)
@@ -1369,6 +1372,9 @@ func recompute_stats():
     discharge_radius = 290.0 * (1.0 + m.get("zap_radius", 0.0))
     vision = clampi(form_stats.vision + int(m.get("vision", 0)), 1, 10)
     sense = clampi(form_stats.sense + int(m.get("sense", 0)), 1, 10)
+    sense_profile = form_stats.get("senses", {}).duplicate()
+    if sense_kind != "":
+        sense_profile[sense_kind] = sense
     stealth = form_stats.get("stealth", 1.0) * max(0.4, 1.0 - m.get("stealth", 0.0))
     biomass_mult = 1.0 + m.get("biomass", 0.0)
     armour = int(m.get("armour", 0))
@@ -1470,6 +1476,7 @@ func apply_form(data: Dictionary):
     vision = lineages.get_vision(data)
     sense = lineages.get_sense(data)
     sense_kind = lineages.SENSES.get(data.id, [1, "Touch"])[1]
+    sense_profile = lineages.sense_profile(data)
 
     escape_style = lineages.get_escape(data)[0]
     rooted_time = 0.0
@@ -1478,6 +1485,7 @@ func apply_form(data: Dictionary):
         "shot_speed": data.shot_speed, "attack_type": data.attack_type,
         "perks": data.tear_perks, "vision": vision, "sense": sense,
         "stealth": lineages.get_stealth(data),
+        "senses": lineages.sense_profile(data),
         "dash_cd": dash_cooldown_for_speed(data.speed) if escape_style == "dart" \
             else lineages.ESCAPE_STYLES[escape_style].cooldown,
     }
@@ -1686,3 +1694,15 @@ func die():
     
     var tween = create_tween()
     tween.tween_property($Sprite2D, "modulate", Color(1.0, 1.0, 1.0, 0.0), 0.5)
+
+# 0 when the form lacks that sense, else its 1-10 rating
+func sense_of(kind: String) -> int:
+    return int(sense_profile.get(kind, 0))
+
+# Touch: feelers brush aside some shots before they land (Tear.gd), 3% a level
+func feelers_deflect() -> bool:
+    return randf() < sense_of("Touch") * 0.03
+
+# Chemical sense: blood in the water, wounded prey takes 3% more a level
+func taste_bonus() -> float:
+    return sense_of("Chemical sense") * 0.03

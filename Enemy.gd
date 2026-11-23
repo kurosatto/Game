@@ -70,6 +70,7 @@ const SPECIAL_STATS = {
 	"swarm": {"hp": 2.5, "hp_per_floor": 0.5, "speed": 235.0, "radius": 17.0, "worth": 0.5},
 	"burrower": {"hp": 8.0, "hp_per_floor": 2.0, "speed": 150.0, "radius": 28.0, "worth": 2.0},
 	"colony": {"hp": 5.0, "hp_per_floor": 1.5, "speed": 0.0, "radius": 30.0, "worth": 0.5},
+	"frond": {"hp": 4.0, "hp_per_floor": 1.5, "speed": 0.0, "radius": 24.0, "worth": 1.0},
 	"skittish": {"hp": 3.0, "hp_per_floor": 0.8, "speed": 265.0, "radius": 20.0, "worth": 3.0},
 	"enroll": {"hp": 10.0, "hp_per_floor": 2.0, "speed": 80.0, "radius": 34.0, "worth": 2.0},
 	"snarer": {"hp": 6.0, "hp_per_floor": 1.5, "speed": 95.0, "radius": 24.0, "worth": 2.0},
@@ -98,6 +99,17 @@ var enroll_cooldown: float = 0.0
 var spray_state: String = "" # snarer: "windup" before a slime jet
 var spray_timer: float = 0.0
 var orbit_sign: float = 1.0 # orbiter: which way it circles
+# frond (Charnia): rooted; the current snaps it at you when you come close.
+# "" -> "windup" (bends away, trembling) -> "lash" (whips over) -> cooldown
+const FROND_ROOT := Vector2(0, 50) # the holdfast, below the enemy's middle
+const FROND_REACH := 170.0
+const FROND_WINDUP := 0.6
+const FROND_LASH := 0.22
+var lash_state: String = ""
+var lash_timer: float = 0.0
+var lash_cooldown: float = 0.0
+var lash_angle: float = 0.0
+var lash_hit: bool = false
 
 # Personality (data/Fauna.gd TEMPERS): animals mind their own business
 # ("calm"), notice you ("alert", a "!" and a beat to react), then fight
@@ -285,7 +297,7 @@ func update_motion(delta: float):
 	elif style == "jet":
 		dphase = m.hz * TAU * delta * (1.0 + 1.5 * run)
 	gait_phase = fmod(gait_phase + dphase, TAU * 64.0)
-	if not is_burrowed() and enemy_type != "colony":
+	if not is_burrowed() and enemy_type not in ["colony", "frond"]:
 		spr.frame = int(gait_phase / TAU * 4.0) % 4
 
 	# Body wave: swimmers and sprawlers flex harder the faster they go
@@ -392,7 +404,7 @@ func setup_motion():
 
 # A small shove from an ordinary shot, without the stun a real knockback gives
 func apply_hit_push(force: Vector2):
-	if is_burrowed() or is_enrolled() or enemy_type == "colony":
+	if is_burrowed() or is_enrolled() or enemy_type in ["colony", "frond"]:
 		return
 	if enemy_type in ["tank", "armoured"]:
 		force *= 0.3
@@ -443,6 +455,10 @@ func setup_enemy(floor_number: int):
 		orbit_sign = 1.0 if randf() < 0.5 else -1.0
 		if enemy_type in HARMLESS:
 			damage = 0
+		if enemy_type == "frond":
+			# No body contact damage: only the lash hurts (process_frond)
+			damage = 0
+			lash_cooldown = randf_range(0.3, 1.2)
 		if light:
 			light.color = Color(0.9, 0.75, 0.4)
 			light.scale = Vector2(1.3, 1.3)
@@ -451,6 +467,8 @@ func setup_enemy(floor_number: int):
 
 	if not is_boss():
 		apply_fauna(floor_number)
+	if enemy_type == "frond":
+		setup_frond()
 	if is_boss():
 		call_deferred("emit_boss_health")
 
@@ -656,7 +674,8 @@ func _physics_process(delta: float):
 			shoot_timer = randf_range(1.5, 2.5) * shoot_delay_mult
 
 	elif enemy_type in SPECIAL_STATS:
-		$Sprite2D.frame = int(fmod(anim_timer * (9.0 if enemy_type == "swarm" else 5.0), 4.0))
+		if enemy_type != "frond":
+			$Sprite2D.frame = int(fmod(anim_timer * (9.0 if enemy_type == "swarm" else 5.0), 4.0))
 		match enemy_type:
 			"tank": process_tank(delta)
 			"armoured": process_armoured(delta)
@@ -664,6 +683,7 @@ func _physics_process(delta: float):
 			"swarm": process_swarm(delta)
 			"burrower": process_burrower(delta)
 			"colony": process_colony(delta)
+			"frond": process_frond(delta)
 			"skittish": process_skittish(delta)
 			"enroll": process_enroll(delta)
 			"snarer": process_snarer(delta)
@@ -1116,6 +1136,69 @@ func spread_runner():
 			sprout.sprout_timer = randf_range(5.5, 7.5)
 		return
 
+# Charnia: a frond anchored on its holdfast. It sways in the current and,
+# when you come close, bends back and snaps over at you. The real animal
+# was passive; here the frond is simply tough and the current swings it.
+func setup_frond():
+	var spr: Sprite2D = $Sprite2D
+	spr.frame = 0 if randf() < 0.5 else 1 # the two painted variants
+	spr.flip_h = randf() < 0.5
+	# Pivot at the holdfast: the sheet's footprint is 20 px below its middle
+	spr.position = FROND_ROOT
+	spr.offset = Vector2(0, -20)
+	$CollisionShape2D.position = Vector2(0, 4)
+	if light:
+		light.color = Color(0.5, 0.8, 1.0)
+		light.energy = 0.45
+		light.position = FROND_ROOT * 0.5
+	idle_timer = randf() * TAU # sway phase
+
+func process_frond(delta: float):
+	velocity = Vector2.ZERO
+	var spr: Sprite2D = $Sprite2D
+	var t = anim_timer + idle_timer
+	var sway = 0.07 * sin(t * 1.3) + 0.025 * sin(t * 3.1 + 1.0)
+	var root = global_position + FROND_ROOT
+	var to_p = player.global_position - root
+	var aim = clampf(wrapf(to_p.angle() + PI / 2, -PI, PI), -1.25, 1.25)
+	lash_cooldown -= delta
+	match lash_state:
+		"":
+			if lash_cooldown <= 0.0 and to_p.length() < FROND_REACH and blind_timer <= 0.0:
+				lash_state = "windup"
+				lash_timer = FROND_WINDUP
+				lash_angle = aim
+				show_mood("!", Color(1.0, 0.55, 0.3))
+		"windup":
+			# Bends back away from you, trembling, so you see it coming
+			lash_timer -= delta
+			var k = 1.0 - lash_timer / FROND_WINDUP
+			sway = -signf(lash_angle if absf(lash_angle) > 0.05 else 1.0) * 0.6 * k + sin(anim_timer * 55.0) * 0.03
+			if lash_timer <= 0.0:
+				lash_state = "lash"
+				lash_timer = FROND_LASH
+				lash_hit = false
+				SoundManager.play_sfx("enemy_lunge", 0.8)
+		"lash":
+			lash_timer -= delta
+			var k = 1.0 - lash_timer / FROND_LASH
+			sway = lerpf(-signf(lash_angle if absf(lash_angle) > 0.05 else 1.0) * 0.6, lash_angle, sqrt(k))
+			# The tip sweeps through the space in front of it
+			if not lash_hit and k > 0.4 and to_p.length() < FROND_REACH + 15.0:
+				lash_hit = true
+				if player.has_method("take_damage"):
+					player.take_damage(1, killer_name())
+			if lash_timer <= 0.0:
+				lash_state = "recover"
+				lash_timer = 0.5
+		"recover":
+			lash_timer -= delta
+			sway = lerpf(sway, lash_angle, lash_timer / 0.5)
+			if lash_timer <= 0.0:
+				lash_state = ""
+				lash_cooldown = randf_range(1.4, 2.2)
+	spr.rotation = lerp_angle(spr.rotation, sway, 1.0 - exp(-delta * (30.0 if lash_state == "lash" else 8.0)))
+
 # Marrella: harmless and quick; it flees, and slips sideways when cornered
 func process_skittish(delta: float):
 	var away = global_position - player.global_position
@@ -1352,7 +1435,7 @@ func apply_stun(duration: float):
 	stun_timer = max(stun_timer, duration * (0.2 if is_boss() else 1.0))
 
 func apply_knockback(force: Vector2, stun_duration: float = 0.4):
-	if is_burrowed() or is_enrolled() or enemy_type == "colony":
+	if is_burrowed() or is_enrolled() or enemy_type in ["colony", "frond"]:
 		return
 	if enemy_type == "tank":
 		knockback_velocity = force * 0.15
@@ -1384,6 +1467,9 @@ func take_damage(amount: float):
 	# Stolen stingers (item): some hits fire a nematocyst and stun
 	if player and is_instance_valid(player) and player.get("stun_chance") and randf() < player.stun_chance:
 		apply_stun(0.9)
+	# Chemical sense: blood in the water, wounded prey is easier to finish
+	if health < max_health and player and is_instance_valid(player) and player.has_method("taste_bonus"):
+		amount *= 1.0 + player.taste_bonus()
 	if armour_blocks():
 		amount *= 0.25
 		SoundManager.play_sfx("hit_glance", randf_range(0.8, 0.95))
@@ -1452,6 +1538,7 @@ func spawn_corpse():
 	c.texture = spr.texture
 	c.hframes = spr.hframes
 	c.frame = spr.frame
+	c.offset = spr.offset
 	get_parent().add_child(c)
 	c.global_position = spr.global_position
 	c.rotation = spr.global_rotation
