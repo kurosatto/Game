@@ -1627,6 +1627,9 @@ func show_pause_info():
     var era = ERA_INFO.get(current_floor, {})
     pause_era.text = era.get("name", "ERA %d" % current_floor)
     pause_dates.text = era.get("dates", "")
+    # Which music is playing, so favourite tracks can be named
+    if SoundManager.now_playing() != "":
+        pause_dates.text += "     Music: " + SoundManager.now_playing()
 
     # You: your animated sprite (whatever art the player is drawn with) and
     # your numbers as icons
