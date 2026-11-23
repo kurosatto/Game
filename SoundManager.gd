@@ -47,8 +47,11 @@ const SOUND_VOLUMES: Dictionary = {
 const REPEAT_GAP := 0.035
 var last_played: Dictionary = {}
 
-# Looping soundtrack (generate_soundtrack.py): one theme, re-voiced per era
-const ERA_TRACKS := ["ediacaran", "cambrian", "ordovician", "carboniferous", "permian"]
+# Looping soundtrack: OpenGameArt tracks listed in data/MusicCredits.gd, each
+# in a pool (menu, explore for floors, boss). While kuro picks favourites, every
+# menu visit, floor and boss plays a random track from its pool, working through
+# a shuffled bag so every track comes up before any repeats.
+const MUSIC = preload("res://data/MusicCredits.gd")
 const MUSIC_VOLUME_DB := -10.0 # music sits under the hit and kill sounds
 const MUSIC_FADE := 1.6
 
@@ -56,6 +59,12 @@ var music_streams: Dictionary = {}
 var music_players: Array[AudioStreamPlayer] = []
 var music_active: int = 0
 var current_track: String = ""
+var track_info: Dictionary = {}   # id -> MusicCredits entry
+var music_bags: Dictionary = {}   # pool -> ids not yet played this round
+var floor_tracks: Dictionary = {} # "explore_<floor>" / "boss_<floor>" -> id, this run
+var now_playing_label: Label
+var now_playing_box: PanelContainer
+var now_playing_tween: Tween
 # Browsers keep audio locked until the player first taps, clicks or presses
 # a key, and a track started before then stays silent. On the web the music
 # waits for that first input, then starts.
@@ -97,25 +106,29 @@ func load_sounds():
         var path = "res://assets/sfx/" + s_name + ".wav"
         if FileAccess.file_exists(path):
             sound_streams[s_name] = load(path)
-    var names: Array = ["title"]
-    for era in ERA_TRACKS:
-        names.append(era)
-        names.append("boss_" + era)
-    for track in names:
+    for t in MUSIC.TRACKS:
+        track_info[t.id] = t
+
+# Streams load the first time they play, so 30 tracks don't all sit in memory
+func _music_stream(track: String):
+    if not music_streams.has(track):
         var path = "res://assets/music/" + track + ".ogg"
-        if ResourceLoader.exists(path):
-            var stream = load(path)
-            stream.loop = true
-            music_streams[track] = stream
+        if not ResourceLoader.exists(path):
+            return null
+        var stream = load(path)
+        stream.loop = true
+        music_streams[track] = stream
+    return music_streams[track]
 
 # Crossfade to a looping track; asking for the one already playing does nothing
 func play_music(track: String):
     if not audio_unlocked:
         pending_track = track
         return
-    if track == current_track or not music_streams.has(track):
+    if track == current_track or _music_stream(track) == null:
         return
     current_track = track
+    _show_now_playing()
     var old_player = music_players[music_active]
     music_active = 1 - music_active
     var new_player = music_players[music_active]
@@ -144,12 +157,89 @@ func _input(event: InputEvent):
         if pending_track != "":
             play_music(pending_track)
 
-# Each era has its own arrangement of the theme
+# A random track from a pool, drawn from a shuffled bag so every track in the
+# pool plays once before any comes round again
+func random_track(pool: String) -> String:
+    var bag: Array = music_bags.get(pool, [])
+    if bag.is_empty():
+        for t in MUSIC.TRACKS:
+            if t.pool == pool:
+                bag.append(t.id)
+        bag.shuffle()
+        # don't start the new round with the track that just played
+        if bag.size() > 1 and bag[-1] == current_track:
+            bag.push_front(bag.pop_back())
+    var pick = bag.pop_back()
+    music_bags[pool] = bag
+    return pick
+
+func play_menu_music():
+    floor_tracks.clear()
+    play_music(random_track("menu"))
+
+# A new run picks new floor and boss tracks
+func new_run():
+    floor_tracks.clear()
+
+# Each floor keeps its random track for the run, so the floor music comes back
+# after its boss
 func music_for_floor(floor_num: int) -> String:
-    return ERA_TRACKS[clampi(floor_num - 1, 0, ERA_TRACKS.size() - 1)]
+    var key = "explore_%d" % floor_num
+    if not floor_tracks.has(key):
+        floor_tracks[key] = random_track("explore")
+    return floor_tracks[key]
 
 func boss_music_for_floor(floor_num: int) -> String:
-    return "boss_" + music_for_floor(floor_num)
+    var key = "boss_%d" % floor_num
+    if not floor_tracks.has(key):
+        floor_tracks[key] = random_track("boss")
+    return floor_tracks[key]
+
+# "Title · Artist" of the track playing now (pause screen), or ""
+func now_playing() -> String:
+    var t = track_info.get(current_track, {})
+    if t.is_empty():
+        return ""
+    return "%s · %s" % [t.title, t.artist]
+
+# The track name fades in at the bottom of the screen for a few seconds when it starts,
+# so kuro can tell which tracks they like
+func _show_now_playing():
+    var text = now_playing()
+    if text == "":
+        return
+    if now_playing_label == null:
+        var layer = CanvasLayer.new()
+        layer.layer = 90
+        add_child(layer)
+        now_playing_box = PanelContainer.new()
+        var bg = StyleBoxFlat.new()
+        bg.bg_color = Color(0.16, 0.11, 0.07, 0.8)
+        bg.set_corner_radius_all(12)
+        bg.set_content_margin_all(12)
+        bg.content_margin_left = 18
+        bg.content_margin_right = 18
+        now_playing_box.add_theme_stylebox_override("panel", bg)
+        now_playing_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+        now_playing_box.modulate.a = 0.0
+        layer.add_child(now_playing_box)
+        now_playing_label = Label.new()
+        now_playing_label.add_theme_font_size_override("font_size", 22)
+        now_playing_label.add_theme_color_override("font_color", Color(0.98, 0.93, 0.8))
+        now_playing_box.add_child(now_playing_label)
+    now_playing_label.text = "Music: " + text
+    # bottom middle (clear of the touch sticks in the corners), sized to the text
+    now_playing_box.reset_size()
+    var vp = now_playing_box.get_viewport_rect().size
+    var box = now_playing_box.get_combined_minimum_size()
+    now_playing_box.position = Vector2((vp.x - box.x) / 2.0, vp.y - box.y - 24)
+    if now_playing_tween:
+        now_playing_tween.kill()
+    now_playing_box.modulate.a = 0.0
+    now_playing_tween = now_playing_box.create_tween()
+    now_playing_tween.tween_property(now_playing_box, "modulate:a", 1.0, 0.6)
+    now_playing_tween.tween_interval(4.0)
+    now_playing_tween.tween_property(now_playing_box, "modulate:a", 0.0, 1.2)
 
 # The attack sound of a form's weapon (Lineages.WEAPONS key)
 func play_attack(weapon: String, pitch_scale: float = 1.0):
