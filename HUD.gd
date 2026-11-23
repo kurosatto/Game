@@ -350,14 +350,50 @@ func _setup_element_bar():
     row.add_child(element_label)
     grow_btn = Button.new()
     grow_btn.text = "GROW"
-    grow_btn.custom_minimum_size = Vector2(110, 34)
+    grow_btn.custom_minimum_size = Vector2(150, 34)
     grow_btn.add_theme_font_size_override("font_size", 16)
     grow_btn.focus_mode = Control.FOCUS_NONE
     for state in ["normal", "hover", "pressed", "disabled"]:
         grow_btn.add_theme_stylebox_override(state, UI.button_box(state, UI.LEAF))
     grow_btn.pressed.connect(show_grow_screen)
     row.add_child(grow_btn)
+    # No growing mid-fight: the button shows it, and lights up again (with
+    # a little bounce) once the room is clear
+    var t = Timer.new()
+    t.wait_time = 0.25
+    t.autostart = true
+    t.timeout.connect(_refresh_grow_btn)
+    add_child(t)
     update_elements({}, 0)
+
+var _was_fighting: bool = false
+
+# A fight room (or boss room) whose animals are still about
+func in_combat() -> bool:
+    var main = get_tree().get_first_node_in_group("main")
+    if main == null or not "current_room_node" in main:
+        return false
+    var room = main.current_room_node
+    if room == null or not is_instance_valid(room) or not "room_data" in room or room.room_data == null:
+        return false
+    return room.room_data.type in [1, 3] and not room.room_data.cleared
+
+func _refresh_grow_btn():
+    if grow_btn == null:
+        return
+    var fighting = in_combat()
+    if fighting:
+        grow_btn.text = "AFTER FIGHT" if _growable > 0 else "GROW"
+        grow_btn.modulate = Color(0.6, 0.6, 0.6)
+    else:
+        grow_btn.text = ("GROW %d" % _growable) if _growable > 0 else "GROW"
+        grow_btn.modulate = Color(1.25, 1.25, 1.05) if _growable > 0 else Color(0.75, 0.75, 0.75)
+        if _was_fighting and _growable > 0:
+            grow_btn.pivot_offset = grow_btn.size / 2.0
+            var tw = grow_btn.create_tween()
+            tw.tween_property(grow_btn, "scale", Vector2.ONE * 1.25, 0.12).set_trans(Tween.TRANS_SINE)
+            tw.tween_property(grow_btn, "scale", Vector2.ONE, 0.45).set_trans(Tween.TRANS_ELASTIC).set_ease(Tween.EASE_OUT)
+    _was_fighting = fighting
 
 func _element_text(have: Dictionary, size: int = 17) -> String:
     var parts: Array = []
@@ -374,17 +410,20 @@ func update_elements(have: Dictionary, growable: int):
     if growable > 0 and not _grow_hinted:
         _grow_hinted = true
         var how = PadInput.prompt("Press Y", "Tap GROW", "Press G or click GROW")
-        show_item_banner("READY TO GROW", "You have eaten enough elements to grow a new part. %s to choose one." % how)
+        show_item_banner("READY TO GROW", "You have eaten enough elements to grow a new part. Once the room is clear, %s to choose one." % how.to_lower())
     if element_label:
         element_label.text = _element_text(have)
-    if grow_btn:
-        grow_btn.text = ("GROW %d" % growable) if growable > 0 else "GROW"
-        grow_btn.modulate = Color(1.25, 1.25, 1.05) if growable > 0 else Color(0.75, 0.75, 0.75)
+    _refresh_grow_btn()
     if grow_modal and grow_modal.visible:
         _fill_grow_screen()
 
 func show_grow_screen():
     if other_screen_up() or settings_modal.visible:
+        return
+    if in_combat():
+        var player = get_tree().get_first_node_in_group("player")
+        if player and player.has_method("popup_text"):
+            player.popup_text(player.global_position + Vector2(0, -80), "Can't grow mid-fight: clear the room first", UI.CORAL)
         return
     if grow_modal == null:
         _create_grow_screen()
@@ -507,7 +546,7 @@ func _create_grow_screen():
         have_row.add_child(chip)
         grow_chips[el] = chip
     grow_grid = GridContainer.new()
-    grow_grid.columns = 4
+    grow_grid.columns = 5
     grow_grid.add_theme_constant_override("h_separation", 12)
     grow_grid.add_theme_constant_override("v_separation", 10)
     grow_grid.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
@@ -603,7 +642,7 @@ func _create_grow_screen():
 
 func _make_grow_tile(r: Dictionary):
     var tile = Button.new()
-    tile.custom_minimum_size = Vector2(440, 130)
+    tile.custom_minimum_size = Vector2(358, 130)
     tile.pressed.connect(_on_grow_tile.bind(r.id))
     tile.focus_entered.connect(func():
         # Moving the pad highlight reads the part, like hovering

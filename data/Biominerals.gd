@@ -29,11 +29,11 @@ const ORDER = ["Ca", "P", "Fe", "Zn", "Cu", "S"]
 
 # What each animal leaves behind, by what its body was built from
 const FAUNA = {
-	"Spriggina": ["P", "S"], "Kimberella": ["Fe", "S"], "Dickinsonia": ["P", "Fe"], "Fractofusus": ["P"],
+	"Spriggina": ["S", "Fe"], "Kimberella": ["Fe", "S"], "Dickinsonia": ["P", "Fe"], "Fractofusus": ["S", "P"],
 	"Opabinia": ["Cu", "S"], "Olenoides": ["Ca", "Cu"], "Wiwaxia": ["S", "Fe"], "Marrella": ["Cu", "S"],
 	"Sacabambaspis": ["P", "Fe"], "Megalograptus": ["Zn", "Cu"], "Orthoceras": ["Ca", "Cu"], "Isotelus": ["Ca"],
 	"Meganeura": ["Zn", "Cu"], "Pulmonoscorpius": ["Zn", "Cu"], "Archimylacris": ["S", "Cu"], "Helenodora": ["S", "Cu"],
-	"Lystrosaurus": ["P", "Ca"], "Inostrancevia": ["Fe", "P"], "Diictodon": ["Ca", "P"], "Euchambersia": ["S", "P"],
+	"Lystrosaurus": ["P", "Ca"], "Inostrancevia": ["Fe", "P"], "Diictodon": ["Ca", "P"], "Euchambersia": ["S", "Zn"],
 	# Extra era animals (Fauna.EXTRAS)
 	"Arkarua": ["Ca", "P"], "Pikaia": ["P", "S"], "Waptia": ["Cu", "S"], "Sanctacaris": ["Zn", "Cu"],
 	"Plectronoceras": ["Ca", "Cu"], "Arandaspis": ["P", "Ca"], "Lunataspis": ["Cu", "S"], "Petraster": ["Ca"],
@@ -42,10 +42,14 @@ const FAUNA = {
 	"Permocupes": ["S", "Cu"], "Edaphosaurus": ["P", "Ca"],
 }
 # A boss is a feast of everything it was made of
-const BOSSES = {1: ["P", "S"], 2: ["Cu", "S", "Zn"], 3: ["Ca", "Cu", "Fe"], 4: ["Ca", "Cu", "Zn"], 5: ["P", "Fe", "Ca"]}
+const BOSSES = {1: ["P", "S"], 2: ["Cu", "S", "Zn"], 3: ["Ca", "Cu", "Fe"], 4: ["Ca", "Cu", "Zn"], 5: ["Fe", "Ca", "S"]}
 # Elements eaten per point of a kill's worth
 const YIELD := 0.1
 const BOSS_YIELD := 2.5
+# Phosphorus is in every cell, but most of it is spent keeping the cell
+# alive; only this share of it is left over to grow with (kuro ended runs
+# swimming in P)
+const RATE = {"P": 0.5}
 
 const RECIPES = [
 	{"id": "calcite_spines", "name": "Calcite Spines", "cost": {"Ca": 4}, "icon": "grow_calcite_spines",
@@ -96,8 +100,19 @@ const RECIPES = [
 	{"id": "keratin_horn", "name": "Keratin Horn", "cost": {"S": 5}, "icon": "grow_keratin_horn",
 		"fact": "Horn sheaths are dense keratin; the more sulfur bridges, the harder the horn.",
 		"effect": "Hits knock enemies back", "mods": {"knockback": 260.0}},
+	{"id": "calcium_signalling", "name": "Calcium Signalling", "cost": {"Ca": 3}, "icon": "grow_calcium_signalling",
+		"fact": "A rush of calcium ions into a cell is the trigger that fires nerves, muscles and electric organs alike.",
+		"effect": "ZAP recharges 20% faster, reaches 10% farther", "mods": {"zap_cd": 0.2, "zap_radius": 0.1}},
+	{"id": "zinc_enzymes", "name": "Zinc Digestive Enzymes", "cost": {"Zn": 3}, "icon": "grow_zinc_enzymes",
+		"fact": "Carboxypeptidase and many other gut enzymes hold a zinc atom that splits protein chains apart.",
+		"effect": "+25% elements from prey", "mods": {"biomass": 0.25}},
+	{"id": "copper_myelin", "name": "Copper-Built Myelin", "cost": {"Cu": 3}, "icon": "grow_copper_myelin",
+		"fact": "Making myelin, the fatty wrap that speeds nerve signals, needs copper enzymes; without copper, nerves lose it.",
+		"effect": "Dash or escape keeps you untouchable 0.15 s longer", "mods": {"iframes": 0.15}},
+	{"id": "sulfated_slime", "name": "Sulfated Slime", "cost": {"S": 3}, "icon": "grow_sulfated_slime", "once": true,
+		"fact": "Slugs, hagfish and worms coat themselves in mucins, sugary proteins studded with sulfate, and slip out of a predator's grip.",
+		"effect": "Shed the first hit after each room you clear", "mods": {"autotomy": 1}},
 ]
-
 static func get_recipe(id: String) -> Dictionary:
 	for r in RECIPES:
 		if r.id == id:
@@ -105,7 +120,7 @@ static func get_recipe(id: String) -> Dictionary:
 	return {}
 
 static func fauna_elements(fauna_name: String) -> Array:
-	return FAUNA.get(fauna_name, ["P"])
+	return FAUNA.get(fauna_name, ["S"])
 
 # Costs are scaled so a run grows about ten parts; each time you grow the
 # same part again it costs 60% more

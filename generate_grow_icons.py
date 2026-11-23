@@ -360,6 +360,64 @@ def membrane_repair():
     return img
 
 
+def calcium_signalling():
+    img, d = new()
+    # a nerve ending: calcium ions flooding in through channels trigger the
+    # release of a burst of vesicles
+    poly(d, [(20, 14), (60, 14), (78, 40), (72, 70), (48, 84), (24, 70), (16, 40)], SHELL)
+    for x, y in ((34, 36), (50, 30), (60, 46), (40, 54), (54, 62)):
+        oval(d, (x - 6, y - 6, x + 6, y + 6), PAPER, 1.6)
+    for x, y in ((10, 30), (8, 54), (86, 34), (88, 60), (30, 90)):
+        oval(d, (x - 4, y - 4, x + 4, y + 4), BONE, 1.8)
+        ink(d, [(x - 2, y), (x + 2, y)], 1.0)
+    ink(d, [(48, 84), (48, 94)], 2.4)
+    return img
+
+
+def zinc_enzymes():
+    img, d = new()
+    # a folded digestive enzyme with a zinc atom held in its active site,
+    # chewing a protein chain
+    seq = [(18, 46), (24, 24), (46, 14), (70, 20), (82, 42), (76, 66), (54, 80), (30, 74)]
+    poly(d, seq, GREEN)
+    ink(d, [(26, 40), (40, 30), (52, 44), (64, 32), (72, 48), (58, 62), (40, 58), (32, 66)], 1.6)
+    oval(d, (40, 36, 56, 52), BLUE, 2.4)
+    for i in range(5):
+        x = 10 + i * 9
+        oval(d, (x - 3.5, 84, x + 3.5, 91), PAPER, 1.4)
+    ink(d, [(54, 88), (62, 88)], 1.2)
+    oval(d, (64, 84, 71, 91), PAPER, 1.4)
+    return img
+
+
+def copper_myelin():
+    img, d = new()
+    # a giant axon wrapped in myelin, with bare gaps where the signal jumps
+    ink(d, [(6, 70), (90, 26)], 4.0)
+    for i in range(4):
+        cx = 16 + i * 21
+        cy = 65 - i * 10.5
+        seq = [(cx - 8, cy - 1), (cx - 4, cy - 9), (cx + 8, cy - 6), (cx + 8, cy + 1), (cx + 4, cy + 9), (cx - 8, cy + 6)]
+        poly(d, seq, BONE, 2.2)
+        ink(d, [(cx - 3, cy - 6), (cx + 1, cy + 6)], 1.0)
+    for x, y in ((24, 26), (70, 74)):
+        oval(d, (x - 4, y - 4, x + 4, y + 4), BLUE, 1.6)
+    return img
+
+
+def sulfated_slime():
+    img, d = new()
+    # a slug-like body slipping away, leaving sulfated mucus behind
+    poly(d, [(40, 30), (70, 22), (88, 34), (84, 50), (56, 54), (40, 48)], SHELL)
+    oval(d, (74, 30, 80, 36), INK, 0.5)
+    ink(d, [(82, 28), (88, 16)], 1.4)
+    ink(d, [(78, 26), (80, 14)], 1.4)
+    for x, y, r in ((30, 46, 7), (18, 56, 6), (12, 72, 5), (26, 76, 4), (38, 66, 5)):
+        oval(d, (x - r, y - r, x + r, y + r), YELLOW, 1.6)
+    ink(d, [(40, 48), (8, 82)], 1.2)
+    return img
+
+
 ICONS = {
     "adapt_grow_calcite_spines": calcite_spines,
     "adapt_grow_shell_plates": shell_plates,
@@ -379,6 +437,10 @@ ICONS = {
     "adapt_grow_melanin": melanin,
     "adapt_grow_keratin_claws": keratin_claws,
     "adapt_grow_keratin_horn": keratin_horn,
+    "adapt_grow_calcium_signalling": calcium_signalling,
+    "adapt_grow_zinc_enzymes": zinc_enzymes,
+    "adapt_grow_copper_myelin": copper_myelin,
+    "adapt_grow_sulfated_slime": sulfated_slime,
 }
 
 if __name__ == "__main__":
