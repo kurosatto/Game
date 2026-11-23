@@ -38,6 +38,8 @@ var dead: bool = false
 var player_push: Vector2 = Vector2.ZERO
 # Read by the player's signature moves (sting venom build-up)
 var venom_stacks: int = 0
+# Held by a cephalopod's arms (Player.grip_grab): follow-up hits bite harder
+var grabbed_time: float = 0.0
 # Extra hit circles along long bodies: [CollisionShape2D, ...]
 var hit_shapes: Array = []
 
@@ -105,6 +107,8 @@ func _physics_process(delta: float):
 	state_time += delta
 	if hit_flash > 0:
 		hit_flash -= delta
+	if grabbed_time > 0:
+		grabbed_time -= delta
 	modulate = Color(1.9, 1.7, 1.7) if hit_flash > 0 else Color.WHITE
 	queue_redraw()
 	if dead or not player or not is_instance_valid(player):
