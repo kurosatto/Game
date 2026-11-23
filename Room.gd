@@ -88,6 +88,7 @@ func setup_room(data, floor_number: int):
 
     # 7. Spawn Layout Obstacles
     spawn_layout_obstacles(clean_layout)
+    close_tight_gaps()
 
     # 7b. Era ground hazards in fight rooms (Hazard.gd)
     if room_data.type == 1:
@@ -575,6 +576,83 @@ func spawn_layout_obstacles(layout: Dictionary):
         var raw_type = obs.get("type", "rock")
         var resolved_type = bio_obstacle_map.get(raw_type, raw_type)
         obs_node.setup_obstacle(resolved_type, era_dir())
+
+# A gap you can see through should be one you can walk through (kuro,
+# 2026-11-23). Any gap between neighbouring scenery, or between scenery and
+# the wall, that is too narrow for the player (56 px across, the same for
+# every form) gets a bank of pebbles that visibly closes it. Gaps at least
+# PASS_GAP wide stay open. Only next-door neighbours are joined, so the
+# routes between diagonal neighbours (always wide) stay open.
+const PASS_GAP := 64.0
+func close_tight_gaps():
+    var obs: Array = []
+    for c in get_children():
+        if c.is_in_group("obstacles") and c.has_method("outline_points"):
+            obs.append(c)
+    # Scenery to wall
+    var inner = interior_rect()
+    var walled := {} # obstacle -> [sides it is joined to the wall on]
+    for o in obs:
+        var r: Rect2 = o.footprint_rect()
+        var mid = r.get_center()
+        var sides: Array = []
+        # A bank as wide as the thing it joins, so it leaves no hollow
+        var wide = clampf(r.size.x, 40.0, 100.0)
+        var tall = clampf(r.size.y, 40.0, 100.0)
+        if r.position.y - inner.position.y < PASS_GAP:
+            add_rubble(Vector2(mid.x, r.position.y + 4.0), Vector2(mid.x, inner.position.y - 6.0), wide)
+            sides.append(Vector2i.UP)
+        if inner.end.y - r.end.y < PASS_GAP:
+            add_rubble(Vector2(mid.x, r.end.y - 4.0), Vector2(mid.x, inner.end.y + 6.0), wide)
+            sides.append(Vector2i.DOWN)
+        if r.position.x - inner.position.x < PASS_GAP:
+            add_rubble(Vector2(r.position.x + 4.0, mid.y), Vector2(inner.position.x - 6.0, mid.y), tall)
+            sides.append(Vector2i.LEFT)
+        if inner.end.x - r.end.x < PASS_GAP:
+            add_rubble(Vector2(r.end.x - 4.0, mid.y), Vector2(inner.end.x + 6.0, mid.y), tall)
+            sides.append(Vector2i.RIGHT)
+        walled[o] = sides
+    # Scenery to scenery
+    for i in obs.size():
+        for j in range(i + 1, obs.size()):
+            var o1 = obs[i]
+            var o2 = obs[j]
+            if o1.position.distance_to(o2.position) > 150.0:
+                continue
+            var best := INF
+            var p1 := Vector2.ZERO
+            var p2 := Vector2.ZERO
+            var pts2 = o2.outline_points()
+            for q1 in o1.outline_points():
+                for q2 in pts2:
+                    var d = q1.distance_to(q2)
+                    if d < best:
+                        best = d
+                        p1 = q1
+                        p2 = q2
+            if best >= PASS_GAP:
+                continue
+            add_rubble(p1, p2)
+            # Two neighbours both joined to the same wall and to each other
+            # would wall in a little hollow between them: fill it too
+            for side in walled[o1]:
+                if side in walled[o2]:
+                    var m = (p1 + p2) * 0.5
+                    var to = Vector2(m.x, inner.position.y - 6.0)
+                    match side:
+                        Vector2i.DOWN: to = Vector2(m.x, inner.end.y + 6.0)
+                        Vector2i.LEFT: to = Vector2(inner.position.x - 6.0, m.y)
+                        Vector2i.RIGHT: to = Vector2(inner.end.x + 6.0, m.y)
+                    add_rubble(m, to)
+
+func add_rubble(from: Vector2, to: Vector2, thickness: float = 40.0):
+    # Reach a little into each side so no notch is left to snag on
+    var dir = (to - from).normalized()
+    var rb = StaticBody2D.new()
+    rb.set_script(preload("res://Rubble.gd"))
+    rb.name = "Rubble"
+    add_child(rb)
+    rb.setup(from - dir * 6.0, to + dir * 6.0, thickness)
 
 func spawn_tactical_enemies(layout: Dictionary, floor_number: int):
     var spawns = layout.get("enemy_spawns", []).duplicate()
