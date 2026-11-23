@@ -371,20 +371,65 @@ var _grow_hinted: bool = false
 func update_elements(have: Dictionary, growable: int):
     _have = have
     _growable = growable
-    if growable > 0 and not _grow_hinted:
+    if growable > 0 and not _grow_hinted and not in_combat():
         _grow_hinted = true
         var how = PadInput.prompt("Press Y", "Tap GROW", "Press G or click GROW")
         show_item_banner("READY TO GROW", "You have eaten enough elements to grow a new part. %s to choose one." % how)
     if element_label:
         element_label.text = _element_text(have)
-    if grow_btn:
-        grow_btn.text = ("GROW %d" % growable) if growable > 0 else "GROW"
-        grow_btn.modulate = Color(1.25, 1.25, 1.05) if growable > 0 else Color(0.75, 0.75, 0.75)
+    _refresh_grow_btn()
     if grow_modal and grow_modal.visible:
         _fill_grow_screen()
 
+# No growing mid-fight (kuro, 2026-11-23): the GROW screen pauses the game,
+# so it was a free time-out with animals all around. It opens again once the
+# room is clear; until then the button is greyed and says so.
+func in_combat() -> bool:
+    var main = get_tree().get_first_node_in_group("main") if is_inside_tree() else null
+    return main != null and main.has_method("in_combat") and main.in_combat()
+
+var _grow_fight: bool = false
+var _grow_watch: float = 0.0
+
+func _refresh_grow_btn():
+    if not grow_btn:
+        return
+    _grow_fight = in_combat()
+    if _grow_fight:
+        grow_btn.text = "FIGHTING"
+        grow_btn.modulate = Color(0.6, 0.6, 0.6, 0.8)
+    else:
+        grow_btn.text = ("GROW %d" % _growable) if _growable > 0 else "GROW"
+        grow_btn.modulate = Color(1.25, 1.25, 1.05) if _growable > 0 else Color(0.75, 0.75, 0.75)
+
+# Rooms clear and fights start without the elements changing
+func _watch_grow_fight(delta: float):
+    _grow_watch -= delta
+    if _grow_watch > 0.0:
+        return
+    _grow_watch = 0.25
+    if in_combat() != _grow_fight:
+        _refresh_grow_btn()
+        if not _grow_fight and _growable > 0 and not _grow_hinted:
+            update_elements(_have, _growable)
+
+func deny_grow():
+    var player = get_tree().get_first_node_in_group("player")
+    if player and player.has_method("popup_text"):
+        player.popup_text(player.global_position + Vector2(0, -80), "CLEAR THE ROOM TO GROW", Color(1.0, 0.75, 0.45))
+    SoundManager.play_sfx("parry", 0.6, -8.0)
+    if grow_btn:
+        var tw = grow_btn.create_tween()
+        for i in 3:
+            tw.tween_property(grow_btn, "position:x", grow_btn.position.x + 6.0, 0.04)
+            tw.tween_property(grow_btn, "position:x", grow_btn.position.x - 6.0, 0.04)
+        tw.tween_property(grow_btn, "position:x", grow_btn.position.x, 0.04)
+
 func show_grow_screen():
     if other_screen_up() or settings_modal.visible:
+        return
+    if in_combat():
+        deny_grow()
         return
     if grow_modal == null:
         _create_grow_screen()
@@ -2043,3 +2088,6 @@ func _input(event: InputEvent):
     get_viewport().set_input_as_handled()
     if Time.get_ticks_msec() >= intro_ready_time:
         dismiss_card()
+
+func _process(delta: float):
+    _watch_grow_fight(delta)

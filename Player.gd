@@ -1271,7 +1271,7 @@ func emit_biomass():
 
 # BiomassOrb.gd calls this when an orb from a kill reaches the player
 func add_element(el: String, amount: float):
-    elements[el] = elements.get(el, 0.0) + amount * biomass_mult
+    elements[el] = elements.get(el, 0.0) + amount * biomass_mult * biominerals.yield_of(el)
     add_biomass(amount / biominerals.YIELD)
 
 # Spend elements on a part from data/Biominerals.gd (the GROW screen)

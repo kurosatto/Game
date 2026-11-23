@@ -260,6 +260,12 @@ func load_room(grid_pos: Vector2i):
     camera.position = Vector2(960, 540)
     hud.update_minimap(dungeon_rooms, current_room_pos)
 
+# Mid-fight: no growing until the room is clear (HUD.show_grow_screen)
+func in_combat() -> bool:
+    if is_transitioning or current_room_node == null or not is_instance_valid(current_room_node):
+        return false
+    return current_room_node.has_method("in_combat") and current_room_node.in_combat()
+
 func get_room_type(grid_pos: Vector2i) -> int:
     if dungeon_rooms.has(grid_pos):
         return dungeon_rooms[grid_pos].type
