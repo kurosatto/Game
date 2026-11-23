@@ -138,6 +138,13 @@ def plus(*xs):
     return out
 
 
+def smack(sec, lo, hi, tone0, tone1, decay):
+    """The audible core of a hit: a bright noise slap and a dropping body tone."""
+    slap = band(noise(sec), lo, hi) * env(sec, 0.0005, decay * 0.5)
+    tone = sweep(sec, tone0, tone1, curve=0.4) * env(sec, 0.001, decay)
+    return plus(slap, tone * 0.8)
+
+
 def mix(length_sec, *parts):
     """Sum (signal, offset_sec, gain) tuples into one buffer."""
     out = np.zeros(n_of(length_sec))
@@ -159,8 +166,10 @@ def finish(x, peak=0.5, fade=0.012, loud=0.0):
         # Phone speakers drop everything under ~400 Hz: scale so the part they
         # can play reaches `loud` RMS (over the sound's loud first 80 ms),
         # without clipping
-        audible = highp(x, 400.0, 2)[: n_of(0.08)]
-        r = np.sqrt(np.mean(audible ** 2))
+        audible = highp(x, 400.0, 2) ** 2
+        win = n_of(0.08)
+        sums = np.convolve(audible, np.ones(win) / win, mode="valid") if len(audible) > win else [np.mean(audible)]
+        r = np.sqrt(np.max(sums))
         if r > 0:
             x *= min(loud / r, 0.95 / max(1e-6, np.max(np.abs(x))))
     f = min(len(x), n_of(fade))
@@ -268,10 +277,14 @@ def atk_clamp():
 def atk_bite():
     # Jaws lunge (short whoosh) and slam shut: a bony chomp
     L = 0.26
-    whoosh = swept_noise(0.1, 500, 1800, q=0.7) * env(0.1, 0.04, 0.03)
-    chomp = thump(0.12, 210, 70, 0.04)
-    teeth = plus(click(0.015, 1800), ring(0.05, [1200, 2300], 0.01) * 0.3)
-    return mix(L, (whoosh, 0, 0.5), (chomp, 0.08, 1.0), (teeth, 0.08, 0.8))
+    # The snap of teeth meeting is what a phone speaker can play, so it leads:
+    # a hard double clack of enamel and a crunchy burst, over a mid-range chomp
+    whoosh = swept_noise(0.08, 700, 2400, q=0.7) * env(0.08, 0.03, 0.02)
+    clack = plus(click(0.014, 1500) * 1.6, ring(0.07, [1350, 2250, 3400], 0.012, [1, 0.7, 0.4]) * 0.7)
+    crunch = band(noise(0.06), 900, 4500) * env(0.06, 0.0005, 0.014)
+    # Only the jaws snapping: the meaty crunch is saved for when the bite
+    # lands on something (hit_*), so a miss and a hit sound clearly different
+    return mix(L, (whoosh, 0, 0.7), (clack, 0.06, 1.0), (crunch, 0.062, 0.5), (click(0.01, 2600), 0.085, 0.7))
 
 
 def atk_rasp():
@@ -353,7 +366,8 @@ def atk_smash():
     knock = plus(click(0.015, 1200) * 1.4, thump(0.1, 260, 90, 0.03))
     boom = thump(0.35, 110, 38, 0.11)
     fizz = band(noise(0.3), 2500, 8000) * env(0.3, 0.005, 0.07)
-    return mix(L, (sw, 0, 0.5), (knock, 0.055, 1.0), (boom, 0.12, 1.0), (click(0.01, 2000), 0.12, 0.8),
+    return mix(L, (sw, 0, 0.5), (knock, 0.055, 1.0), (smack(0.15, 600, 3000, 700, 260, 0.04), 0.055, 0.9),
+               (boom, 0.12, 0.7), (click(0.01, 2000), 0.12, 0.8),
                (fizz, 0.13, 0.35), (bubbles(0.25, 6, 700, 2000, 0.025), 0.16, 0.25))
 
 
@@ -374,11 +388,13 @@ ATTACKS = {
 # around a mid-range "smack" (a sharp noise burst plus a body tone between
 # 300 and 900 Hz); the low thump only adds weight on headphones and PCs.
 
-def smack(sec, lo, hi, tone0, tone1, decay):
-    """The audible core of a hit: a bright noise slap and a dropping body tone."""
-    slap = band(noise(sec), lo, hi) * env(sec, 0.0005, decay * 0.5)
-    tone = sweep(sec, tone0, tone1, curve=0.4) * env(sec, 0.001, decay)
-    return plus(slap, tone * 0.8)
+def connect():
+    """The 'got it' layer on every successful hit, unlike any attack sound:
+    a punchy falling knock with a crisp crack on its front edge."""
+    L = 0.09
+    knock = sweep(L, 1400, 520, curve=0.5) * env(L, 0.0005, 0.025)
+    crack = band(noise(0.025), 2000, 6000) * env(0.025, 0.0003, 0.005)
+    return mix(L, (knock, 0, 1.0), (crack, 0, 0.8))
 
 
 def hit_soft():
@@ -386,7 +402,7 @@ def hit_soft():
     L = 0.22
     core = smack(L, 700, 3200, 820, 300, 0.045)
     wet = band(noise(L), 400, 1600) * env(L, 0.001, 0.03)
-    return mix(L, (core, 0, 1.0), (wet, 0, 0.6), (thump(0.12, 220, 110, 0.035), 0, 0.5),
+    return mix(L, (connect(), 0, 0.9), (core, 0, 1.0), (wet, 0, 0.6), (thump(0.12, 220, 110, 0.035), 0, 0.5),
                (bubbles(0.12, 2, 700, 1500, 0.03), 0.03, 0.4))
 
 
@@ -395,7 +411,7 @@ def hit_shell():
     L = 0.22
     knock = plus(click(0.012, 1800) * 1.6, band(noise(0.03), 1500, 5000) * env(0.03, 0.0005, 0.006))
     tone = ring(L, [980, 1650, 2480, 3900], 0.03, [0.8, 1, 0.6, 0.35])
-    return mix(L, (knock, 0, 1.0), (tone, 0, 0.8), (smack(0.1, 600, 2500, 620, 380, 0.02), 0, 0.6),
+    return mix(L, (connect(), 0, 0.9), (knock, 0, 1.0), (tone, 0, 0.8), (smack(0.1, 600, 2500, 620, 380, 0.02), 0, 0.6),
                (thump(0.06, 300, 150, 0.015), 0, 0.4))
 
 
@@ -403,7 +419,7 @@ def hit_flesh():
     # Meaty thwack: slap of skin and scales over a solid body thud
     L = 0.22
     core = smack(L, 500, 2600, 560, 200, 0.05)
-    return mix(L, (core, 0, 1.0), (click(0.01, 2200), 0, 0.6), (thump(0.16, 150, 55, 0.045), 0, 0.6))
+    return mix(L, (connect(), 0, 0.9), (core, 0, 1.0), (click(0.01, 2200), 0, 0.6), (thump(0.16, 150, 55, 0.045), 0, 0.6))
 
 
 def hit_crit():
@@ -414,7 +430,7 @@ def hit_crit():
         c = plus(click(0.014, rng.uniform(900, 2500)), band(noise(0.02), 800, 3500) * env(0.02, 0.0005, 0.005))
         crunch += mix(L, (c, i * 0.012 + rng.uniform(0, 0.004), rng.uniform(0.6, 1.0)))
     shine = ring(L, [1320, 2200, 3300], 0.07, [1, 0.6, 0.3])
-    return mix(L, (crunch, 0, 1.0), (smack(0.2, 500, 2500, 600, 180, 0.06), 0, 0.9),
+    return mix(L, (connect(), 0, 0.9), (crunch, 0, 1.0), (smack(0.2, 500, 2500, 600, 180, 0.06), 0, 0.9),
                (thump(0.25, 180, 45, 0.07), 0, 0.5), (shine, 0.01, 0.35))
 
 
@@ -493,6 +509,10 @@ OTHERS = {
 }
 
 
+# Attacks are the first thing you hear when you press the button, so they
+# get the same treatment, a little under the hits
+ATTACK_LOUD = 0.11
+
 # Impacts must cut through music on a phone speaker: target RMS above 400 Hz
 LOUD = {"hit_soft": 0.16, "hit_shell": 0.15, "hit_flesh": 0.16, "hit_crit": 0.18,
         "kill_soft": 0.15, "kill_shell": 0.15, "kill_flesh": 0.15, "hurt_thud": 0.15}
@@ -500,7 +520,7 @@ LOUD = {"hit_soft": 0.16, "hit_shell": 0.15, "hit_flesh": 0.16, "hit_crit": 0.18
 
 def main():
     for w, (fn, peak) in ATTACKS.items():
-        write("atk_" + w, fn(), peak)
+        write("atk_" + w, fn(), peak, ATTACK_LOUD)
     for name, (fn, peak) in OTHERS.items():
         write(name, fn(), peak, LOUD.get(name, 0.0))
 

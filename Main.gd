@@ -229,8 +229,9 @@ func generate_floor():
     
     load_room(current_room_pos)
     hud.update_minimap(dungeon_rooms, current_room_pos)
-    hud.show_item_banner("WILDLIFE OF THIS ERA", fauna.describe_floor(floor_number, true)
-        + "\n\nField notes for this era:\n" + field_notes.describe(floor_number, notes_progress), true)
+    # The era page (HUD.show_era_card) shows the wildlife and field notes now;
+    # this note stays for the pause screen's "last discovery"
+    hud.last_banner = ["WILDLIFE OF THIS ERA", fauna.describe_floor(floor_number, true)]
     if floor_number >= 3:
         complete_challenge("ordovician")
 
