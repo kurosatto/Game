@@ -25,6 +25,8 @@ uniform vec3 lights[12];
 uniform int light_count = 0;
 // 0 normally, 1 in a glowing cave: the fog turns to real darkness
 uniform float cave = 0.0;
+// How black the cave is: a glowing cave leaves a trace, a pitch-dark room none
+uniform float cave_alpha = 0.97;
 
 void fragment() {
 	vec2 p = UV * rect_size;
@@ -40,7 +42,7 @@ void fragment() {
 	float rim = smoothstep(0.0, 0.5, a) * (1.0 - smoothstep(0.5, 1.0, a));
 	col = mix(col, rim_color, rim * 0.35);
 	col = mix(col, vec3(0.07, 0.05, 0.035) + (hash(FRAGCOORD.xy) - 0.5) * 0.02, cave);
-	COLOR = vec4(col, a * mix(darkness, 0.97, cave));
+	COLOR = vec4(col, a * mix(darkness, cave_alpha, cave));
 }
 """
 
@@ -55,6 +57,12 @@ var darkness: float = 0.0
 var target_radius: float = 0.0
 var cave: float = 0.0
 var target_darkness: float = 0.0
+var pitch: float = 0.0 # 1 in a pitch-dark room (data/SpecialRooms.gd "dark")
+
+# How far you actually see this frame: a cave closes the light in, and a
+# pitch-dark room leaves only a glimmer around your own body
+func light_radius() -> float:
+	return radius * (1.0 - 0.3 * cave - 0.32 * pitch)
 
 func _ready():
 	# Above the world, below the HUD (layer 2), touch controls and transitions
@@ -112,9 +120,12 @@ func _process(delta: float):
 	# A glowing cave (rooms/SpecialRoom.gd): darker, and you see less
 	var main = get_tree().get_first_node_in_group("main")
 	var room = main.get("current_room_node") if main else null
-	var in_cave = room != null and is_instance_valid(room) and room.get("room_data") != null and room.room_data.special == "glow"
+	var special = room.room_data.special if room != null and is_instance_valid(room) and room.get("room_data") != null else ""
+	var in_cave = special == "glow" or special == "dark"
 	cave = move_toward(cave, 1.0 if in_cave else 0.0, delta * 1.5)
+	pitch = move_toward(pitch, 1.0 if special == "dark" else 0.0, delta * 1.5)
 	mat.set_shader_parameter("cave", cave)
+	mat.set_shader_parameter("cave_alpha", 0.97 + 0.025 * pitch)
 	var lights: Array = []
 	if cave > 0.0:
 		for g in get_tree().get_nodes_in_group("fog_lights"):
@@ -138,8 +149,9 @@ func _process(delta: float):
 	var local_pos = rect.get_global_transform_with_canvas().affine_inverse() * screen_pos
 	mat.set_shader_parameter("rect_size", rect.size)
 	mat.set_shader_parameter("center", local_pos)
-	mat.set_shader_parameter("radius", radius * (1.0 - 0.3 * cave))
-	mat.set_shader_parameter("softness", radius * 0.6)
+	mat.set_shader_parameter("radius", light_radius())
+	# Pitch dark has a hard edge: the glimmer stops close to your body
+	mat.set_shader_parameter("softness", radius * 0.6 * (1.0 - 0.55 * pitch))
 	mat.set_shader_parameter("darkness", darkness)
 	var door_pts := PackedVector2Array()
 	for door in get_tree().get_nodes_in_group("doors"):

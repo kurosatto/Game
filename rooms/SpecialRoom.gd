@@ -36,6 +36,7 @@ func begin(first: bool):
 		"symbiont": _symbiont()
 		"ambush": _ambush()
 		"glow": _glow(first)
+		"dark": fight(first)
 	if first and kind != "ambush":
 		introduce()
 

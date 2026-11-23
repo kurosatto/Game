@@ -62,7 +62,7 @@ func setup(kind: String, f: int):
 	p.global_position = Vector2(300, 540)
 	main.load_room(pick)
 	main.hud.update_minimap(main.dungeon_rooms, pick)
-	if out != "" and kind != "glow":
+	if out != "" and kind != "glow" and kind != "dark":
 		main.get_node("VisionFog").set_vision(10, true)
 	else:
 		main.get_node("VisionFog").set_vision(3, true)
@@ -102,7 +102,7 @@ func _initialize():
 	for i in 20:
 		await process_frame
 	p = main.player
-	var tests = ["vent", "tar", "dig", "frenzy", "extinction", "nest", "tide", "symbiont", "ambush", "glow", "deal", "run"]
+	var tests = ["vent", "tar", "dig", "frenzy", "extinction", "nest", "tide", "symbiont", "ambush", "glow", "dark", "deal", "run"]
 	for t in tests:
 		if only != "" and t != only:
 			continue
@@ -294,6 +294,39 @@ func t_glow():
 		await kill_all()
 		check(d.cleared, "cave clears")
 
+# Pitch dark: no light but your own glimmer; the senses mark the animals
+func t_dark():
+	for f in [1, 3, 5]:
+		var d = await setup("dark", f)
+		await frames(90, Vector2(400, 540))
+		var fog = main.get_node("VisionFog")
+		check(fog.cave > 0.9 and fog.pitch > 0.9, "the room is pitch dark (era %d)" % f)
+		check(fog.light_radius() < fog.radius * 0.5, "you see only a glimmer (%d of %d px)" % [fog.light_radius(), fog.radius])
+		check(main.get_tree().get_nodes_in_group("fog_lights").is_empty(), "nothing glows")
+		check(main.in_combat(), "the dark room has animals to fight")
+		if out != "":
+			# A form with a few good senses, and animals on the move, to show them
+			var prof = {1: {"Touch": 6, "Chemical sense": 7}, 3: {"Lateral line": 8, "Electroreception": 7, "Smell": 4}, 5: {"Smell": 8, "Vibration": 7, "Touch": 4}}[f]
+			fog.set_sense(8, prof.keys()[0], prof)
+			for e in room().active_enemies:
+				if is_instance_valid(e):
+					e.become_hostile()
+					e.health = e.max_health * 0.6
+			await frames(150, Vector2(400, 540))
+		await snap("11_dark_era%d" % f, f == 1)
+		await kill_all()
+		await kill_all() # anything that split or hatched as they died
+		check(d.cleared, "dark room clears")
+	# The menu test switch makes every fight room dark
+	root.get_node("SettingsManager").dark_rooms_all = true
+	var rooms = preload("res://LevelGenerator.gd").generate_level(2, [])
+	var plain = 0
+	for pos in rooms:
+		if rooms[pos].type == 1 and rooms[pos].special == "" and pos != Vector2i(4, 4):
+			plain += 1
+	root.get_node("SettingsManager").dark_rooms_all = false
+	check(plain == 0, "DARK ROOMS: EVERY ROOM leaves no lit fight room (%d)" % plain)
+
 # Every floor deals its special rooms, fitting the era
 func t_deal():
 	var SR = preload("res://data/SpecialRooms.gd")
@@ -313,7 +346,9 @@ func t_deal():
 						check(false, "special on a non-fight room")
 			if n < 1:
 				check(false, "floor %d got no special rooms" % f)
-	check(seen.size() == 10, "all ten kinds turn up (%d)" % seen.size())
+			if not rooms.values().any(func(r): return r.special == "dark"):
+				check(false, "floor %d got no dark room" % f)
+	check(seen.size() == 11, "all eleven kinds turn up (%d)" % seen.size())
 
 func t_run():
 	# The ordinary floor still works with specials in it
@@ -323,7 +358,7 @@ func t_run():
 	for pos in main.dungeon_rooms:
 		if main.dungeon_rooms[pos].special != "":
 			kinds.append(main.dungeon_rooms[pos].special)
-	check(kinds.size() == 3, "floor 3 deals three special rooms %s" % str(kinds))
+	check(kinds.size() == 4 and "dark" in kinds, "floor 3 deals three special rooms and a dark one %s" % str(kinds))
 	for pos in main.dungeon_rooms:
 		if main.dungeon_rooms[pos].special != "":
 			main.current_room_pos = pos

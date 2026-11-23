@@ -246,6 +246,16 @@ func build_menu():
 	credits_corner = credits_btn
 	add_child(credits_btn)
 
+	# Sense test: make every fight room pitch dark, to try out the senses.
+	# Bottom left, opposite the credits; saved like the other settings.
+	dark_btn = button("", toggle_dark_rooms)
+	dark_btn.custom_minimum_size = Vector2(300, 52)
+	dark_btn.add_theme_font_size_override("font_size", 18)
+	dark_btn.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_LEFT, Control.PRESET_MODE_MINSIZE, 24)
+	dark_btn.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	add_child(dark_btn)
+	update_dark_text()
+
 	# The title drifts gently, like something floating in the shallows
 	var tw = title.create_tween().set_loops().set_trans(Tween.TRANS_SINE)
 	tw.tween_property(title, "position:y", -6.0, 2.2).as_relative()
@@ -352,6 +362,8 @@ func open_overlay(title: String, scrolling: bool = true) -> VBoxContainer:
 	menu_box.visible = false
 	if credits_corner:
 		credits_corner.visible = false
+	if dark_btn:
+		dark_btn.visible = false
 	overlay = PanelContainer.new()
 	overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT, Control.PRESET_MODE_MINSIZE, 40)
 	overlay.add_theme_stylebox_override("panel", UI.panel(UI.MEMBRANE, 36, 0.96, 34.0))
@@ -399,6 +411,8 @@ func close_overlay():
 		menu_box.visible = true
 		if credits_corner:
 			credits_corner.visible = true
+		if dark_btn:
+			dark_btn.visible = true
 		update_trait_text()
 		update_style_text()
 		_refocus_menu.call_deferred()
@@ -429,6 +443,16 @@ func row(parent: Container, title: String, body: String, color: Color):
 	parent.add_child(HSeparator.new())
 
 var credits_corner: Control = null
+var dark_btn: Button = null
+
+func update_dark_text():
+	dark_btn.text = "DARK ROOMS: " + ("EVERY ROOM" if SettingsManager.dark_rooms_all else "ONE A FLOOR")
+
+func toggle_dark_rooms():
+	SettingsManager.dark_rooms_all = not SettingsManager.dark_rooms_all
+	SettingsManager.save_settings()
+	SoundManager.play_sfx("dna_pickup", 0.8 if SettingsManager.dark_rooms_all else 1.2)
+	update_dark_text()
 const POOL_NAMES = {"menu": "Menu", "explore": "Floors", "boss": "Bosses"}
 
 func show_music_credits():

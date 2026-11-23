@@ -13,7 +13,7 @@ const BIOMINERALS = preload("res://data/Biominerals.gd")
 const INK = Color(0.24, 0.15, 0.08)
 const PAPER = Color(0.95, 0.9, 0.78)
 
-const KINDS = ["vent", "tar", "dig", "frenzy", "extinction", "nest", "tide", "symbiont", "ambush", "glow"]
+const KINDS = ["vent", "tar", "dig", "frenzy", "extinction", "nest", "tide", "symbiont", "ambush", "glow", "dark"]
 
 # Which eras each kind can turn up in. No brood care, hunters lying in wait
 # or animal sidekicks before the Cambrian; no glowing animals known on land
@@ -22,6 +22,7 @@ const ERAS = {
 	"vent": [1, 2, 3, 4, 5], "tar": [1, 2, 3, 4, 5], "dig": [1, 2, 3, 4, 5],
 	"frenzy": [1, 2, 3, 4, 5], "extinction": [1, 2, 3, 4, 5], "tide": [1, 2, 3, 4, 5],
 	"nest": [2, 3, 4, 5], "symbiont": [2, 3, 4, 5], "ambush": [2, 3, 4, 5], "glow": [2, 3],
+	"dark": [1, 2, 3, 4, 5],
 }
 
 # Rooms with nothing to fight when you walk in: open doors, open ground
@@ -30,8 +31,14 @@ const PEACEFUL = ["vent", "dig", "extinction", "nest", "symbiont", "ambush"]
 static func kinds_for(f: int) -> Array:
 	return KINDS.filter(func(k): return f in ERAS[k])
 
+# One pitch-dark room on every floor, on top of these (LevelGenerator.gd),
+# so the senses always get a room where they are the only way to hunt
 static func count_for(f: int) -> int:
 	return 2 if f <= 2 else 3
+
+# Rooms with no light at all: the senses (SenseHints.gd) find the animals
+static func is_dark(kind: String) -> bool:
+	return kind == "dark"
 
 static func is_land(f: int) -> bool:
 	return f >= 4
@@ -49,6 +56,7 @@ static func title(kind: String, f: int) -> String:
 		"symbiont": return "A FOLLOWER"
 		"ambush": return "QUIET ROOM"
 		"glow": return "GLOWING CAVE"
+		"dark": return "NIGHT" if is_land(f) else "THE DEEP"
 	return kind.to_upper()
 
 static func fact(kind: String, f: int) -> String:
@@ -82,6 +90,13 @@ static func fact(kind: String, f: int) -> String:
 			if f <= 2:
 				return "Sea pens and other soft corals have glowed for at least 540 million years. They flash when something brushes past."
 			return "Comb jellies and sea pens light up the dark when they are disturbed. Use their glow to see."
+		"dark":
+			return [
+				"The oldest Ediacaran animals, at Mistaken Point, lived on the deep seafloor where no sunlight reached.",
+				"Cambrian arthropods already had antennae and sensory hairs to feel their way through dark, muddy water.",
+				"Below about 200 m the sea is black. Fish feel moving water with their lateral line and find prey unseen.",
+				"Spiders and scorpions hunt at night by feeling footsteps through the ground, as they did in the coal swamps.",
+				"Many animals hunt at night by smell, touch and sound, when the day's hunters can't see them."][clampi(f - 1, 0, 4)]
 	return ""
 
 # What to do, in one short line
@@ -97,6 +112,7 @@ static func how(kind: String, f: int) -> String:
 		"symbiont": return "Touch it and it hunts beside you for the rest of this era."
 		"ambush": return ""
 		"glow": return "It's dark. Glowing animals light the way."
+		"dark": return "Pitch dark. Hunt with your senses."
 	return ""
 
 # ---- Per-kind details ----
