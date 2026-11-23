@@ -1968,7 +1968,7 @@ const WEAPONS = {
     "claw": {"melee": true, "label": "wide slash", "reach": 140.0, "arc": 1.7, "damage": 1.8, "cooldown": 1.3, "knockback": 200.0, "special": "Pounce: leap forward into the slash"},
     "lash": {"melee": true, "label": "wide sweep", "reach": 145.0, "arc": 2.2, "damage": 1.6, "cooldown": 1.3, "knockback": 300.0, "special": "Whip crack: hits at the tip do double damage and fling"},
     "sting": {"melee": true, "label": "long jab, venom", "reach": 170.0, "arc": 0.55, "damage": 2.0, "cooldown": 1.4, "venom": true, "special": "Venom build-up: the third sting on one animal does 3x"},
-    "arms": {"melee": true, "label": "long grab, pulls", "reach": 200.0, "arc": 0.8, "damage": 1.6, "cooldown": 1.35, "knockback": -220.0, "stun": 0.4, "special": "Grip: hits on a held animal do 1.8x"},
+    "arms": {"melee": true, "label": "long grab, pulls", "reach": 200.0, "arc": 0.8, "damage": 1.6, "cooldown": 1.35, "knockback": -220.0, "stun": 0.4, "special": "Grab: a hit wraps a tentacle round the animal and holds it for a second. Keep hitting it while it is held for a 1.8x bite"},
     "tongue": {"melee": true, "label": "long grab, pulls", "reach": 230.0, "arc": 0.35, "damage": 1.8, "cooldown": 1.35, "knockback": -260.0, "stun": 0.5, "special": "Gulp: weakened prey is swallowed whole and heals you"},
     "spines": {"melee": true, "label": "all-round jab", "reach": 120.0, "arc": TAU, "damage": 1.5, "cooldown": 1.5, "knockback": 280.0, "special": "Bristle: anything pressing against you gets spiked"},
     "smash": {"melee": true, "label": "smash with a cavitation echo", "reach": 130.0, "arc": 0.8, "damage": 3.0, "cooldown": 2.0, "knockback": 500.0, "stun": 0.8, "cavitation": true, "special": "Cavitation: the strike hits twice"},
