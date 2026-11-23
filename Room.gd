@@ -185,6 +185,13 @@ func setup_room(data, floor_number: int):
     if room_data.type == 1 and not room_data.cleared and active_enemies.is_empty():
         clear_room.call_deferred()
 
+# Animals still to beat here: the GROW screen stays shut until they are
+# (HUD.show_grow_screen). Special rooms with a fight in them say so too.
+func in_combat() -> bool:
+    if room_data == null or room_data.cleared:
+        return false
+    return room_data.type in [1, 3]
+
 func save_room_state():
     if not room_data:
         return

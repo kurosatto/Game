@@ -15,7 +15,7 @@ const ELEMENTS = {
 	"Ca": {"name": "Calcium", "color": Color(0.93, 0.9, 0.78),
 		"fact": "Shells, spines, coral and trilobite eyes are calcium carbonate; bone and teeth are calcium phosphate."},
 	"P": {"name": "Phosphorus", "color": Color(1.0, 0.62, 0.35),
-		"fact": "Phosphate is the backbone of DNA, the energy in ATP, and the mineral of bone."},
+		"fact": "Phosphate is the backbone of DNA, the energy in ATP, and the mineral of bone. It is scarce: phosphorus limits growth in most of the living world."},
 	"Fe": {"name": "Iron", "color": Color(0.9, 0.36, 0.3),
 		"fact": "Iron carries oxygen in haemoglobin and moves electrons in every mitochondrion."},
 	"Zn": {"name": "Zinc", "color": Color(0.62, 0.78, 0.95),
@@ -46,6 +46,13 @@ const BOSSES = {1: ["P", "S"], 2: ["Cu", "S", "Zn"], 3: ["Ca", "Cu", "Fe"], 4: [
 # Elements eaten per point of a kill's worth
 const YIELD := 0.1
 const BOSS_YIELD := 2.5
+# Phosphorus is the nutrient that runs short first in most of the living
+# world, and bodies hold far less of it than calcium or sulfur, so a kill
+# leaves only a little (kuro, 2026-11-23: still too much P). Applied in
+# Player.add_element, so kills, seeps and every reward share it.
+const SCARCE := {"P": 0.45}
+static func yield_of(el: String) -> float:
+	return SCARCE.get(el, 1.0)
 
 const RECIPES = [
 	{"id": "calcite_spines", "name": "Calcite Spines", "cost": {"Ca": 4}, "icon": "grow_calcite_spines",
