@@ -40,7 +40,7 @@ func wait(n: int):
 func pick_adaptation():
 	var hud = main.hud
 	var p = main.player
-	if p.growable_count <= 0 or paused or hud.in_combat() or hud.is_card_up() or (hud.evolution_modal and hud.evolution_modal.visible):
+	if p.growable_count <= 0 or hud.in_combat() or paused or hud.is_card_up() or (hud.evolution_modal and hud.evolution_modal.visible):
 		return
 	var options: Array = []
 	for r in p.biominerals.RECIPES:

@@ -137,10 +137,10 @@ func setup_room(data, floor_number: int):
         # First visit initialization
         room_data.has_initialized_contents = true
         
-        # Spawn any pre-saved pickups (such as the guaranteed key on Floor 1!)
+        # Spawn any pre-saved pickups (such as the floor's one hidden key)
         for p_data in room_data.saved_pickups:
             var p = pickup_scene.instantiate()
-            p.position = p_data["pos"]
+            p.position = free_spot(p_data["pos"], 50.0) if p_data.get("place", false) else p_data["pos"]
             p.pickup_type = p_data["type"]
             add_child(p)
             
@@ -184,6 +184,13 @@ func setup_room(data, floor_number: int):
     # A fight room with nobody to fight would keep its doors shut forever
     if room_data.type == 1 and not room_data.cleared and active_enemies.is_empty():
         clear_room.call_deferred()
+
+# Animals still to beat here: the GROW screen stays shut until they are
+# (HUD.show_grow_screen). Special rooms with a fight in them say so too.
+func in_combat() -> bool:
+    if room_data == null or room_data.cleared:
+        return false
+    return room_data.type in [1, 3]
 
 func save_room_state():
     if not room_data:
@@ -327,8 +334,8 @@ func spawn_door_at(pos: Vector2, d_dir: Vector2i, rot: float):
     var neighbor_type = parent.get_room_type(neighbor_pos) if (parent and parent.has_method("get_room_type")) else -1
     var is_visited = parent.is_room_visited(neighbor_pos) if (parent and parent.has_method("is_room_visited")) else false
     
-    # Only the treasure room needs a key (one is guaranteed per floor);
-    # the shop stays open so its key and items can always be bought
+    # Only the treasure room needs a key: one hides in one of the floor's
+    # other rooms (LevelGenerator), and there is no other key anywhere
     if neighbor_type == 2 and not is_visited:
         door.is_locked = true
         
@@ -781,7 +788,6 @@ func spawn_shop_items():
     
     var shop_defs = [
         {"item_id": "heart", "price": 3, "pos": Vector2(720, 540), "collected": false},
-        {"item_id": "key", "price": 5, "pos": Vector2(960, 540), "collected": false},
         {"item_id": preload("res://data/Items.gd").roll([]), "price": 15, "pos": Vector2(1200, 540), "collected": false}
     ]
     room_data.shop_inventory = shop_defs.duplicate(true)
@@ -857,12 +863,11 @@ func spawn_random_pickup(pos: Vector2):
     p.position = pos
     
     var roll = randf()
-    if roll < 0.55:
+    # No keys here: each locked floor hides exactly one (LevelGenerator)
+    if roll < 0.7:
         p.pickup_type = "coin"
-    elif roll < 0.8:
-        p.pickup_type = "heart" if randf() < 0.7 else "heart_half"
     else:
-        p.pickup_type = "key"
+        p.pickup_type = "heart" if randf() < 0.7 else "heart_half"
         
     add_child(p)
 

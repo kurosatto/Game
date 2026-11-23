@@ -15,7 +15,7 @@ const ELEMENTS = {
 	"Ca": {"name": "Calcium", "color": Color(0.93, 0.9, 0.78),
 		"fact": "Shells, spines, coral and trilobite eyes are calcium carbonate; bone and teeth are calcium phosphate."},
 	"P": {"name": "Phosphorus", "color": Color(1.0, 0.62, 0.35),
-		"fact": "Phosphate is the backbone of DNA, the energy in ATP, and the mineral of bone."},
+		"fact": "Phosphate is the backbone of DNA, the energy in ATP, and the mineral of bone. It is scarce: phosphorus limits growth in most of the living world."},
 	"Fe": {"name": "Iron", "color": Color(0.9, 0.36, 0.3),
 		"fact": "Iron carries oxygen in haemoglobin and moves electrons in every mitochondrion."},
 	"Zn": {"name": "Zinc", "color": Color(0.62, 0.78, 0.95),
@@ -29,11 +29,11 @@ const ORDER = ["Ca", "P", "Fe", "Zn", "Cu", "S"]
 
 # What each animal leaves behind, by what its body was built from
 const FAUNA = {
-	"Spriggina": ["S", "Fe"], "Kimberella": ["Fe", "S"], "Dickinsonia": ["P", "Fe"], "Fractofusus": ["S", "P"],
+	"Spriggina": ["P", "S"], "Kimberella": ["Fe", "S"], "Dickinsonia": ["P", "Fe"], "Fractofusus": ["P"],
 	"Opabinia": ["Cu", "S"], "Olenoides": ["Ca", "Cu"], "Wiwaxia": ["S", "Fe"], "Marrella": ["Cu", "S"],
 	"Sacabambaspis": ["P", "Fe"], "Megalograptus": ["Zn", "Cu"], "Orthoceras": ["Ca", "Cu"], "Isotelus": ["Ca"],
 	"Meganeura": ["Zn", "Cu"], "Pulmonoscorpius": ["Zn", "Cu"], "Archimylacris": ["S", "Cu"], "Helenodora": ["S", "Cu"],
-	"Lystrosaurus": ["P", "Ca"], "Inostrancevia": ["Fe", "P"], "Diictodon": ["Ca", "P"], "Euchambersia": ["S", "Zn"],
+	"Lystrosaurus": ["P", "Ca"], "Inostrancevia": ["Fe", "P"], "Diictodon": ["Ca", "P"], "Euchambersia": ["S", "P"],
 	# Extra era animals (Fauna.EXTRAS)
 	"Arkarua": ["Ca", "P"], "Pikaia": ["P", "S"], "Waptia": ["Cu", "S"], "Sanctacaris": ["Zn", "Cu"],
 	"Plectronoceras": ["Ca", "Cu"], "Arandaspis": ["P", "Ca"], "Lunataspis": ["Cu", "S"], "Petraster": ["Ca"],
@@ -42,14 +42,17 @@ const FAUNA = {
 	"Permocupes": ["S", "Cu"], "Edaphosaurus": ["P", "Ca"],
 }
 # A boss is a feast of everything it was made of
-const BOSSES = {1: ["P", "S"], 2: ["Cu", "S", "Zn"], 3: ["Ca", "Cu", "Fe"], 4: ["Ca", "Cu", "Zn"], 5: ["Fe", "Ca", "S"]}
+const BOSSES = {1: ["P", "S"], 2: ["Cu", "S", "Zn"], 3: ["Ca", "Cu", "Fe"], 4: ["Ca", "Cu", "Zn"], 5: ["P", "Fe", "Ca"]}
 # Elements eaten per point of a kill's worth
 const YIELD := 0.1
 const BOSS_YIELD := 2.5
-# Phosphorus is in every cell, but most of it is spent keeping the cell
-# alive; only this share of it is left over to grow with (kuro ended runs
-# swimming in P)
-const RATE = {"P": 0.5}
+# Phosphorus is the nutrient that runs short first in most of the living
+# world, and bodies hold far less of it than calcium or sulfur, so a kill
+# leaves only a little (kuro, 2026-11-23: still too much P). Applied in
+# Player.add_element, so kills, seeps and every reward share it.
+const SCARCE := {"P": 0.45}
+static func yield_of(el: String) -> float:
+	return SCARCE.get(el, 1.0)
 
 const RECIPES = [
 	{"id": "calcite_spines", "name": "Calcite Spines", "cost": {"Ca": 4}, "icon": "grow_calcite_spines",
@@ -120,7 +123,7 @@ static func get_recipe(id: String) -> Dictionary:
 	return {}
 
 static func fauna_elements(fauna_name: String) -> Array:
-	return FAUNA.get(fauna_name, ["S"])
+	return FAUNA.get(fauna_name, ["P"])
 
 # Costs are scaled so a run grows about ten parts; each time you grow the
 # same part again it costs 60% more

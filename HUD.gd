@@ -121,6 +121,44 @@ func _ready():
     # No shop, so no coin counter; kills leave elements to grow parts from
     $HUDPanel/MarginContainer/HBoxContainer/Counters/Coins.visible = false
     _setup_element_bar()
+    _make_quest_mark()
+
+# ---- Floor quests (Main.field_event, data/FieldNotes.gd) ----
+# They are read on the era page; during play only this small mark under the
+# map counts them, and it pops when one is done. No text over the room.
+var quest_mark: Label = null
+
+func _make_quest_mark():
+    quest_mark = Label.new()
+    quest_mark.name = "QuestMark"
+    quest_mark.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    quest_mark.anchor_left = 1.0
+    quest_mark.anchor_right = 1.0
+    quest_mark.offset_left = -210.0
+    quest_mark.offset_right = -30.0
+    quest_mark.offset_top = 228.0
+    quest_mark.offset_bottom = 256.0
+    quest_mark.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+    quest_mark.add_theme_font_size_override("font_size", 19)
+    quest_mark.add_theme_color_override("font_color", UI.CREAM)
+    quest_mark.add_theme_color_override("font_outline_color", Color(UI.INK, 0.8))
+    quest_mark.add_theme_constant_override("outline_size", 5)
+    add_child(quest_mark)
+
+func update_quests(done: int, total: int, pop: bool = false):
+    if quest_mark == null:
+        return
+    quest_mark.visible = total > 0
+    quest_mark.text = "QUESTS %s %d/%d" % ["✓" if done >= total else "✎", done, total]
+    quest_mark.add_theme_color_override("font_color", UI.LEAF if done >= total else UI.CREAM)
+    if pop:
+        # A quick, light pop: grows, flashes sunny, settles in under a second
+        quest_mark.pivot_offset = quest_mark.size / 2.0
+        quest_mark.scale = Vector2.ONE * 1.7
+        quest_mark.modulate = Color(1.6, 1.4, 0.8)
+        var tw = quest_mark.create_tween().set_parallel(true)
+        tw.tween_property(quest_mark, "scale", Vector2.ONE, 0.45).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+        tw.tween_property(quest_mark, "modulate", Color.WHITE, 0.8)
 
 func setup_settings_ui():
     settings_btn.pressed.connect(toggle_settings)
@@ -350,50 +388,14 @@ func _setup_element_bar():
     row.add_child(element_label)
     grow_btn = Button.new()
     grow_btn.text = "GROW"
-    grow_btn.custom_minimum_size = Vector2(150, 34)
+    grow_btn.custom_minimum_size = Vector2(110, 34)
     grow_btn.add_theme_font_size_override("font_size", 16)
     grow_btn.focus_mode = Control.FOCUS_NONE
     for state in ["normal", "hover", "pressed", "disabled"]:
         grow_btn.add_theme_stylebox_override(state, UI.button_box(state, UI.LEAF))
     grow_btn.pressed.connect(show_grow_screen)
     row.add_child(grow_btn)
-    # No growing mid-fight: the button shows it, and lights up again (with
-    # a little bounce) once the room is clear
-    var t = Timer.new()
-    t.wait_time = 0.25
-    t.autostart = true
-    t.timeout.connect(_refresh_grow_btn)
-    add_child(t)
     update_elements({}, 0)
-
-var _was_fighting: bool = false
-
-# A fight room (or boss room) whose animals are still about
-func in_combat() -> bool:
-    var main = get_tree().get_first_node_in_group("main")
-    if main == null or not "current_room_node" in main:
-        return false
-    var room = main.current_room_node
-    if room == null or not is_instance_valid(room) or not "room_data" in room or room.room_data == null:
-        return false
-    return room.room_data.type in [1, 3] and not room.room_data.cleared
-
-func _refresh_grow_btn():
-    if grow_btn == null:
-        return
-    var fighting = in_combat()
-    if fighting:
-        grow_btn.text = "AFTER FIGHT" if _growable > 0 else "GROW"
-        grow_btn.modulate = Color(0.6, 0.6, 0.6)
-    else:
-        grow_btn.text = ("GROW %d" % _growable) if _growable > 0 else "GROW"
-        grow_btn.modulate = Color(1.25, 1.25, 1.05) if _growable > 0 else Color(0.75, 0.75, 0.75)
-        if _was_fighting and _growable > 0:
-            grow_btn.pivot_offset = grow_btn.size / 2.0
-            var tw = grow_btn.create_tween()
-            tw.tween_property(grow_btn, "scale", Vector2.ONE * 1.25, 0.12).set_trans(Tween.TRANS_SINE)
-            tw.tween_property(grow_btn, "scale", Vector2.ONE, 0.45).set_trans(Tween.TRANS_ELASTIC).set_ease(Tween.EASE_OUT)
-    _was_fighting = fighting
 
 func _element_text(have: Dictionary, size: int = 17) -> String:
     var parts: Array = []
@@ -407,23 +409,65 @@ var _grow_hinted: bool = false
 func update_elements(have: Dictionary, growable: int):
     _have = have
     _growable = growable
-    if growable > 0 and not _grow_hinted:
+    if growable > 0 and not _grow_hinted and not in_combat():
         _grow_hinted = true
         var how = PadInput.prompt("Press Y", "Tap GROW", "Press G or click GROW")
-        show_item_banner("READY TO GROW", "You have eaten enough elements to grow a new part. Once the room is clear, %s to choose one." % how.to_lower())
+        show_item_banner("READY TO GROW", "You have eaten enough elements to grow a new part. %s to choose one." % how)
     if element_label:
         element_label.text = _element_text(have)
     _refresh_grow_btn()
     if grow_modal and grow_modal.visible:
         _fill_grow_screen()
 
+# No growing mid-fight (kuro, 2026-11-23): the GROW screen pauses the game,
+# so it was a free time-out with animals all around. It opens again once the
+# room is clear; until then the button is greyed and says so.
+func in_combat() -> bool:
+    var main = get_tree().get_first_node_in_group("main") if is_inside_tree() else null
+    return main != null and main.has_method("in_combat") and main.in_combat()
+
+var _grow_fight: bool = false
+var _grow_watch: float = 0.0
+
+func _refresh_grow_btn():
+    if not grow_btn:
+        return
+    _grow_fight = in_combat()
+    if _grow_fight:
+        grow_btn.text = "FIGHTING"
+        grow_btn.modulate = Color(0.6, 0.6, 0.6, 0.8)
+    else:
+        grow_btn.text = ("GROW %d" % _growable) if _growable > 0 else "GROW"
+        grow_btn.modulate = Color(1.25, 1.25, 1.05) if _growable > 0 else Color(0.75, 0.75, 0.75)
+
+# Rooms clear and fights start without the elements changing
+func _watch_grow_fight(delta: float):
+    _grow_watch -= delta
+    if _grow_watch > 0.0:
+        return
+    _grow_watch = 0.25
+    if in_combat() != _grow_fight:
+        _refresh_grow_btn()
+        if not _grow_fight and _growable > 0 and not _grow_hinted:
+            update_elements(_have, _growable)
+
+func deny_grow():
+    var player = get_tree().get_first_node_in_group("player")
+    if player and player.has_method("popup_text"):
+        player.popup_text(player.global_position + Vector2(0, -80), "CLEAR THE ROOM TO GROW", Color(1.0, 0.75, 0.45))
+    SoundManager.play_sfx("parry", 0.6, -8.0)
+    if grow_btn:
+        var tw = grow_btn.create_tween()
+        for i in 3:
+            tw.tween_property(grow_btn, "position:x", grow_btn.position.x + 6.0, 0.04)
+            tw.tween_property(grow_btn, "position:x", grow_btn.position.x - 6.0, 0.04)
+        tw.tween_property(grow_btn, "position:x", grow_btn.position.x, 0.04)
+
 func show_grow_screen():
     if other_screen_up() or settings_modal.visible:
         return
     if in_combat():
-        var player = get_tree().get_first_node_in_group("player")
-        if player and player.has_method("popup_text"):
-            player.popup_text(player.global_position + Vector2(0, -80), "Can't grow mid-fight: clear the room first", UI.CORAL)
+        deny_grow()
         return
     if grow_modal == null:
         _create_grow_screen()
@@ -1756,13 +1800,22 @@ func show_pause_info():
     var touch = TouchControls.should_show()
     pause_info_title.text = "Tap a picture to learn about it" if touch else "Point at a picture to learn about it"
     pause_info_body.text = ""
-    if not last_banner.is_empty() and last_banner[0] != "WILDLIFE OF THIS ERA" \
-            and not last_banner[0].begins_with("FIELD NOTE"): # the notes list follows anyway
+    if not last_banner.is_empty() and last_banner[0] != "WILDLIFE OF THIS ERA":
         pause_info_title.text = "Last discovery: " + last_banner[0]
         pause_info_body.text = last_banner[1]
+    # Floor quests, with the fossil fact of each one done
     var m = get_tree().get_first_node_in_group("main")
     if m and m.get("field_notes"):
-        var notes = "Field notes for this era:\n" + m.field_notes.describe(m.floor_number, m.notes_progress)
+        var lines: Array = ["Floor quests:"]
+        var list: Array = m.field_notes.for_floor(m.floor_number)
+        for i in list.size():
+            var n = list[i]
+            var got = int(m.notes_progress.get(i, 0))
+            if got >= n.need:
+                lines.append("✓ %s. %s" % [n.text, n.fact])
+            else:
+                lines.append("– %s%s" % [n.text, (" (%d/%d)" % [got, n.need]) if n.need > 1 else ""])
+        var notes = "\n".join(lines)
         pause_info_body.text = notes if pause_info_body.text == "" else pause_info_body.text + "\n\n" + notes
 
 # ---- Adaptations ----
@@ -1932,9 +1985,11 @@ func show_era_card(floor_num: int, form: Dictionary):
         _quiet_tile(flow, PauseTile.new().setup(tex, frames, disc, a.name))
     var main = get_tree().get_first_node_in_group("main")
     if main and "field_notes" in main:
-        var notes = main.field_notes.describe(floor_num, main.notes_progress, "   ")
+        # The floor's quests are read here, once; play only shows a small count
+        var notes = main.field_notes.describe(floor_num, main.notes_progress, "\n")
         if notes != "":
-            wild.add_child(_card_label("Field notes:  " + notes, 18, UI.MUTED))
+            wild.add_child(_card_label("FLOOR QUESTS  (+1 heart and elements each)", 20, UI.LEAF))
+            wild.add_child(_card_label(notes, 20, UI.CREAM))
 
     if not rows.is_empty():
         vbox.add_child(HSeparator.new())
@@ -2082,3 +2137,6 @@ func _input(event: InputEvent):
     get_viewport().set_input_as_handled()
     if Time.get_ticks_msec() >= intro_ready_time:
         dismiss_card()
+
+func _process(delta: float):
+    _watch_grow_fight(delta)
