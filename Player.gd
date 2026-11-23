@@ -1133,7 +1133,7 @@ func grip_grab(e: Node, col: Color):
     tether.color = col
     tether.last_end = e.global_position
     var boss = e.has_method("is_boss") and e.is_boss()
-    var big = e.get("enemy_type") in ["tank", "colony"]
+    var big = e.get("enemy_type") in ["tank", "frond", "colony"]
     var hidden = (e.has_method("is_burrowed") and e.is_burrowed()) or (e.has_method("is_enrolled") and e.is_enrolled())
     tether.hold = not boss and not big and not hidden and e.get("knockback_velocity") != null
     get_parent().add_child(tether)

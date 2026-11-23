@@ -29,7 +29,7 @@ const ORDER = ["Ca", "P", "Fe", "Zn", "Cu", "S"]
 
 # What each animal leaves behind, by what its body was built from
 const FAUNA = {
-	"Spriggina": ["P", "S"], "Kimberella": ["Fe", "S"], "Dickinsonia": ["P", "Fe"], "Fractofusus": ["P"],
+	"Spriggina": ["P", "S"], "Kimberella": ["Fe", "S"], "Dickinsonia": ["P", "Fe"], "Fractofusus": ["P"], "Charnia": ["P", "S"],
 	"Opabinia": ["Cu", "S"], "Olenoides": ["Ca", "Cu"], "Wiwaxia": ["S", "Fe"], "Marrella": ["Cu", "S"],
 	"Sacabambaspis": ["P", "Fe"], "Megalograptus": ["Zn", "Cu"], "Orthoceras": ["Ca", "Cu"], "Isotelus": ["Ca"],
 	"Meganeura": ["Zn", "Cu"], "Pulmonoscorpius": ["Zn", "Cu"], "Archimylacris": ["S", "Cu"], "Helenodora": ["S", "Cu"],
