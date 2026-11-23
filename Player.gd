@@ -1056,8 +1056,10 @@ func melee_attack(dir: Vector2):
         e.take_damage(dmg * mult)
         if venom:
             apply_venom(e, dmg * 0.25)
-        if current_weapon in ["arms", "tongue"] and is_instance_valid(e):
+        if current_weapon == "tongue" and is_instance_valid(e):
             e.set("grabbed_time", 1.2)
+        if current_weapon == "arms" and is_instance_valid(e) and e.get("health") != null and e.health > 0:
+            grip_grab(e, body_col)
         if current_weapon == "rasp":
             # The radula keeps grinding: two quick follow-up scrapes
             for i in 2:
@@ -1113,6 +1115,29 @@ var bite_chain: int = 0
 var spine_aura_timer: float = 0.0
 var bite_chain_time: float = 0.0
 
+const CEPHALOPODS = ["cephalopod", "nautilus", "coleoid", "squid_line", "palau_nautilus", "crusty_nautilus"]
+const GRIP_TIME = 1.2
+var grip_tether_script = preload("res://GripTether.gd")
+
+# First arms hit grabs: an inked tentacle wraps the animal and (unless it is a
+# boss or too big) reels it in and holds it still. The hold is not refreshed
+# by later hits, so it goes grab, bite, bite, let go, grab again.
+func grip_grab(e: Node, col: Color):
+    if e.get("grabbed_time") == null or e.grabbed_time > 0.0:
+        return
+    e.set("grabbed_time", GRIP_TIME)
+    popup_text(e.global_position, "GRABBED", Color(1.0, 0.7, 0.95))
+    var tether = grip_tether_script.new()
+    tether.player = self
+    tether.target = e
+    tether.color = col
+    tether.last_end = e.global_position
+    var boss = e.has_method("is_boss") and e.is_boss()
+    var big = e.get("enemy_type") in ["tank", "colony"]
+    var hidden = (e.has_method("is_burrowed") and e.is_burrowed()) or (e.has_method("is_enrolled") and e.is_enrolled())
+    tether.hold = not boss and not big and not hidden and e.get("knockback_velocity") != null
+    get_parent().add_child(tether)
+
 func weapon_special(e: Node, away: Vector2, reach: float) -> float:
     var boss = e.has_method("is_boss") and e.is_boss()
     var hp_frac = e.health / max(1.0, e.max_health)
@@ -1134,8 +1159,10 @@ func weapon_special(e: Node, away: Vector2, reach: float) -> float:
             if e.get("grabbed_time") and e.grabbed_time > 0.0:
                 return 1.8
         "arms":
+            # Arms hold the prey; the next strikes are the bite (a beak for
+            # cephalopods, the everted stomach for a sea star)
             if e.get("grabbed_time") and e.grabbed_time > 0.0:
-                popup_text(e.global_position, "GRIP", Color(1.0, 0.7, 0.95))
+                popup_text(e.global_position, "BEAK BITE" if current_character_id in CEPHALOPODS else "GRIP", Color(1.0, 0.7, 0.95))
                 return 1.8
         "bite":
             if bite_chain >= 3:

@@ -37,7 +37,7 @@ func _ready():
 	get_tree().paused = false
 	Engine.time_scale = 1.0
 	set_anchors_preset(Control.PRESET_FULL_RECT)
-	SoundManager.play_music("title")
+	SoundManager.play_menu_music()
 	build_background()
 	build_menu()
 
@@ -429,6 +429,7 @@ func row(parent: Container, title: String, body: String, color: Color):
 	parent.add_child(HSeparator.new())
 
 var credits_corner: Control = null
+const POOL_NAMES = {"menu": "Menu", "explore": "Floors", "boss": "Bosses"}
 
 func show_music_credits():
 	var list = open_overlay("MUSIC CREDITS")
@@ -437,7 +438,7 @@ func show_music_credits():
 	list.add_child(intro)
 	list.add_child(HSeparator.new())
 	for t in music_credits.TRACKS:
-		row(list, "%s  ·  \"%s\"" % [t.track, t.title],
+		row(list, "%s  ·  \"%s\"" % [POOL_NAMES.get(t.pool, t.pool), t.title],
 			"by %s  ·  %s\n%s" % [t.artist, t.license, t.url], ACCENT)
 	var note = label("CC-BY 4.0: creativecommons.org/licenses/by/4.0  ·  CC0: public domain", 18, UI.MUTED)
 	note.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT

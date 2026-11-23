@@ -443,7 +443,7 @@ class PortraitFit extends Node2D:
         scale = Vector2.ONE * (want if scale.x < 0.01 or absf(scale.x - want) > 0.6 else lerpf(scale.x, want, 1.0 - exp(-delta * 6.0)))
 
 const GROW_VISIBLE = ["calcite_spines", "keratin_horn", "keratin_claws", "magnetite_teeth",
-    "photoreceptors", "calcite_lenses", "shell_plates", "zinc_jaws"]
+    "photoreceptors", "calcite_lenses", "zinc_jaws"]
 var grow_tiles: Dictionary = {} # recipe id -> {tile, name, cost, effect, icon, meter}
 var grow_chips: Dictionary = {} # element -> Label
 var grow_change: RichTextLabel = null
@@ -603,7 +603,7 @@ func _create_grow_screen():
 
 func _make_grow_tile(r: Dictionary):
     var tile = Button.new()
-    tile.custom_minimum_size = Vector2(415, 116)
+    tile.custom_minimum_size = Vector2(440, 130)
     tile.pressed.connect(_on_grow_tile.bind(r.id))
     tile.focus_entered.connect(func():
         # Moving the pad highlight reads the part, like hovering
@@ -634,7 +634,8 @@ func _make_grow_tile(r: Dictionary):
     v.add_theme_constant_override("separation", 0)
     row.add_child(v)
     var t = Label.new()
-    t.add_theme_font_size_override("font_size", 19)
+    t.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+    t.add_theme_font_size_override("font_size", 18)
     t.mouse_filter = Control.MOUSE_FILTER_IGNORE
     v.add_child(t)
     var cost = RichTextLabel.new()
@@ -1626,6 +1627,9 @@ func show_pause_info():
     var era = ERA_INFO.get(current_floor, {})
     pause_era.text = era.get("name", "ERA %d" % current_floor)
     pause_dates.text = era.get("dates", "")
+    # Which music is playing, so favourite tracks can be named
+    if SoundManager.now_playing() != "":
+        pause_dates.text += "     Music: " + SoundManager.now_playing()
 
     # You: your animated sprite (whatever art the player is drawn with) and
     # your numbers as icons

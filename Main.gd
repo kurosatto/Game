@@ -215,6 +215,8 @@ func generate_floor():
     hit_this_floor = false
     notes_progress = {}
     hud.update_floor(floor_number)
+    if floor_number == 1:
+        SoundManager.new_run()
     SoundManager.play_music(SoundManager.music_for_floor(floor_number))
     
     dungeon_rooms = level_gen.generate_level(floor_number)

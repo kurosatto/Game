@@ -222,7 +222,7 @@ func _on_body_entered(body: Node):
         if body.is_in_group("enemies") and body.has_method("take_damage"):
             var flight = velocity.normalized()
             var punch = clamp(damage / 3.5, 0.7, 1.8)
-            SoundManager.play_hit(body.body_material() if body.has_method("body_material") else "soft", false, -3.0)
+            SoundManager.play_hit(body.body_material() if body.has_method("body_material") else "soft")
             HitFX.impact(get_parent(), global_position, flight, shot_color(), punch)
             # The shot's own splash: a burst vesicle, a splash of venom, a harpoon's puncture
             HitFX.strike(get_parent(), global_position, flight, projectile_kind, shot_color(), 13.0 + 6.0 * punch)
