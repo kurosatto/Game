@@ -36,6 +36,8 @@ var enemy_scene = preload("res://Enemy.tscn")
 var obstacle_scene = preload("res://Obstacle.tscn")
 var room_layouts = preload("res://RoomLayouts.gd")
 var fauna = preload("res://data/Fauna.gd")
+const Obstacle = preload("res://Obstacle.gd")
+const Enemy = preload("res://Enemy.gd")
 var era_look = preload("res://data/EraLook.gd")
 const HitFX = preload("res://HitFX.gd")
 
@@ -124,6 +126,7 @@ func setup_room(data, floor_number: int):
             spawn_boss(floor_number)
         elif room_data.type == 1 and not room_data.cleared: # NORMAL left mid-fight
             spawn_tactical_enemies(clean_layout, floor_number)
+            spawn_fronds(floor_number)
             
         if room_data.cleared:
             for d_dir in door_nodes:
@@ -177,6 +180,7 @@ func setup_room(data, floor_number: int):
                 p.pickup_type = p_info["type"]
                 add_child(p)
             spawn_tactical_enemies(clean_layout, floor_number)
+            spawn_fronds(floor_number)
             # From era 2, some rooms draw a second group in once the first falls
             if floor_number >= 2 and randf() < 0.22:
                 room_data.waves_left = 1
@@ -571,17 +575,70 @@ func spawn_layout_obstacles(layout: Dictionary):
         "vent": "hydrothermal_vent",
         "sponge": "calcified_sponge",
     }
+    frond_spots.clear()
+    var tall_spots: Array = []
     for obs in layout.get("obstacles", []):
         var gx = obs["gx"]
         var gy = obs["gy"]
         var pos = Vector2(gx * 128 + 64, gy * 128 + 64 + 28)
-
-        var obs_node = obstacle_scene.instantiate()
-        obs_node.position = pos
-        add_child(obs_node)
         var raw_type = obs.get("type", "rock")
         var resolved_type = bio_obstacle_map.get(raw_type, raw_type)
-        obs_node.setup_obstacle(resolved_type, era_dir())
+        # Ediacaran fronds (Charnia) are animals, not scenery: set aside
+        if is_frond_era() and Obstacle.ERA_SLOT.get(resolved_type, "") == "tall":
+            tall_spots.append(pos)
+            continue
+        spawn_obstacle(pos, resolved_type)
+    place_fronds(tall_spots)
+
+func spawn_obstacle(pos: Vector2, type_name: String):
+    var obs_node = obstacle_scene.instantiate()
+    obs_node.position = pos
+    add_child(obs_node)
+    obs_node.setup_obstacle(type_name, era_dir())
+
+# The Ediacaran "tall" scenery is Charnia, a frond that was an animal, so
+# it is an enemy (Enemy.gd "frond"), not an obstacle. kuro (2026-11-23):
+# the fronds looked like enemies, so make them one. A fight room keeps up
+# to FROND_CAP of its frond spots as Charnia; the rest, and the spots in
+# rooms without a fight, become stromatolite mounds. The pick is seeded by
+# the room so a revisit puts everything back in the same place. A cleared
+# room's Charnia were eaten, so their spots stay empty.
+const FROND_CAP := 3
+var frond_spots: Array = []
+
+func is_frond_era() -> bool:
+    return era_dir().ends_with("/ediacaran/")
+
+func place_fronds(spots: Array):
+    if spots.is_empty():
+        return
+    var rng = RandomNumberGenerator.new()
+    rng.seed = hash(room_data.grid_pos) if room_data else 1
+    for i in range(spots.size() - 1, 0, -1):
+        var j = rng.randi_range(0, i)
+        var t = spots[i]
+        spots[i] = spots[j]
+        spots[j] = t
+    var fight = room_data != null and room_data.type == 1
+    for i in spots.size():
+        if fight and i < FROND_CAP:
+            if not room_data.cleared:
+                frond_spots.append(spots[i])
+        else:
+            spawn_obstacle(spots[i], "stromatolite")
+
+# After the room's other animals, so fronds don't take their places
+func spawn_fronds(floor_number: int):
+    var player_node = get_tree().get_first_node_in_group("player")
+    for pos in frond_spots:
+        # Never right where you come in
+        if player_node and pos.distance_to(player_node.global_position - global_position) < 260.0:
+            continue
+        spawn_enemy(pos, "frond", floor_number)
+        var e = active_enemies.back()
+        if is_instance_valid(e) and e.enemy_type == "frond":
+            # The enemy's middle is up the frond; its holdfast sits on the spot
+            e.position = pos - Enemy.FROND_ROOT
 
 func spawn_tactical_enemies(layout: Dictionary, floor_number: int):
     var spawns = layout.get("enemy_spawns", []).duplicate()
@@ -637,7 +694,7 @@ func spawn_tactical_enemies(layout: Dictionary, floor_number: int):
 func maybe_promote_elder(floor_number: int):
     if floor_number < 2 or randf() > 0.12 + 0.06 * floor_number:
         return
-    var picks = active_enemies.filter(func(e): return e.enemy_type not in ["swarm", "colony", "skittish"])
+    var picks = active_enemies.filter(func(e): return e.enemy_type not in ["swarm", "frond", "colony", "skittish"])
     if picks.is_empty():
         return
     picks.pick_random().make_elder()
@@ -651,7 +708,7 @@ func roll_enemy_type(base: String, floor_number: int) -> String:
     if not extras.is_empty() and randf() < EXTRA_CHANCE:
         var sp: Dictionary = extras.pick_random()
         return "%s@%s" % [sp.type, sp.name]
-    var specials = fauna.special_types(floor_number)
+    var specials = fauna.special_types(floor_number).filter(func(t): return t != "frond")
     if not specials.is_empty() and randf() < 0.36:
         return specials.pick_random()
     return base

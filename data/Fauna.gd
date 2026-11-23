@@ -27,6 +27,9 @@ const FLOORS = {
 		"fly": {"name": "Spriggina", "temper": "wary", "idle": "drift", "fact": "A segmented Ediacaran animal; its head end suggests it could move with purpose.", "tint": Color(1.0, 0.85, 0.75), "scale": 0.9, "speed": 0.9, "behavior": "burst"},
 		"pacer": {"name": "Kimberella", "temper": "docile", "idle": "graze", "fact": "An Ediacaran slug-like grazer that left scratch marks as it fed on microbial mats.", "tint": Color(0.85, 0.95, 0.8), "scale": 1.0, "speed": 0.85, "shoot_delay": 1.4},
 		"tank": {"name": "Dickinsonia", "temper": "docile", "idle": "rest", "fact": "A flat, quilted Ediacaran animal up to a metre long; cholesterol traces in its fossils prove it was an animal.", "tip": "Slow and huge, it barely flinches.", "tint": Color(1.0, 1.0, 1.0), "scale": 1.0, "speed": 1.0},
+		# Charnia: the swaying fronds of the Ediacaran sea floor are animals
+		# you can fight (Room.spawn_fronds), never rolled as a random spawn
+		"frond": {"name": "Charnia", "fact": "A feathery rangeomorph frond up to about 60 cm tall, anchored by a disc-shaped holdfast. Found by schoolchildren in Charnwood Forest, England, in the 1950s, it was one of the first fossils accepted as older than the Cambrian. It had no mouth, gut or stinging cells and fed straight from the water.", "tip": "Rooted. Swim too close and the current snaps its tough frond into you.", "tint": Color(1.0, 1.0, 1.0), "scale": 1.4, "speed": 1.0},
 		"colony": {"name": "Fractofusus", "fact": "A spindle-shaped rangeomorph of fractal fronds lying on the Ediacaran sea floor. Fossil beds show it spread by runners, like strawberry plants.", "tip": "Rooted and harmless, but it keeps sprouting new fronds until you clear it.", "tint": Color(1.0, 1.0, 1.0), "scale": 1.0, "speed": 1.0},
 	},
 	2: {
@@ -146,7 +149,7 @@ const BODIES = {
 static func body_of(species: String) -> String:
 	return BODIES.get(species, "soft")
 
-const SPECIAL_TYPES = ["tank", "armoured", "charger", "swarm", "burrower", "colony", "skittish", "enroll", "snarer", "orbiter"]
+const SPECIAL_TYPES = ["tank", "armoured", "charger", "swarm", "burrower", "frond", "colony", "skittish", "enroll", "snarer", "orbiter"]
 
 # The era's third animal type ("tank", "swarm"...), or "" if none
 static func special_type(floor_num: int) -> String:
