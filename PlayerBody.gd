@@ -93,6 +93,7 @@ static func has_form(id: String) -> bool:
 
 func set_form(id: String):
 	form_id = id
+	_has_spine = false
 	_radial = false
 	_jetter = false
 	_legs.clear()
@@ -288,6 +289,51 @@ func _hull_point(dir: Vector2) -> Vector2:
 			best = q
 	return best
 
+# Grown parts hang off the head, not off whatever sticks out furthest: the
+# outline's extreme points jump between fin and leg tips as they move, which
+# made jaws and claws slide round the body. The head frame follows the spine
+# (snout direction) on bodies that have one, and is the plain +X otherwise.
+var _has_spine: bool = false
+var _hf_o := Vector2.ZERO
+var _hf_a: float = 0.0
+var _hf_snout: float = 0.0
+
+func _head_frame(c: Vector2):
+	if _has_spine:
+		_hf_o = sp(head_x - 3.0)
+		_hf_a = sp_ang(head_x - 3.0)
+	else:
+		_hf_o = c
+		_hf_a = 0.0
+	# The snout: the furthest-forward outline point near the midline
+	var best := -INF
+	for q in _sil:
+		var l = (q - _hf_o).rotated(-_hf_a)
+		if abs(l.y) < 5.0 and l.x > best:
+			best = l.x
+	if best == -INF:
+		best = (_hull_point(Vector2.from_angle(_hf_a)) - _hf_o).rotated(-_hf_a).x
+	_hf_snout = best
+
+func _hf(u: float, v: float) -> Vector2:
+	return _hf_o + Vector2(u, v).rotated(_hf_a)
+
+func _hf_dir(d: Vector2) -> Vector2:
+	return d.rotated(_hf_a)
+
+# The edge of the outline on one side (side -1 or 1), `back` units behind
+# the snout: where a part grows out of the side of the head
+func _head_side(side: float, back: float) -> Vector2:
+	var u0 = _hf_snout - back
+	var best := -INF
+	for q in _sil:
+		var l = (q - _hf_o).rotated(-_hf_a)
+		if abs(l.x - u0) < 3.0 and l.y * side > best:
+			best = l.y * side
+	if best == -INF or best > 40.0:
+		best = 4.0
+	return _hf(u0, side * best)
+
 func _draw_parts():
 	if _hull.size() < 4:
 		return
@@ -313,6 +359,7 @@ func _draw_parts():
 	for q in _hull:
 		c += q
 	c /= _hull.size()
+	_head_frame(c)
 	# Aragonite plates: a row of overlapping pearly scales round the rear
 	if n_plates > 0:
 		var nacre = Color(0.86, 0.83, 0.76)
@@ -333,10 +380,10 @@ func _draw_parts():
 		var chitin = Color(0.42, 0.34, 0.26)
 		var jl = 6.0 + 2.0 * min(n_jaws, 3)
 		for side in [-1.0, 1.0]:
-			var p = _hull_point(Vector2(1.0, side * 0.32).normalized())
+			var p = _head_side(side, 3.0)
 			var close = 0.9 - strike * 0.8
-			var mid = p + Vector2(jl * 0.6, side * jl * 0.25 * close)
-			var tip = mid + Vector2(jl * 0.4, -side * jl * 0.45)
+			var mid = p + _hf_dir(Vector2(jl * 0.6, side * jl * 0.25 * close))
+			var tip = mid + _hf_dir(Vector2(jl * 0.4, -side * jl * 0.45))
 			taper(pv([p, mid, tip]), 2.8, 1.0, chitin)
 			if not halo_pass:
 				draw_circle(tip, 1.2, Color(0.55, 0.68, 0.78), true, -1.0, true)
@@ -370,29 +417,30 @@ func _draw_parts():
 		var claw = Color(0.36, 0.3, 0.24)
 		var cl = 7.0 + 3.0 * min(n_claws, 3)
 		for side in [-1.0, 1.0]:
-			var p = _hull_point(Vector2(0.55, side * 0.85).normalized())
+			var p = _head_side(side, 9.0)
 			var snap = strike * 0.6
-			var d = Vector2(cos(side * (0.5 - snap)), sin(side * (0.5 - snap)))
+			var d = _hf_dir(Vector2(cos(side * (0.5 - snap)), sin(side * (0.5 - snap))))
 			var mid = p + d * cl * 0.6
 			var tip = mid + d.rotated(-side * 1.1) * cl * 0.55
 			taper(pv([p, mid, tip]), 3.2, 0.9, claw)
 	if n_horn > 0:
 		var keratin = Color(0.86, 0.79, 0.6)
-		var p = _hull_point(Vector2.RIGHT)
+		var p = _hf(_hf_snout, 0.0)
 		var hl = 10.0 + 4.0 * min(n_horn, 3)
 		var curl = Vector2(0, -hl * 0.18)
-		shape(pv([p + Vector2(-3, -4.5), p + Vector2(hl * 0.55, -2.6) + curl * 0.5, p + Vector2(hl, 0) + curl, p + Vector2(hl * 0.55, 2.2) + curl * 0.5, p + Vector2(-3, 4.5)]), keratin, 1.4)
+		var R = func(v: Vector2) -> Vector2: return p + _hf_dir(v)
+		shape(pv([R.call(Vector2(-3, -4.5)), R.call(Vector2(hl * 0.55, -2.6) + curl * 0.5), R.call(Vector2(hl, 0) + curl), R.call(Vector2(hl * 0.55, 2.2) + curl * 0.5), R.call(Vector2(-3, 4.5))]), keratin, 1.4)
 		if not halo_pass:
 			for r in 3:
 				var x = hl * (0.15 + 0.22 * r)
-				draw_line(p + Vector2(x, -3.6 + x * 0.14) + curl * (x / hl), p + Vector2(x, 3.4 - x * 0.12) + curl * (x / hl), ink(keratin), 0.8, true)
+				draw_line(R.call(Vector2(x, -3.6 + x * 0.14) + curl * (x / hl)), R.call(Vector2(x, 3.4 - x * 0.12) + curl * (x / hl)), ink(keratin), 0.8, true)
 	if n_teeth > 0 and not halo_pass:
-		var p = _hull_point(Vector2.RIGHT)
+		var p = _hf(_hf_snout, 0.0)
 		var gape = 1.0 + strike * 2.5
 		for i in 3 + min(n_teeth, 2):
 			var y = (i - (2 + min(n_teeth, 2)) / 2.0) * 2.6 * gape
-			var b = p + Vector2(-2, y)
-			draw_colored_polygon(pv([b + Vector2(0, -1.1), b + Vector2(3.2, 0), b + Vector2(0, 1.1)]), Color(0.16, 0.17, 0.2))
+			var b = p + _hf_dir(Vector2(-2, y))
+			draw_colored_polygon(pv([b + _hf_dir(Vector2(0, -1.1)), b + _hf_dir(Vector2(3.2, 0)), b + _hf_dir(Vector2(0, 1.1))]), Color(0.16, 0.17, 0.2))
 	_parts_pass = false
 
 # Eyes grown on the GROW screen sit on top of the drawing, either side of the
@@ -415,11 +463,12 @@ func _draw_eye_parts():
 	for q in _hull:
 		c += q
 	c /= _hull.size()
+	_head_frame(c)
 	if n_eyes > 0:
 		for side in [-1.0, 1.0]:
 			for i in min(n_eyes, 3):
-				var p = _hull_point(Vector2(0.55 - 0.18 * i, side * 0.83).normalized())
-				var nrm = (p - c).normalized()
+				var p = _head_side(side, 8.0 + 5.0 * i)
+				var nrm = _hf_dir(Vector2(0, side))
 				var ec = p - nrm * 4.0
 				draw_circle(ec, 2.4 + 0.3 * min(n_eyes, 3), Color(0.96, 0.92, 0.82), true, -1.0, true)
 				draw_circle(ec, 1.6 + 0.3 * min(n_eyes, 3), Color(0.12, 0.08, 0.07), true, -1.0, true)
@@ -427,8 +476,8 @@ func _draw_eye_parts():
 		var calcite = Color(0.9, 0.95, 0.97, 1.0)
 		var r = 2.2 + 0.4 * min(n_lens, 3)
 		for side in [-1.0, 1.0]:
-			var p = _hull_point(Vector2(0.8, side * 0.6).normalized())
-			var nrm = (p - c).normalized()
+			var p = _head_side(side, 4.0)
+			var nrm = _hf_dir(Vector2(0.6, side * 0.8))
 			var lc = p - nrm * (r * 0.9)
 			draw_circle(lc, r + 1.2, OUTLINE, true, -1.0, true)
 			draw_circle(lc, r, calcite, true, -1.0, true)
@@ -681,6 +730,7 @@ func eye(p: Vector2, r: float, iris: Color = Color(0.1, 0.1, 0.12), pupil: bool 
 
 # ── Spine of a long body ──
 func spine_setup(hx: float, length: float, amp: float, k: float):
+	_has_spine = true
 	head_x = hx
 	body_len = length
 	wave_amp = amp * (0.4 + 0.9 * clamp(move, 0.0, 1.2))
