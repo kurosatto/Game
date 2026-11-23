@@ -28,11 +28,13 @@ const SOUND_VOLUMES: Dictionary = {
     "sense_smell": -10.0, "sense_chemical": -10.0, "sense_electric": -12.0,
     "sense_lateral": -9.0, "sense_vibration": -8.0, "sense_touch": -10.0,
     # Combat (generate_combat_sfx.py): one attack sound per weapon...
-    "atk_vesicle": -6.0, "atk_jet": -6.0, "atk_spit": -6.0, "atk_harpoon": -6.0,
-    "atk_slime": -6.0, "atk_silk": -7.0, "atk_spray": -7.0, "atk_engulf": -5.0,
-    "atk_clamp": -4.0, "atk_bite": -4.0, "atk_rasp": -6.0, "atk_pincer": -4.0,
-    "atk_claw": -5.0, "atk_lash": -4.0, "atk_sting": -5.0, "atk_arms": -5.0,
-    "atk_tongue": -5.0, "atk_spines": -5.0, "atk_smash": -3.0,
+    # (generate_combat_sfx.py normalises their loudness on what a phone
+    # speaker can play, so they sit evenly here)
+    "atk_vesicle": -2.0, "atk_jet": -2.0, "atk_spit": -2.0, "atk_harpoon": -2.0,
+    "atk_slime": -2.0, "atk_silk": -3.0, "atk_spray": -3.0, "atk_engulf": -2.0,
+    "atk_clamp": -2.0, "atk_bite": -1.0, "atk_rasp": -3.0, "atk_pincer": -2.0,
+    "atk_claw": -2.0, "atk_lash": -2.0, "atk_sting": -2.0, "atk_arms": -2.0,
+    "atk_tongue": -2.0, "atk_spines": -2.0, "atk_smash": -1.0,
     # ...hits that sound like what they struck, and kills to match
     # (full volume: they're the feedback that a blow landed, so they have to
     # cut through the attack sound and the music on a phone speaker)
