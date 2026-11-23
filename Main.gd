@@ -225,6 +225,10 @@ func check_challenges():
 
 func generate_floor():
     hit_this_floor = false
+    # A key belongs to its own floor: a spare one never opens the next
+    if player.keys > 0:
+        player.keys = 0
+        player.stats_changed.emit(player.dna_biomass, 0)
     notes_progress = {}
     _update_quest_mark()
     hud.update_floor(floor_number)
