@@ -1089,7 +1089,9 @@ func auto_pause():
 
 # Android back button: close what is open, or pause
 func back_pressed():
-    if game_over_screen.visible or victory_screen.visible:
+    if is_card_up():
+        dismiss_card() # the era page: back just skips it, like a tap
+    elif game_over_screen.visible or victory_screen.visible:
         get_tree().paused = false
         get_tree().change_scene_to_file("res://MainMenu.tscn")
     elif is_grow_up():
@@ -1795,71 +1797,137 @@ func dash_row(form: Dictionary, touch: bool, pad: bool = false) -> Array:
     var how = "RT / RB / A" if pad else (("Tap " + label) if touch else "Space / Shift / right-click")
     return [label, "%s: %s, %s" % [how, escape[1].to_lower(), escape[2]]]
 
-# One card per floor: the era on the left, how to play on the right
+# One page per floor, pictures first: the era, you, and the era's animals as
+# drawings, with a single fact. The game is frozen under it and any tap, key,
+# click or pad button closes it at once. Controls are only spelled out on the
+# first era (they are the same afterwards), plus the escape move whenever the
+# new form has one instead of a dash.
 func show_era_card(floor_num: int, form: Dictionary):
     var touch = TouchControls.should_show()
+    var pad = PadInput.using_pad
     var weapon = lineages.weapon_stats(form.get("weapon", "vesicle"))
-    var rows: Array
-    if PadInput.using_pad:
-        rows = [
-            ["MOVE", "Left stick or d-pad"],
-            ["AIM & FIRE", "Right stick; you fire while you hold it"],
-            dash_row(form, false, true),
-            ["ZAP", "LT / LB / X for an electric burst around you (recharges)"],
-            ["GROW", "Y opens the grow screen"],
-            ["PAUSE", "Start; B goes back in menus"],
-        ]
-    elif touch:
-        rows = [
-            ["MOVE", "Drag the left side of the screen"],
-            ["AIM & FIRE", "Drag the right side; you fire while you hold it"],
-            dash_row(form, true),
-            ["ZAP", "Tap ZAP for an electric burst around you (recharges)"],
-            ["PAUSE", "⏸ PAUSE, top right"],
-        ]
-    else:
-        rows = [
-            ["MOVE", "W A S D or the arrow keys"],
-            ["AIM & FIRE", "I J K L, or hold the left mouse button"],
-            dash_row(form, false),
-            ["ZAP", "E / Q / middle-click for an electric burst around you (recharges)"],
-            ["PAUSE", "Esc"],
-        ]
-    rows.append(["SIGHT", lineages.describe_vision(form).trim_prefix("Vision: ")])
-    rows.append(["SENSE", lineages.describe_sense(form) + ". Its ink marks at the edge of your sight point to animals hidden in the dark"])
+    var rows: Array = []
+    if floor_num == 1:
+        if pad:
+            rows = [
+                ["MOVE", "Left stick"],
+                ["AIM & FIRE", "Right stick, hold to fire"],
+                dash_row(form, false, true),
+                ["ZAP", "LT / LB / X, a burst around you"],
+                ["GROW", "Y"],
+                ["PAUSE", "Start"],
+            ]
+        elif touch:
+            rows = [
+                ["MOVE", "Drag the left side"],
+                ["AIM & FIRE", "Drag the right side, hold to fire"],
+                dash_row(form, true),
+                ["ZAP", "Tap ZAP, a burst around you"],
+                ["GROW", "Tap GROW"],
+                ["PAUSE", "⏸ top right"],
+            ]
+        else:
+            rows = [
+                ["MOVE", "W A S D / arrows"],
+                ["AIM & FIRE", "I J K L or hold left mouse"],
+                dash_row(form, false),
+                ["ZAP", "E / Q / middle-click"],
+                ["GROW", "G / Tab"],
+                ["PAUSE", "Esc"],
+            ]
+    elif lineages.escape_label(form) != "DASH":
+        rows = [dash_row(form, touch, pad)]
     var color: Color = form.get("color", Color(0.0, 0.95, 1.0))
     var era: Dictionary = ERA_INFO.get(clampi(floor_num, 1, 5), {})
-    var vbox = _open_card(color, 1300)
+    item_banner.visible = false # an old note would sit on top of the page
+    var vbox = _open_card(color, 1500, 0.95)
+    vbox.add_theme_constant_override("separation", 10)
+
+    for l in [_card_label("ERA %d OF 5" % floor_num, 18, UI.MUTED),
+            _card_label(era.get("name", ""), 46, UI.SUN),
+            _card_label(era.get("dates", ""), 22, UI.LEAF),
+            _card_label(era.get("fact", ""), 22, UI.CREAM)]:
+        l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+        vbox.add_child(l)
+    vbox.add_child(HSeparator.new())
 
     var cols = HBoxContainer.new()
-    cols.add_theme_constant_override("separation", 30)
+    cols.add_theme_constant_override("separation", 34)
     vbox.add_child(cols)
 
-    var left = VBoxContainer.new()
-    left.add_theme_constant_override("separation", 12)
-    left.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-    left.size_flags_stretch_ratio = 0.85
-    cols.add_child(left)
-    left.add_child(_card_label("ERA %d OF 5" % floor_num, 18, UI.MUTED))
-    left.add_child(_card_label(era.get("name", ""), 36, UI.SUN))
-    left.add_child(_card_label(era.get("dates", ""), 22, UI.LEAF))
-    left.add_child(_card_label(era.get("fact", ""), 22, UI.CREAM))
-    left.add_child(HSeparator.new())
-    var who = ("YOU ARE THE " if floor_num == 1 else "YOU ARE NOW ") + form.get("name", current_creature_name)
-    left.add_child(_card_label(who, 24, color))
-    left.add_child(_card_label("Your attack: %s, %s." % [form.get("weapon_name", "Engulf (phagocytosis)").to_lower(), _weapon_hint(weapon)], 19, UI.MUTED))
+    # You, drawn
+    var you = VBoxContainer.new()
+    you.add_theme_constant_override("separation", 6)
+    you.custom_minimum_size = Vector2(330, 0)
+    cols.add_child(you)
+    var me = _era_form_tile(you, 170.0)
+    if me:
+        me.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+        me.tint = UI.ink_tint(color)
+    var who = _card_label(("YOU ARE THE " if floor_num == 1 else "YOU ARE NOW ") + form.get("name", current_creature_name), 24, color)
+    who.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+    you.add_child(who)
+    var atk = _card_label("Attack: " + form.get("weapon_name", "Engulf (phagocytosis)"), 18, UI.MUTED)
+    atk.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+    you.add_child(atk)
 
     cols.add_child(VSeparator.new())
 
-    var right = VBoxContainer.new()
-    right.add_theme_constant_override("separation", 12)
-    right.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-    cols.add_child(right)
-    right.add_child(_card_label("HOW TO PLAY", 24, UI.LEAF))
-    _add_rows(right, rows)
-    right.add_child(_card_label("Clear each room, beat the era's boss, then pick what your lineage evolves into.", 19, UI.MUTED))
+    # The era's animals, drawn, with only their names
+    var wild = VBoxContainer.new()
+    wild.add_theme_constant_override("separation", 8)
+    wild.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+    cols.add_child(wild)
+    wild.add_child(_card_label("WILDLIFE OF THIS ERA", 20, UI.LEAF))
+    var flow = HFlowContainer.new()
+    flow.add_theme_constant_override("h_separation", 14)
+    flow.add_theme_constant_override("v_separation", 6)
+    wild.add_child(flow)
+    var fauna = preload("res://data/Fauna.gd")
+    var animals: Array = fauna.era_species(floor_num)
+    var disc = 112.0 if animals.size() <= 6 else 92.0
+    for a in animals:
+        var p = fauna.sheet_path(a)
+        var tex: Texture2D = load(p) if ResourceLoader.exists(p) else null
+        var frames = int(round(tex.get_width() / float(tex.get_height()))) if tex else 1
+        _quiet_tile(flow, PauseTile.new().setup(tex, frames, disc, a.name))
+    var main = get_tree().get_first_node_in_group("main")
+    if main and "field_notes" in main:
+        var notes = main.field_notes.describe(floor_num, main.notes_progress, "   ")
+        if notes != "":
+            wild.add_child(_card_label("Field notes:  " + notes, 18, UI.MUTED))
+
+    if not rows.is_empty():
+        vbox.add_child(HSeparator.new())
+        _add_rows(vbox, rows, 4 if rows.size() > 1 else 2, 19)
 
     _close_card(vbox, "start" if floor_num == 1 else "continue")
+
+# Your form's animated drawing for the era page (the same art the pause
+# screen uses); null if the player isn't there
+func _era_form_tile(parent: Control, disc: float) -> Control:
+    var player = get_tree().get_first_node_in_group("player")
+    if player == null:
+        return null
+    var spr: Sprite2D = player.get_node_or_null("Sprite2D")
+    var tex: Texture2D = spr.texture if spr else null
+    var frames: int = spr.hframes if spr else 1
+    var spin: float = -PI / 2 + player.heading_offset
+    var sheet = "res://assets/lineages/%s_sheet.png" % player.current_character_id
+    if tex == null and ResourceLoader.exists(sheet):
+        tex = load(sheet)
+        frames = 4
+        spin = 0.0
+    var t = PauseTile.new().setup(tex, frames, disc, "")
+    t.spin = spin
+    _quiet_tile(parent, t)
+    return t
+
+# A picture only: taps go to the page (which closes it), not the tile
+func _quiet_tile(parent: Control, t: Control):
+    parent.add_child(t)
+    t.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    t.focus_mode = Control.FOCUS_NONE
 
 func _weapon_hint(weapon: Dictionary) -> String:
     var special = weapon.get("special", "")
@@ -1885,7 +1953,7 @@ func _show_card(title: String, sub: String, rows: Array, footer: String, color: 
     _close_card(vbox, verb)
 
 # Builds the dimmed backdrop and bordered panel; returns the panel's column
-func _open_card(color: Color, width: float) -> VBoxContainer:
+func _open_card(color: Color, width: float, dim: float = 0.8) -> VBoxContainer:
     if intro_card:
         intro_card.queue_free()
     intro_card = Control.new()
@@ -1897,7 +1965,7 @@ func _open_card(color: Color, width: float) -> VBoxContainer:
 
     var bg = ColorRect.new()
     bg.set_anchors_preset(Control.PRESET_FULL_RECT)
-    bg.color = Color(UI.BACKDROP, 0.8)
+    bg.color = Color(UI.BACKDROP, dim)
     bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
     intro_card.add_child(bg)
 
@@ -1918,17 +1986,17 @@ func _open_card(color: Color, width: float) -> VBoxContainer:
     UI.reveal(intro_card, panel, 0.24)
     return vbox
 
-func _add_rows(parent: Container, rows: Array):
+func _add_rows(parent: Container, rows: Array, columns: int = 2, px: int = 22):
     var grid = GridContainer.new()
-    grid.columns = 2
+    grid.columns = columns
     grid.add_theme_constant_override("h_separation", 28)
     grid.add_theme_constant_override("v_separation", 10)
     parent.add_child(grid)
     for r in rows:
-        var key = _card_label(r[0], 22, UI.LEAF)
+        var key = _card_label(r[0], px, UI.LEAF)
         key.autowrap_mode = TextServer.AUTOWRAP_OFF
         grid.add_child(key)
-        var val = _card_label(r[1], 22, UI.CREAM)
+        var val = _card_label(r[1], px, UI.CREAM)
         val.size_flags_horizontal = Control.SIZE_EXPAND_FILL
         grid.add_child(val)
 
