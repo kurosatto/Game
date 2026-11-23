@@ -89,6 +89,7 @@ var burrow_state: String = "walk"
 var burrow_timer: float = 0.0
 var dust: CPUParticles2D = null
 var floor_num: int = 1
+var worth_override: float = -1.0 # special rooms (rooms/SpecialRoom.gd) set what a kill is worth
 var elder: bool = false # a big old individual: tougher, circled in ink, eats well
 var elder_ring: Node2D = null
 var sprout_timer: float = 0.0 # colony: time to the next runner
@@ -1604,6 +1605,8 @@ func drop_biomass():
 	var worth = 2.0 if enemy_type == "pacer" else 1.0
 	if enemy_type in SPECIAL_STATS:
 		worth = SPECIAL_STATS[enemy_type].worth
+	if worth_override > 0.0:
+		worth = worth_override
 	var els: Array = preload("res://data/Biominerals.gd").fauna_elements(fauna_name)
 	if elder:
 		worth *= 3.0

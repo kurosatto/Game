@@ -236,7 +236,15 @@ func generate_floor():
         SoundManager.new_run()
     SoundManager.play_music(SoundManager.music_for_floor(floor_number))
     
-    dungeon_rooms = level_gen.generate_level(floor_number)
+    if floor_number == 1:
+        specials_seen = []
+    dungeon_rooms = level_gen.generate_level(floor_number, specials_seen)
+    for pos in dungeon_rooms:
+        if dungeon_rooms[pos].special != "":
+            specials_seen.append(dungeon_rooms[pos].special)
+    # A follower (rooms/Companion.gd) stays for one era
+    for c in get_tree().get_nodes_in_group("companions"):
+        c.queue_free()
     current_room_pos = Vector2i(4, 4)
     
     # Position player at 1080p center
@@ -251,6 +259,8 @@ func generate_floor():
     hud.last_banner = ["WILDLIFE OF THIS ERA", fauna.describe_floor(floor_number, true)]
     if floor_number >= 3:
         complete_challenge("ordovician")
+
+var specials_seen: Array = [] # special room kinds dealt this run (LevelGenerator)
 
 func load_room(grid_pos: Vector2i):
     hud.hide_boss_health()

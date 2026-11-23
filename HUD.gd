@@ -1095,6 +1095,8 @@ func _on_minimap_draw():
                 minimap_ctrl.draw_circle(draw_pos + cell_size/2.0, 4.0, UI.LEAF)
             elif r_data.type == 5 and not r_data.seep_used: # MINERAL SEEP
                 minimap_ctrl.draw_circle(draw_pos + cell_size/2.0, 4.0, UI.LEAF)
+            elif r_data.special != "" and is_visited: # SPECIAL ROOM (data/SpecialRooms.gd)
+                minimap_ctrl.draw_arc(draw_pos + cell_size/2.0, 4.5, 0, TAU, 12, UI.SUN, 2.0, true)
                 
 
 func show_boss_health(current: float, max_value: float, boss_title: String = ""):

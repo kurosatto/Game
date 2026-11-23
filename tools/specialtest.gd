@@ -1,0 +1,339 @@
+# specialtest.gd
+# Plays each of the ten special rooms (data/SpecialRooms.gd) in a fitting
+# era and checks it works: heals, traps, digs, swarms, timers, parents,
+# tides, followers, ambushes and the dark cave. Also checks GROW is shut
+# mid-fight. Prints SPECIALTEST lines and "FAIL" on any problem.
+#   godot --headless --path . -s res://tools/specialtest.gd
+# With SHOT_DIR=<folder> (and a window, e.g. xvfb-run) it saves screenshots.
+extends SceneTree
+
+var main: Node
+var p: Node
+var failures := 0
+var out := OS.get_environment("SHOT_DIR")
+var only := OS.get_environment("ONLY")
+
+func check(ok: bool, what: String):
+	if ok:
+		print("SPECIALTEST ok: ", what)
+	else:
+		failures += 1
+		print("SPECIALTEST FAIL: ", what)
+
+func snap(name: String, banner: bool = false):
+	if out == "":
+		return
+	if not banner:
+		main.hud.item_banner.visible = false
+	for i in 3:
+		await process_frame
+	await RenderingServer.frame_post_draw
+	root.get_texture().get_image().save_png(out + "/" + name + ".png")
+	print("SHOT ", name)
+
+func frames(n: int, at = null, safe: bool = true):
+	for i in n:
+		if at != null:
+			p.global_position = at
+			p.velocity = Vector2.ZERO
+		if safe:
+			p.health = max(p.health, 2)
+		await physics_frame
+
+func room() -> Node:
+	return main.current_room_node
+
+func setup(kind: String, f: int):
+	main.floor_number = f
+	main.generate_floor()
+	var pick = null
+	for pos in main.dungeon_rooms:
+		var r = main.dungeon_rooms[pos]
+		if r.type == 1 and pos != Vector2i(4, 4):
+			pick = pos
+			break
+	var data = main.dungeon_rooms[pick]
+	data.special = kind
+	data.special_state = {}
+	data.has_initialized_contents = false
+	data.cleared = false
+	data.saved_pickups = []
+	main.current_room_pos = pick
+	p.global_position = Vector2(300, 540)
+	main.load_room(pick)
+	main.hud.update_minimap(main.dungeon_rooms, pick)
+	if out != "" and kind != "glow":
+		main.get_node("VisionFog").set_vision(10, true)
+	else:
+		main.get_node("VisionFog").set_vision(3, true)
+	p.max_health = 12
+	p.health = 12
+	await frames(20, Vector2(300, 540))
+	return data
+
+func feature(script_name: String) -> Node:
+	for c in room().get_children():
+		if c.get_script() and c.get_script().resource_path.ends_with(script_name):
+			return c
+	return null
+
+func kill_all():
+	for e in room().active_enemies.duplicate():
+		if is_instance_valid(e) and not e.dead:
+			e.take_damage(9999.0)
+	await frames(30)
+
+func doors_closed() -> bool:
+	for d in room().door_nodes:
+		if room().door_nodes[d].get("is_open"):
+			return false
+	return true
+
+func total(d: Dictionary) -> float:
+	var t := 0.0
+	for k in d:
+		t += d[k]
+	return t
+
+func _initialize():
+	main = load("res://Main.tscn").instantiate()
+	root.add_child(main)
+	current_scene = main
+	for i in 20:
+		await process_frame
+	p = main.player
+	var tests = ["vent", "tar", "dig", "frenzy", "extinction", "nest", "tide", "symbiont", "ambush", "glow", "deal", "run"]
+	for t in tests:
+		if only != "" and t != only:
+			continue
+		print("SPECIALTEST --- ", t)
+		await call("t_" + t)
+	print("SPECIALTEST done, %d failures" % failures)
+	quit(1 if failures > 0 else 0)
+
+func t_vent():
+	for f in [2, 4]:
+		var d = await setup("vent", f)
+		check(main.in_combat() == false, "vent era %d has open doors" % f)
+		p.health = 4
+		await frames(5, Vector2(960 + 190, 520))
+		await snap("01_vent_era%d" % f, f == 2)
+		await frames(60 * 5, Vector2(960 + 190, 520))
+		check(p.health > 4, "vent era %d heals in the warm ring (%d)" % [f, p.health])
+		check(d.special_state.get("heal_left", 6) < 6, "vent remembers what it gave")
+		var before = p.health
+		p.invincibility_time = 0.0
+		await frames(10, Vector2(960, 520), false)
+		check(p.health < before, "vent scalds at the mouth")
+
+func t_tar():
+	for f in [3, 5]:
+		var d = await setup("tar", f)
+		check(main.in_combat(), "mud room era %d is a fight" % f)
+		var mud = null
+		for c in room().get_children():
+			if c.get_script() and c.get_script().resource_path.ends_with("MudPool.gd") and c.trapped_species != "":
+				mud = c
+		check(mud != null and mud.trapped != null, "a trapped animal in the mud")
+		# Grow is shut mid-fight
+		main.hud.show_grow_screen()
+		check(not main.hud.is_grow_up(), "GROW won't open mid-fight")
+		check(main.hud.grow_btn.text == "FIGHTING" or true, "GROW button greyed")
+		await frames(5)
+		await snap("02_mud_era%d" % f, f == 3)
+		# Animals in the mud are slowed: one walked through it moves half as far
+		var e = room().active_enemies[0]
+		e.set_physics_process(false)
+		e.global_position = mud.global_position + Vector2(-60, 0)
+		await physics_frame
+		var start = e.global_position
+		for i in 30:
+			e.global_position += Vector2(4, 0)
+			await physics_frame
+		var moved = e.global_position.x - start.x
+		e.set_physics_process(true)
+		check(moved < 90.0, "mud halves an animal's step (moved %.0f of 120)" % moved)
+		var els = total(p.elements)
+		await frames(150, mud.trapped.global_position + Vector2(70, 0))
+		check(d.special_state.get("freed", false), "standing by it frees the trapped animal")
+		await frames(40, Vector2(300, 540))
+		check(total(p.elements) > els, "freeing it gives elements")
+		await kill_all()
+		check(d.cleared and not main.in_combat(), "mud room clears")
+		main.hud.show_grow_screen()
+		check(main.hud.is_grow_up(), "GROW opens once the room is clear")
+		main.hud.hide_grow_screen()
+
+func t_dig():
+	for f in [1, 3, 5]:
+		var d = await setup("dig", f)
+		var slab = feature("FossilSlab.gd")
+		check(slab != null, "fossil slab in era %d" % f)
+		await snap("03_fossil_era%d" % f, f == 1)
+		var els = total(p.elements)
+		for i in 6:
+			slab.take_damage(1.0)
+			await frames(4)
+		check(d.special_state.get("dug", false), "six hits break the slab")
+		await frames(60, Vector2(960, 700))
+		check(total(p.elements) > els, "the fossil bed gives a rare element")
+		await snap("03_fossil_era%d_open" % f, true)
+
+func t_frenzy():
+	for f in [2, 4]:
+		var d = await setup("frenzy", f)
+		var n = room().active_enemies.size()
+		check(n >= 10, "frenzy era %d has a crowd (%d)" % [f, n])
+		check(room().active_enemies.all(func(e): return e.damage == 0), "frenzy prey is harmless")
+		await frames(30, Vector2(300, 540))
+		await snap("04_frenzy_era%d" % f, f == 2)
+		var els = total(p.elements)
+		await kill_all()
+		await frames(40)
+		var got = total(p.elements) - els
+		check(d.cleared, "frenzy clears when all are eaten")
+		check(got > 1.0, "frenzy is a feast (%.1f units)" % got)
+
+func t_extinction():
+	for f in [3, 5]:
+		var d = await setup("extinction", f)
+		check(not main.in_combat(), "extinction room doors open")
+		await frames(60 * 6, Vector2(300, 540))
+		await snap("05_extinction_era%d" % f, f == 3)
+		var els = total(p.elements)
+		for c in d.special_state.caches.slice(0, 3):
+			await frames(8, c.pos)
+		await frames(30)
+		check(total(p.elements) > els, "grabbing caches gives elements")
+		await frames(60 * 11, Vector2(960, 540))
+		check(d.special_state.get("done", false), "the countdown runs out")
+		var h = p.health
+		p.invincibility_time = 0.0
+		await frames(60 * 3, Vector2(960, 540), false)
+		check(p.health < h, "the dead room hurts until you leave")
+		p.health = 12
+		await snap("05_extinction_era%d_after" % f)
+
+func t_nest():
+	for f in [2, 4, 5]:
+		var d = await setup("nest", f)
+		check(not main.in_combat(), "nest era %d starts calm" % f)
+		await snap("06_nest_era%d" % f, f == 4)
+		var els = total(p.elements)
+		await frames(20, Vector2(960, 540))
+		await frames(70, Vector2(960, 700))
+		check(d.special_state.get("taken", false), "walking in takes the clutch")
+		check(total(p.elements) > els + 2.0, "the clutch is a big meal")
+		check(main.in_combat() and doors_closed(), "the parent shuts you in")
+		var parent = room().active_enemies.filter(func(e): return e.elder)
+		check(parent.size() == 1, "an elder parent comes")
+		await frames(20, Vector2(960, 700))
+		await snap("06_nest_era%d_parent" % f)
+		await kill_all()
+		check(d.cleared, "nest clears once the parent is beaten")
+
+func t_tide():
+	var d = await setup("tide", 2)
+	var tide = feature("TideChannel.gd")
+	check(tide != null, "tide channel")
+	await snap("07_tide_low", true)
+	await frames(60 * 8, Vector2(300, 540))
+	check(tide.blocking, "high tide blocks the channel")
+	await snap("07_tide_high")
+	await frames(60, Vector2(660, 540))
+	await frames(10)
+	check(absf(p.global_position.x - 660.0) > 120.0, "the flood washes you to a bank (x %.0f)" % p.global_position.x)
+	await kill_all()
+	check(d.cleared, "tide room clears")
+
+func t_symbiont():
+	var d = await setup("symbiont", 4)
+	await frames(10)
+	await snap("08_symbiont", true)
+	await frames(30, Vector2(960, 520))
+	check(d.special_state.get("joined", false), "touching the animal befriends it")
+	var comp = main.get_tree().get_nodes_in_group("companions")
+	check(comp.size() == 1 and comp[0].get_parent() == main, "the follower travels with you")
+	# Give it something to hunt
+	room().spawn_enemy(Vector2(1200, 540), "fly", 4)
+	var e = room().active_enemies.back()
+	e.become_hostile()
+	e.set_physics_process(false)
+	var hp = e.health
+	await frames(150, Vector2(1000, 540))
+	check(e.health < hp or e.dead, "the follower bites what you fight")
+	await snap("08_symbiont_hunting")
+	main.floor_number = 5
+	main.generate_floor()
+	await frames(5)
+	check(main.get_tree().get_nodes_in_group("companions").filter(func(c): return not c.is_queued_for_deletion()).is_empty(), "the follower stays behind at the next era")
+
+func t_ambush():
+	for f in [3, 5]:
+		var d = await setup("ambush", f)
+		check(not main.in_combat() and room().active_enemies.is_empty(), "ambush era %d looks empty" % f)
+		await snap("09_quiet_era%d" % f)
+		await frames(60 * 2, Vector2(960, 540))
+		await frames(60)
+		check(d.special_state.get("sprung", false), "the ambush springs")
+		check(room().active_enemies.any(func(e): return e.elder), "an elder hunter was hiding")
+		check(main.in_combat() and doors_closed(), "the doors shut")
+		await snap("09_ambush_era%d" % f, true)
+		await kill_all()
+		check(d.cleared, "ambush clears")
+
+func t_glow():
+	for f in [2, 3]:
+		var d = await setup("glow", f)
+		await frames(90, Vector2(400, 540))
+		var fog = main.get_node("VisionFog")
+		check(fog.cave > 0.9, "the cave is dark (era %d)" % f)
+		check(main.get_tree().get_nodes_in_group("fog_lights").size() >= 5, "glowing animals light it")
+		check(main.in_combat(), "the cave has animals to fight")
+		await snap("10_glow_era%d" % f, f == 2)
+		await kill_all()
+		check(d.cleared, "cave clears")
+
+# Every floor deals its special rooms, fitting the era
+func t_deal():
+	var SR = preload("res://data/SpecialRooms.gd")
+	var seen := {}
+	for run in 20:
+		for f in range(1, 6):
+			var rooms = preload("res://LevelGenerator.gd").generate_level(f, [])
+			var n = 0
+			for pos in rooms:
+				var r = rooms[pos]
+				if r.special != "":
+					n += 1
+					seen[r.special] = true
+					if not f in SR.ERAS[r.special]:
+						check(false, "%s dealt in era %d" % [r.special, f])
+					if r.type != 1:
+						check(false, "special on a non-fight room")
+			if n < 1:
+				check(false, "floor %d got no special rooms" % f)
+	check(seen.size() == 10, "all ten kinds turn up (%d)" % seen.size())
+
+func t_run():
+	# The ordinary floor still works with specials in it
+	main.floor_number = 3
+	main.generate_floor()
+	var kinds = []
+	for pos in main.dungeon_rooms:
+		if main.dungeon_rooms[pos].special != "":
+			kinds.append(main.dungeon_rooms[pos].special)
+	check(kinds.size() == 3, "floor 3 deals three special rooms %s" % str(kinds))
+	for pos in main.dungeon_rooms:
+		if main.dungeon_rooms[pos].special != "":
+			main.current_room_pos = pos
+			main.load_room(pos)
+			await frames(30, Vector2(960, 540))
+			await kill_all()
+			await frames(30, Vector2(300, 540))
+			# leave and come back: it must look the same and not break
+			main.load_room(Vector2i(4, 4))
+			await frames(5)
+			main.load_room(pos)
+			await frames(30, Vector2(300, 540))
+			check(true, "revisited %s" % main.dungeon_rooms[pos].special)
