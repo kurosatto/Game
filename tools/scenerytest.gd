@@ -1,7 +1,8 @@
 extends SceneTree
 # Scenery regression test (kuro, 2026-11-22: "make objects not destroyable").
 # Shoots and hammers every obstacle in the first room far past the old 12 hp,
-# then checks every one is still standing and shots still stop on them.
+# then checks every one is still standing, shots still stop on them, and
+# a hit shows no flash or wobble.
 # Run: godot --headless --path . -s res://tools/scenerytest.gd
 var main
 var fails := 0
@@ -53,5 +54,17 @@ func _initialize():
 		if is_instance_valid(t) and t.global_position.x > target.global_position.x + 60.0:
 			stray += 1
 	print("shots past the obstacle: ", stray)
+	if stray > 0:
+		fails += 1
+	# No damage look: the sprite keeps its normal colour and angle
+	var looks_hurt := 0
+	for o in obs:
+		var spr = o.get_node_or_null("Sprite2D")
+		o.take_damage(5.0)
+		if spr and (spr.modulate != Color.WHITE or spr.rotation != 0.0):
+			looks_hurt += 1
+	print("obstacles showing a hit: ", looks_hurt)
+	if looks_hurt > 0:
+		fails += 1
 	print("PASS" if fails == 0 else "FAIL")
 	quit(fails)
