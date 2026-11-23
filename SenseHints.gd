@@ -93,7 +93,8 @@ func _alive_enemies() -> Array:
 func _process(delta: float):
 	time += delta
 	label_left = max(0.0, label_left - delta)
-	dark_fog = preload("res://data/ArtStyles.gd").get_style(SettingsManager.art_style).dark
+	# In a cave or a pitch-dark room the fog is black, so the marks glow
+	dark_fog = preload("res://data/ArtStyles.gd").get_style(SettingsManager.art_style).dark or (fog != null and fog.cave > 0.5)
 	if player == null or not is_instance_valid(player):
 		player = get_tree().get_first_node_in_group("player")
 	var enemies = _alive_enemies()
@@ -168,6 +169,8 @@ func _is_winding(e) -> bool:
 func _inked(k: String, a: float) -> Color:
 	var c: Color = KIND_COLORS[k]
 	var inked = c.lerp(Color(1, 1, 1), 0.2) if dark_fog else c.lerp(Color(0.3, 0.18, 0.1), 0.4)
+	if fog != null:
+		a *= 1.0 + 0.35 * fog.pitch # bolder on black, where they're all you have
 	return Color(inked.r, inked.g, inked.b, clamp(a, 0.0, 1.0))
 
 # 1 inside reach, fading to 0 at its edge, for distance d past the light's edge
@@ -192,13 +195,15 @@ func _draw():
 	var to_local = get_global_transform_with_canvas().affine_inverse()
 	var world_to_screen = to_local * player.get_canvas_transform()
 	var center = world_to_screen * player.drawn_position()
-	var radius: float = fog.radius
+	var radius: float = fog.light_radius()
+	# With no light at all the senses are all you have, and they reach further
+	var boost: float = 1.0 + 0.3 * fog.pitch
 	var enemies = _alive_enemies()
 
 	# ── Smell: scent trails, and where a keen nose says it's going ──
 	var sm = level("Smell")
 	if sm > 0:
-		var reach = 300.0 + sm * 140.0
+		var reach = (300.0 + sm * 140.0) * boost
 		for e in enemies:
 			var id = e.get_instance_id()
 			var tr: Array = trails.get(id, [])
@@ -249,7 +254,7 @@ func _draw():
 	# ── Chemical sense: wounded prey bleeds a taste cloud ──
 	var ch = level("Chemical sense")
 	if ch > 0:
-		var reach = 200.0 + ch * 110.0
+		var reach = (200.0 + ch * 110.0) * boost
 		for e in enemies:
 			var mh = e.get("max_health")
 			var hp = e.get("health")
@@ -277,7 +282,7 @@ func _draw():
 	# ── Lateral line: ripples off moving animals, wakes behind shots ──
 	var ll = level("Lateral line")
 	if ll > 0:
-		var reach = 200.0 + ll * 120.0
+		var reach = (200.0 + ll * 120.0) * boost
 		for e in enemies:
 			var v: Vector2 = vel.get(e.get_instance_id(), Vector2.ZERO)
 			var spd = v.length()
@@ -319,7 +324,7 @@ func _draw():
 	# ── Electroreception: heartbeats, even of still or buried animals ──
 	var el = level("Electroreception")
 	if el > 0:
-		var reach = 150.0 + el * 110.0
+		var reach = (150.0 + el * 110.0) * boost
 		for e in enemies:
 			var pos = world_to_screen * e.global_position
 			var past = center.distance_to(pos) - radius
@@ -378,7 +383,7 @@ func _draw():
 	# ── Vibration: footsteps in the dark, tremors before an attack ──
 	var vi = level("Vibration")
 	if vi > 0:
-		var reach = 300.0 + vi * 140.0
+		var reach = (300.0 + vi * 140.0) * boost
 		for tr in tremors:
 			var pos = world_to_screen * tr[0]
 			var past = center.distance_to(pos) - radius
