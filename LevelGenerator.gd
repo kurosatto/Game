@@ -172,16 +172,25 @@ static func generate_level(floor_number: int = 1) -> Dictionary:
                 deck.shuffle()
             rooms[pos].layout_idx = deck.pop_back()
 
-    # Every floor has a guaranteed key in a normal room, so the locked
-    # treasure room can always be opened
-    if true:
-        for pos in rooms:
-            var r = rooms[pos]
-            if r.type == RoomType.NORMAL:
-                r.saved_pickups.append({
-                    "type": "key",
-                    "pos": Vector2(960, 540)
-                })
-                break
+    # A floor with a locked treasure room hides exactly one key, in one
+    # random fight room (never the start, boss, seep or the treasure room
+    # itself). The treasure room is a dead end, so every other room, the
+    # key's included, can be reached without it. Room.gd finds it a clear
+    # spot on the first visit, so you find it by walking the floor.
+    var has_treasure = false
+    var key_rooms: Array = []
+    for pos in rooms:
+        var r = rooms[pos]
+        if r.type == RoomType.TREASURE:
+            has_treasure = true
+        elif r.type == RoomType.NORMAL:
+            key_rooms.append(r)
+    if has_treasure and not key_rooms.is_empty():
+        var key_room = key_rooms[randi() % key_rooms.size()]
+        key_room.saved_pickups.append({
+            "type": "key",
+            "pos": Vector2(randf_range(400, 1520), randf_range(300, 780)),
+            "place": true # Room.gd moves it off any rock on the first visit
+        })
 
     return rooms

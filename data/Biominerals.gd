@@ -15,7 +15,7 @@ const ELEMENTS = {
 	"Ca": {"name": "Calcium", "color": Color(0.93, 0.9, 0.78),
 		"fact": "Shells, spines, coral and trilobite eyes are calcium carbonate; bone and teeth are calcium phosphate."},
 	"P": {"name": "Phosphorus", "color": Color(1.0, 0.62, 0.35),
-		"fact": "Phosphate is the backbone of DNA, the energy in ATP, and the mineral of bone."},
+		"fact": "Phosphate is the backbone of DNA, the energy in ATP, and the mineral of bone. It is scarce: phosphorus limits growth in most of the living world."},
 	"Fe": {"name": "Iron", "color": Color(0.9, 0.36, 0.3),
 		"fact": "Iron carries oxygen in haemoglobin and moves electrons in every mitochondrion."},
 	"Zn": {"name": "Zinc", "color": Color(0.62, 0.78, 0.95),
@@ -46,6 +46,13 @@ const BOSSES = {1: ["P", "S"], 2: ["Cu", "S", "Zn"], 3: ["Ca", "Cu", "Fe"], 4: [
 # Elements eaten per point of a kill's worth
 const YIELD := 0.1
 const BOSS_YIELD := 2.5
+# Phosphorus is the nutrient that runs short first in most of the living
+# world, and bodies hold far less of it than calcium or sulfur, so a kill
+# leaves only a little (kuro, 2026-11-23: still too much P). Applied in
+# Player.add_element, so kills, seeps and every reward share it.
+const SCARCE := {"P": 0.45}
+static func yield_of(el: String) -> float:
+	return SCARCE.get(el, 1.0)
 
 const RECIPES = [
 	{"id": "calcite_spines", "name": "Calcite Spines", "cost": {"Ca": 4}, "icon": "grow_calcite_spines",
@@ -96,8 +103,19 @@ const RECIPES = [
 	{"id": "keratin_horn", "name": "Keratin Horn", "cost": {"S": 5}, "icon": "grow_keratin_horn",
 		"fact": "Horn sheaths are dense keratin; the more sulfur bridges, the harder the horn.",
 		"effect": "Hits knock enemies back", "mods": {"knockback": 260.0}},
+	{"id": "calcium_signalling", "name": "Calcium Signalling", "cost": {"Ca": 3}, "icon": "grow_calcium_signalling",
+		"fact": "A rush of calcium ions into a cell is the trigger that fires nerves, muscles and electric organs alike.",
+		"effect": "ZAP recharges 20% faster, reaches 10% farther", "mods": {"zap_cd": 0.2, "zap_radius": 0.1}},
+	{"id": "zinc_enzymes", "name": "Zinc Digestive Enzymes", "cost": {"Zn": 3}, "icon": "grow_zinc_enzymes",
+		"fact": "Carboxypeptidase and many other gut enzymes hold a zinc atom that splits protein chains apart.",
+		"effect": "+25% elements from prey", "mods": {"biomass": 0.25}},
+	{"id": "copper_myelin", "name": "Copper-Built Myelin", "cost": {"Cu": 3}, "icon": "grow_copper_myelin",
+		"fact": "Making myelin, the fatty wrap that speeds nerve signals, needs copper enzymes; without copper, nerves lose it.",
+		"effect": "Dash or escape keeps you untouchable 0.15 s longer", "mods": {"iframes": 0.15}},
+	{"id": "sulfated_slime", "name": "Sulfated Slime", "cost": {"S": 3}, "icon": "grow_sulfated_slime", "once": true,
+		"fact": "Slugs, hagfish and worms coat themselves in mucins, sugary proteins studded with sulfate, and slip out of a predator's grip.",
+		"effect": "Shed the first hit after each room you clear", "mods": {"autotomy": 1}},
 ]
-
 static func get_recipe(id: String) -> Dictionary:
 	for r in RECIPES:
 		if r.id == id:

@@ -228,37 +228,9 @@ func add_glow_particles():
     p.color_ramp = fade
     add_child(p)
 
-# Scenery can't be broken (kuro, 2026-11-22): hits flash, wobble and chip it,
-# and stop the shot, but the rock, frond or vent always stays standing
+# Scenery can't be broken or hurt (kuro, 2026-11-22/23): a hit shows no
+# flash, wobble, chips or hit sound. Shots just burst on it (Tear.gd) and
+# swaying plants give a tiny neutral nudge, like a body brushing past.
 func take_damage(_amount: float):
-    var sprite = get_node_or_null("Sprite2D")
-    if sprite:
-        sprite.modulate = Color(2.5, 2.5, 2.5, 1.0)
-        var tw = create_tween()
-        tw.tween_property(sprite, "modulate", Color.WHITE, 0.12)
-        var wob = create_tween()
-        sprite.rotation = randf_range(-0.09, 0.09)
-        wob.tween_property(sprite, "rotation", 0.0, 0.25).set_trans(Tween.TRANS_ELASTIC).set_ease(Tween.EASE_OUT)
-    # Swaying scenery also gets knocked back a little, then springs upright
     if sway_mat:
-        _push_v += randf_range(-6.0, 6.0)
-    spawn_hit_chip_fx()
-    SoundManager.play_sfx("hit", 0.8, -4.0)
-
-func spawn_hit_chip_fx():
-    var p = CPUParticles2D.new()
-    p.position = global_position
-    p.emitting = true
-    p.one_shot = true
-    p.explosiveness = 0.9
-    p.amount = 6
-    p.lifetime = 0.25
-    p.spread = 180.0
-    p.initial_velocity_min = 40.0
-    p.initial_velocity_max = 110.0
-    p.scale_amount_min = 2.0
-    p.scale_amount_max = 4.0
-    p.color = Color(0.7, 0.85, 0.95, 0.8)
-    get_parent().add_child(p)
-    var timer = get_tree().create_timer(0.3)
-    timer.timeout.connect(p.queue_free)
+        _push_v += randf_range(-2.5, 2.5)

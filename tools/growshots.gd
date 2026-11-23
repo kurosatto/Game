@@ -30,6 +30,22 @@ func _initialize():
 	p.elements = {"Ca": 3.0, "P": 14.0, "Fe": 2.0, "Zn": 6.0, "Cu": 1.0, "S": 5.0}
 	p.health = p.max_health - 2
 	p.emit_biomass()
+	# Mid-fight the GROW button says so and the screen will not open
+	var rd = main.current_room_node.room_data
+	var keep = [rd.type, rd.cleared]
+	rd.type = 1
+	rd.cleared = false
+	main.hud._refresh_grow_btn()
+	main.current_room_node.set_process(false) # an empty fight room would clear itself
+	main.hud._refresh_grow_btn()
+	main.hud.show_grow_screen()
+	for i in 3: await process_frame
+	print("GROWTEST blocked mid-fight: ", not main.hud.is_grow_up(), " button: ", main.hud.grow_btn.text)
+	await snap("element_bar_fighting")
+	main.current_room_node.set_process(true)
+	rd.type = keep[0]
+	rd.cleared = keep[1]
+	main.hud._refresh_grow_btn()
 	for i in 10: await process_frame
 	await snap("element_bar")
 	main.hud.show_grow_screen()

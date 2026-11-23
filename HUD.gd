@@ -121,6 +121,44 @@ func _ready():
     # No shop, so no coin counter; kills leave elements to grow parts from
     $HUDPanel/MarginContainer/HBoxContainer/Counters/Coins.visible = false
     _setup_element_bar()
+    _make_quest_mark()
+
+# ---- Floor quests (Main.field_event, data/FieldNotes.gd) ----
+# They are read on the era page; during play only this small mark under the
+# map counts them, and it pops when one is done. No text over the room.
+var quest_mark: Label = null
+
+func _make_quest_mark():
+    quest_mark = Label.new()
+    quest_mark.name = "QuestMark"
+    quest_mark.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    quest_mark.anchor_left = 1.0
+    quest_mark.anchor_right = 1.0
+    quest_mark.offset_left = -210.0
+    quest_mark.offset_right = -30.0
+    quest_mark.offset_top = 228.0
+    quest_mark.offset_bottom = 256.0
+    quest_mark.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+    quest_mark.add_theme_font_size_override("font_size", 19)
+    quest_mark.add_theme_color_override("font_color", UI.CREAM)
+    quest_mark.add_theme_color_override("font_outline_color", Color(UI.INK, 0.8))
+    quest_mark.add_theme_constant_override("outline_size", 5)
+    add_child(quest_mark)
+
+func update_quests(done: int, total: int, pop: bool = false):
+    if quest_mark == null:
+        return
+    quest_mark.visible = total > 0
+    quest_mark.text = "QUESTS %s %d/%d" % ["✓" if done >= total else "✎", done, total]
+    quest_mark.add_theme_color_override("font_color", UI.LEAF if done >= total else UI.CREAM)
+    if pop:
+        # A quick, light pop: grows, flashes sunny, settles in under a second
+        quest_mark.pivot_offset = quest_mark.size / 2.0
+        quest_mark.scale = Vector2.ONE * 1.7
+        quest_mark.modulate = Color(1.6, 1.4, 0.8)
+        var tw = quest_mark.create_tween().set_parallel(true)
+        tw.tween_property(quest_mark, "scale", Vector2.ONE, 0.45).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+        tw.tween_property(quest_mark, "modulate", Color.WHITE, 0.8)
 
 func setup_settings_ui():
     settings_btn.pressed.connect(toggle_settings)
@@ -371,20 +409,65 @@ var _grow_hinted: bool = false
 func update_elements(have: Dictionary, growable: int):
     _have = have
     _growable = growable
-    if growable > 0 and not _grow_hinted:
+    if growable > 0 and not _grow_hinted and not in_combat():
         _grow_hinted = true
         var how = PadInput.prompt("Press Y", "Tap GROW", "Press G or click GROW")
         show_item_banner("READY TO GROW", "You have eaten enough elements to grow a new part. %s to choose one." % how)
     if element_label:
         element_label.text = _element_text(have)
-    if grow_btn:
-        grow_btn.text = ("GROW %d" % growable) if growable > 0 else "GROW"
-        grow_btn.modulate = Color(1.25, 1.25, 1.05) if growable > 0 else Color(0.75, 0.75, 0.75)
+    _refresh_grow_btn()
     if grow_modal and grow_modal.visible:
         _fill_grow_screen()
 
+# No growing mid-fight (kuro, 2026-11-23): the GROW screen pauses the game,
+# so it was a free time-out with animals all around. It opens again once the
+# room is clear; until then the button is greyed and says so.
+func in_combat() -> bool:
+    var main = get_tree().get_first_node_in_group("main") if is_inside_tree() else null
+    return main != null and main.has_method("in_combat") and main.in_combat()
+
+var _grow_fight: bool = false
+var _grow_watch: float = 0.0
+
+func _refresh_grow_btn():
+    if not grow_btn:
+        return
+    _grow_fight = in_combat()
+    if _grow_fight:
+        grow_btn.text = "FIGHTING"
+        grow_btn.modulate = Color(0.6, 0.6, 0.6, 0.8)
+    else:
+        grow_btn.text = ("GROW %d" % _growable) if _growable > 0 else "GROW"
+        grow_btn.modulate = Color(1.25, 1.25, 1.05) if _growable > 0 else Color(0.75, 0.75, 0.75)
+
+# Rooms clear and fights start without the elements changing
+func _watch_grow_fight(delta: float):
+    _grow_watch -= delta
+    if _grow_watch > 0.0:
+        return
+    _grow_watch = 0.25
+    if in_combat() != _grow_fight:
+        _refresh_grow_btn()
+        if not _grow_fight and _growable > 0 and not _grow_hinted:
+            update_elements(_have, _growable)
+
+func deny_grow():
+    var player = get_tree().get_first_node_in_group("player")
+    if player and player.has_method("popup_text"):
+        player.popup_text(player.global_position + Vector2(0, -80), "CLEAR THE ROOM TO GROW", Color(1.0, 0.75, 0.45))
+    SoundManager.play_sfx("parry", 0.6, -8.0)
+    if grow_btn:
+        var tw = grow_btn.create_tween()
+        for i in 3:
+            tw.tween_property(grow_btn, "position:x", grow_btn.position.x + 6.0, 0.04)
+            tw.tween_property(grow_btn, "position:x", grow_btn.position.x - 6.0, 0.04)
+        tw.tween_property(grow_btn, "position:x", grow_btn.position.x, 0.04)
+
 func show_grow_screen():
     if other_screen_up() or settings_modal.visible:
+        return
+    if in_combat():
+        deny_grow()
         return
     if grow_modal == null:
         _create_grow_screen()
@@ -507,7 +590,7 @@ func _create_grow_screen():
         have_row.add_child(chip)
         grow_chips[el] = chip
     grow_grid = GridContainer.new()
-    grow_grid.columns = 4
+    grow_grid.columns = 5
     grow_grid.add_theme_constant_override("h_separation", 12)
     grow_grid.add_theme_constant_override("v_separation", 10)
     grow_grid.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
@@ -603,7 +686,7 @@ func _create_grow_screen():
 
 func _make_grow_tile(r: Dictionary):
     var tile = Button.new()
-    tile.custom_minimum_size = Vector2(440, 130)
+    tile.custom_minimum_size = Vector2(358, 130)
     tile.pressed.connect(_on_grow_tile.bind(r.id))
     tile.focus_entered.connect(func():
         # Moving the pad highlight reads the part, like hovering
@@ -1089,7 +1172,9 @@ func auto_pause():
 
 # Android back button: close what is open, or pause
 func back_pressed():
-    if game_over_screen.visible or victory_screen.visible:
+    if is_card_up():
+        dismiss_card() # the era page: back just skips it, like a tap
+    elif game_over_screen.visible or victory_screen.visible:
         get_tree().paused = false
         get_tree().change_scene_to_file("res://MainMenu.tscn")
     elif is_grow_up():
@@ -1715,13 +1800,22 @@ func show_pause_info():
     var touch = TouchControls.should_show()
     pause_info_title.text = "Tap a picture to learn about it" if touch else "Point at a picture to learn about it"
     pause_info_body.text = ""
-    if not last_banner.is_empty() and last_banner[0] != "WILDLIFE OF THIS ERA" \
-            and not last_banner[0].begins_with("FIELD NOTE"): # the notes list follows anyway
+    if not last_banner.is_empty() and last_banner[0] != "WILDLIFE OF THIS ERA":
         pause_info_title.text = "Last discovery: " + last_banner[0]
         pause_info_body.text = last_banner[1]
+    # Floor quests, with the fossil fact of each one done
     var m = get_tree().get_first_node_in_group("main")
     if m and m.get("field_notes"):
-        var notes = "Field notes for this era:\n" + m.field_notes.describe(m.floor_number, m.notes_progress)
+        var lines: Array = ["Floor quests:"]
+        var list: Array = m.field_notes.for_floor(m.floor_number)
+        for i in list.size():
+            var n = list[i]
+            var got = int(m.notes_progress.get(i, 0))
+            if got >= n.need:
+                lines.append("✓ %s. %s" % [n.text, n.fact])
+            else:
+                lines.append("– %s%s" % [n.text, (" (%d/%d)" % [got, n.need]) if n.need > 1 else ""])
+        var notes = "\n".join(lines)
         pause_info_body.text = notes if pause_info_body.text == "" else pause_info_body.text + "\n\n" + notes
 
 # ---- Adaptations ----
@@ -1795,71 +1889,139 @@ func dash_row(form: Dictionary, touch: bool, pad: bool = false) -> Array:
     var how = "RT / RB / A" if pad else (("Tap " + label) if touch else "Space / Shift / right-click")
     return [label, "%s: %s, %s" % [how, escape[1].to_lower(), escape[2]]]
 
-# One card per floor: the era on the left, how to play on the right
+# One page per floor, pictures first: the era, you, and the era's animals as
+# drawings, with a single fact. The game is frozen under it and any tap, key,
+# click or pad button closes it at once. Controls are only spelled out on the
+# first era (they are the same afterwards), plus the escape move whenever the
+# new form has one instead of a dash.
 func show_era_card(floor_num: int, form: Dictionary):
     var touch = TouchControls.should_show()
+    var pad = PadInput.using_pad
     var weapon = lineages.weapon_stats(form.get("weapon", "vesicle"))
-    var rows: Array
-    if PadInput.using_pad:
-        rows = [
-            ["MOVE", "Left stick or d-pad"],
-            ["AIM & FIRE", "Right stick; you fire while you hold it"],
-            dash_row(form, false, true),
-            ["ZAP", "LT / LB / X for an electric burst around you (recharges)"],
-            ["GROW", "Y opens the grow screen"],
-            ["PAUSE", "Start; B goes back in menus"],
-        ]
-    elif touch:
-        rows = [
-            ["MOVE", "Drag the left side of the screen"],
-            ["AIM & FIRE", "Drag the right side; you fire while you hold it"],
-            dash_row(form, true),
-            ["ZAP", "Tap ZAP for an electric burst around you (recharges)"],
-            ["PAUSE", "⏸ PAUSE, top right"],
-        ]
-    else:
-        rows = [
-            ["MOVE", "W A S D or the arrow keys"],
-            ["AIM & FIRE", "I J K L, or hold the left mouse button"],
-            dash_row(form, false),
-            ["ZAP", "E / Q / middle-click for an electric burst around you (recharges)"],
-            ["PAUSE", "Esc"],
-        ]
-    rows.append(["SIGHT", lineages.describe_vision(form).trim_prefix("Vision: ")])
-    rows.append(["SENSE", lineages.describe_sense(form) + ". Its ink marks at the edge of your sight point to animals hidden in the dark"])
+    var rows: Array = []
+    if floor_num == 1:
+        if pad:
+            rows = [
+                ["MOVE", "Left stick"],
+                ["AIM & FIRE", "Right stick, hold to fire"],
+                dash_row(form, false, true),
+                ["ZAP", "LT / LB / X, a burst around you"],
+                ["GROW", "Y"],
+                ["PAUSE", "Start"],
+            ]
+        elif touch:
+            rows = [
+                ["MOVE", "Drag the left side"],
+                ["AIM & FIRE", "Drag the right side, hold to fire"],
+                dash_row(form, true),
+                ["ZAP", "Tap ZAP, a burst around you"],
+                ["GROW", "Tap GROW"],
+                ["PAUSE", "⏸ top right"],
+            ]
+        else:
+            rows = [
+                ["MOVE", "W A S D / arrows"],
+                ["AIM & FIRE", "I J K L or hold left mouse"],
+                dash_row(form, false),
+                ["ZAP", "E / Q / middle-click"],
+                ["GROW", "G / Tab"],
+                ["PAUSE", "Esc"],
+            ]
+    elif lineages.escape_label(form) != "DASH":
+        rows = [dash_row(form, touch, pad)]
     var color: Color = form.get("color", Color(0.0, 0.95, 1.0))
     var era: Dictionary = ERA_INFO.get(clampi(floor_num, 1, 5), {})
-    var vbox = _open_card(color, 1300)
+    item_banner.visible = false # an old note would sit on top of the page
+    var vbox = _open_card(color, 1500, 0.95)
+    vbox.add_theme_constant_override("separation", 10)
+
+    for l in [_card_label("ERA %d OF 5" % floor_num, 18, UI.MUTED),
+            _card_label(era.get("name", ""), 46, UI.SUN),
+            _card_label(era.get("dates", ""), 22, UI.LEAF),
+            _card_label(era.get("fact", ""), 22, UI.CREAM)]:
+        l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+        vbox.add_child(l)
+    vbox.add_child(HSeparator.new())
 
     var cols = HBoxContainer.new()
-    cols.add_theme_constant_override("separation", 30)
+    cols.add_theme_constant_override("separation", 34)
     vbox.add_child(cols)
 
-    var left = VBoxContainer.new()
-    left.add_theme_constant_override("separation", 12)
-    left.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-    left.size_flags_stretch_ratio = 0.85
-    cols.add_child(left)
-    left.add_child(_card_label("ERA %d OF 5" % floor_num, 18, UI.MUTED))
-    left.add_child(_card_label(era.get("name", ""), 36, UI.SUN))
-    left.add_child(_card_label(era.get("dates", ""), 22, UI.LEAF))
-    left.add_child(_card_label(era.get("fact", ""), 22, UI.CREAM))
-    left.add_child(HSeparator.new())
-    var who = ("YOU ARE THE " if floor_num == 1 else "YOU ARE NOW ") + form.get("name", current_creature_name)
-    left.add_child(_card_label(who, 24, color))
-    left.add_child(_card_label("Your attack: %s, %s." % [form.get("weapon_name", "Engulf (phagocytosis)").to_lower(), _weapon_hint(weapon)], 19, UI.MUTED))
+    # You, drawn
+    var you = VBoxContainer.new()
+    you.add_theme_constant_override("separation", 6)
+    you.custom_minimum_size = Vector2(330, 0)
+    cols.add_child(you)
+    var me = _era_form_tile(you, 170.0)
+    if me:
+        me.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+        me.tint = UI.ink_tint(color)
+    var who = _card_label(("YOU ARE THE " if floor_num == 1 else "YOU ARE NOW ") + form.get("name", current_creature_name), 24, color)
+    who.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+    you.add_child(who)
+    var atk = _card_label("Attack: " + form.get("weapon_name", "Engulf (phagocytosis)"), 18, UI.MUTED)
+    atk.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+    you.add_child(atk)
 
     cols.add_child(VSeparator.new())
 
-    var right = VBoxContainer.new()
-    right.add_theme_constant_override("separation", 12)
-    right.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-    cols.add_child(right)
-    right.add_child(_card_label("HOW TO PLAY", 24, UI.LEAF))
-    _add_rows(right, rows)
-    right.add_child(_card_label("Clear each room, beat the era's boss, then pick what your lineage evolves into.", 19, UI.MUTED))
+    # The era's animals, drawn, with only their names
+    var wild = VBoxContainer.new()
+    wild.add_theme_constant_override("separation", 8)
+    wild.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+    cols.add_child(wild)
+    wild.add_child(_card_label("WILDLIFE OF THIS ERA", 20, UI.LEAF))
+    var flow = HFlowContainer.new()
+    flow.add_theme_constant_override("h_separation", 14)
+    flow.add_theme_constant_override("v_separation", 6)
+    wild.add_child(flow)
+    var fauna = preload("res://data/Fauna.gd")
+    var animals: Array = fauna.era_species(floor_num)
+    var disc = 112.0 if animals.size() <= 6 else 92.0
+    for a in animals:
+        var p = fauna.sheet_path(a)
+        var tex: Texture2D = load(p) if ResourceLoader.exists(p) else null
+        var frames = int(round(tex.get_width() / float(tex.get_height()))) if tex else 1
+        _quiet_tile(flow, PauseTile.new().setup(tex, frames, disc, a.name))
+    var main = get_tree().get_first_node_in_group("main")
+    if main and "field_notes" in main:
+        # The floor's quests are read here, once; play only shows a small count
+        var notes = main.field_notes.describe(floor_num, main.notes_progress, "\n")
+        if notes != "":
+            wild.add_child(_card_label("FLOOR QUESTS  (+1 heart and elements each)", 20, UI.LEAF))
+            wild.add_child(_card_label(notes, 20, UI.CREAM))
+
+    if not rows.is_empty():
+        vbox.add_child(HSeparator.new())
+        _add_rows(vbox, rows, 4 if rows.size() > 1 else 2, 19)
 
     _close_card(vbox, "start" if floor_num == 1 else "continue")
+
+# Your form's animated drawing for the era page (the same art the pause
+# screen uses); null if the player isn't there
+func _era_form_tile(parent: Control, disc: float) -> Control:
+    var player = get_tree().get_first_node_in_group("player")
+    if player == null:
+        return null
+    var spr: Sprite2D = player.get_node_or_null("Sprite2D")
+    var tex: Texture2D = spr.texture if spr else null
+    var frames: int = spr.hframes if spr else 1
+    var spin: float = -PI / 2 + player.heading_offset
+    var sheet = "res://assets/lineages/%s_sheet.png" % player.current_character_id
+    if tex == null and ResourceLoader.exists(sheet):
+        tex = load(sheet)
+        frames = 4
+        spin = 0.0
+    var t = PauseTile.new().setup(tex, frames, disc, "")
+    t.spin = spin
+    _quiet_tile(parent, t)
+    return t
+
+# A picture only: taps go to the page (which closes it), not the tile
+func _quiet_tile(parent: Control, t: Control):
+    parent.add_child(t)
+    t.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    t.focus_mode = Control.FOCUS_NONE
 
 func _weapon_hint(weapon: Dictionary) -> String:
     var special = weapon.get("special", "")
@@ -1885,7 +2047,7 @@ func _show_card(title: String, sub: String, rows: Array, footer: String, color: 
     _close_card(vbox, verb)
 
 # Builds the dimmed backdrop and bordered panel; returns the panel's column
-func _open_card(color: Color, width: float) -> VBoxContainer:
+func _open_card(color: Color, width: float, dim: float = 0.8) -> VBoxContainer:
     if intro_card:
         intro_card.queue_free()
     intro_card = Control.new()
@@ -1897,7 +2059,7 @@ func _open_card(color: Color, width: float) -> VBoxContainer:
 
     var bg = ColorRect.new()
     bg.set_anchors_preset(Control.PRESET_FULL_RECT)
-    bg.color = Color(UI.BACKDROP, 0.8)
+    bg.color = Color(UI.BACKDROP, dim)
     bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
     intro_card.add_child(bg)
 
@@ -1918,17 +2080,17 @@ func _open_card(color: Color, width: float) -> VBoxContainer:
     UI.reveal(intro_card, panel, 0.24)
     return vbox
 
-func _add_rows(parent: Container, rows: Array):
+func _add_rows(parent: Container, rows: Array, columns: int = 2, px: int = 22):
     var grid = GridContainer.new()
-    grid.columns = 2
+    grid.columns = columns
     grid.add_theme_constant_override("h_separation", 28)
     grid.add_theme_constant_override("v_separation", 10)
     parent.add_child(grid)
     for r in rows:
-        var key = _card_label(r[0], 22, UI.LEAF)
+        var key = _card_label(r[0], px, UI.LEAF)
         key.autowrap_mode = TextServer.AUTOWRAP_OFF
         grid.add_child(key)
-        var val = _card_label(r[1], 22, UI.CREAM)
+        var val = _card_label(r[1], px, UI.CREAM)
         val.size_flags_horizontal = Control.SIZE_EXPAND_FILL
         grid.add_child(val)
 
@@ -1975,3 +2137,6 @@ func _input(event: InputEvent):
     get_viewport().set_input_as_handled()
     if Time.get_ticks_msec() >= intro_ready_time:
         dismiss_card()
+
+func _process(delta: float):
+    _watch_grow_fight(delta)
