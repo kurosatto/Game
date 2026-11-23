@@ -1944,6 +1944,144 @@ static func sense_words(data: Dictionary) -> Array:
     var other = SENSES.get(data.get("id", ""), [1, "Touch", ""])
     return [VISION_WORDS[eyes[0]], other[1], SENSE_WORDS[other[0]]]
 
+# Every non-visual sense each form has, 0 (lacks it) to 10, in SENSE_ORDER:
+# [Smell, Chemical sense (taste), Touch, Lateral line, Electroreception, Vibration].
+# Ratings follow the living group's real organs. "Smell" is chemical sensing
+# at a distance through a dedicated organ (nose, antennae, osphradium,
+# rhinophores); "Chemical sense" is tasting by contact or across the skin.
+# Vibration covers substrate tremors and hearing; lateral line is the
+# neuromast system of fishes and aquatic amphibians (and the head lines of
+# squid and cuttlefish). The best sense matches SENSES above.
+const SENSE_ORDER = ["Smell", "Chemical sense", "Touch", "Lateral line", "Electroreception", "Vibration"]
+const SENSE_PROFILES = {
+    # Choanoflagellates: chemotaxis and flow sensing, nothing more
+    "ancestral_collar_cell": [0, 4, 1, 0, 0, 0],
+    # Lancelets: skin sensory cells, chemoreceptive oral cirri, no lateral line
+    "pikaia_chordate": [1, 2, 3, 0, 0, 0],
+    "early_echinoderm": [0, 3, 2, 0, 0, 0],
+    # The osphradium beside the gills is the molluscan nose
+    "early_mollusc": [4, 2, 3, 0, 0, 1],
+    "early_arthropod": [3, 2, 4, 0, 0, 2],
+    # Electroreception and the lateral line are both ancestral for jawed fish
+    "jawed_fish": [4, 3, 2, 6, 3, 2],
+    # Lampreys keep electroreceptors and a lateral line; hagfish lost both
+    "jawless_fish": [5, 2, 2, 4, 3, 1],
+    "sea_lily": [0, 2, 2, 0, 0, 0],
+    "free_moving_echinoderm": [3, 4, 3, 0, 0, 0],
+    # Suckers taste and touch; statocysts hear low sounds
+    "cephalopod": [3, 4, 5, 2, 0, 2],
+    "sea_snail": [5, 3, 3, 0, 0, 1],
+    "bivalve": [0, 2, 3, 0, 0, 2],
+    "chelicerate": [2, 3, 4, 0, 0, 5],
+    "mandibulate": [6, 3, 5, 0, 0, 2],
+    # Coelacanths and lungfish both have electroreceptors
+    "lobe_finned_shorewalker": [5, 3, 3, 6, 4, 2],
+    "early_shark": [7, 2, 2, 6, 8, 3],
+    # Bichirs and sturgeons still sense electricity; most teleosts lost it
+    "ray_finned_fish": [4, 4, 2, 6, 3, 3],
+    "lamprey": [6, 2, 2, 4, 3, 1],
+    # Hagfish: no electroreception, almost no lateral line, a superb nose and barbels
+    "hagfish": [8, 4, 5, 0, 0, 1],
+    "sea_star_line": [5, 4, 3, 0, 0, 0],
+    "spiny_echinozoan": [0, 3, 3, 0, 0, 0],
+    # The rhinophore below the eye smells carrion; no lateral line
+    "nautilus": [7, 3, 4, 0, 0, 2],
+    # Squid and cuttlefish have head lines that work like a lateral line
+    "coleoid": [3, 4, 5, 4, 0, 3],
+    "predatory_sea_snail": [8, 4, 3, 0, 0, 1],
+    "sea_slug_line": [6, 4, 4, 0, 0, 1],
+    "scallop": [0, 2, 4, 0, 0, 2],
+    "burrowing_clam": [0, 2, 3, 0, 0, 3],
+    # Chemoreceptors on the leg bases taste food while walking
+    "horseshoe_crab": [2, 5, 4, 0, 0, 3],
+    # Slit organs feel tremors, trichobothria feel air moving
+    "arachnid": [3, 4, 6, 0, 0, 7],
+    "myriapod": [5, 3, 6, 0, 0, 3],
+    "malacostracan": [7, 5, 5, 0, 0, 3],
+    "hexapod": [7, 4, 5, 0, 0, 4],
+    # Whiskers, a superb nose and good ears; only the platypus feels electricity
+    "synapsid": [9, 4, 6, 0, 0, 4],
+    # Aquatic salamanders keep a lateral line and electroreceptors; frogs feel ground tremors
+    "lissamphibian": [5, 3, 3, 3, 2, 4],
+    # Crocodiles have pressure-sensing dots on the jaws; snakes feel the ground through the jaw
+    "sauropsid": [6, 2, 4, 0, 0, 4],
+    "shark_line": [8, 2, 2, 7, 10, 3],
+    "chimaera": [6, 2, 2, 6, 8, 3],
+    # Barbels covered in taste buds sweep the river bed
+    "sturgeon_line": [5, 6, 6, 5, 8, 3],
+    # Catfish taste with their whole skin; the Weberian ossicles give sharp hearing
+    "teleost_line": [5, 5, 2, 7, 2, 4],
+    "sea_star": [5, 4, 3, 0, 0, 0],
+    "brittle_star": [0, 4, 3, 0, 0, 0],
+    "sea_urchin": [0, 3, 3, 0, 0, 0],
+    "sea_cucumber": [0, 3, 3, 0, 0, 0],
+    "squid_line": [3, 4, 5, 6, 0, 4],
+    # Each sucker carries thousands of chemoreceptors
+    "octopus_line": [3, 6, 7, 2, 0, 3],
+    # The comb-like pectines under the body touch and taste the ground
+    "scorpion": [3, 5, 6, 0, 0, 8],
+    "spider": [3, 4, 7, 0, 0, 8],
+    "centipede": [5, 3, 7, 0, 0, 4],
+    "millipede": [4, 3, 5, 0, 0, 2],
+    "dragonfly_line": [1, 2, 3, 0, 0, 2],
+    "beetle": [7, 4, 5, 0, 0, 4],
+    "mantis_shrimp_line": [6, 4, 4, 0, 0, 3],
+    # Lobsters and crabs taste with their legs as well as smelling with antennules
+    "decapod": [8, 6, 5, 0, 0, 3],
+    "isocrinid_sea_lily": [0, 3, 2, 0, 0, 0],
+    "feather_star": [0, 3, 2, 0, 0, 0],
+    "endoxocrinus": [0, 3, 2, 0, 0, 0],
+    "metacrinus": [0, 3, 2, 0, 0, 0],
+    "rosy_feather_star": [0, 4, 3, 0, 0, 0],
+    "reef_feather_star": [0, 4, 3, 0, 0, 0],
+    "sea_lamprey": [7, 2, 2, 4, 3, 1],
+    "pouched_lamprey": [7, 2, 2, 4, 3, 1],
+    "atlantic_hagfish": [9, 5, 5, 0, 0, 1],
+    "pacific_hagfish": [9, 5, 5, 0, 0, 1],
+    "palau_nautilus": [7, 3, 4, 0, 0, 2],
+    "crusty_nautilus": [7, 3, 4, 0, 0, 2],
+    "cone_snail": [8, 4, 3, 0, 0, 1],
+    "moon_snail": [8, 3, 4, 0, 0, 1],
+    "nudibranch": [7, 4, 4, 0, 0, 1],
+    "land_snail": [7, 4, 5, 0, 0, 1],
+    "true_scallop": [0, 2, 4, 0, 0, 2],
+    "oyster": [0, 2, 4, 0, 0, 2],
+    "giant_clam": [0, 2, 3, 0, 0, 2],
+    "shipworm": [0, 2, 3, 0, 0, 2],
+    "atlantic_horseshoe_crab": [2, 5, 4, 0, 0, 3],
+    "mangrove_horseshoe_crab": [2, 5, 4, 0, 0, 3],
+}
+
+# What each sense does in a run, and a few words naming it on icons
+const SENSE_INFO = {
+    "Smell": {"word": "smell", "does": "Animals leave scent trails you can follow through the dark. A strong nose also smells where they are heading."},
+    "Chemical sense": {"word": "taste", "does": "Wounded animals leak a cloud you can taste through the dark, and you hit wounded prey harder."},
+    "Touch": {"word": "touch", "does": "Works only up close: animals you strike or bump stay felt through the dark for a while, and your feelers brush aside some shots."},
+    "Lateral line": {"word": "lateral line", "does": "Feels moving water: animals that swim show as ripples in the dark, and incoming shots leave a wake. Still animals can't be felt."},
+    "Electroreception": {"word": "electric sense", "does": "Feels the heartbeat of every living animal nearby, even ones holding still, hiding or buried."},
+    "Vibration": {"word": "vibration", "does": "Feels footsteps through the ground and the tremor of an attack winding up, so you get warned before a lunge or charge."},
+}
+
+# {sense name: rating} for every sense the form has (a missing form: its best sense only)
+static func sense_profile(data: Dictionary) -> Dictionary:
+    var id = data.get("id", "")
+    var out := {}
+    if SENSE_PROFILES.has(id):
+        var row: Array = SENSE_PROFILES[id]
+        for i in SENSE_ORDER.size():
+            if row[i] > 0:
+                out[SENSE_ORDER[i]] = row[i]
+    else:
+        var best = SENSES.get(id, [1, "Touch"])
+        out[best[1]] = best[0]
+    return out
+
+static func describe_sense_kind(kind: String, rating: int) -> String:
+    var info = SENSE_INFO.get(kind, {})
+    if rating <= 0:
+        return "%s: none. This animal lacks it." % kind
+    return "%s: %s (%d/10). %s" % [kind, SENSE_WORDS[clampi(rating, 1, 10)], rating, info.get("does", "")]
+
 # How each form attacks, set per form by "weapon" and named by "weapon_name".
 # Ranged weapons fire Tear.gd projectiles drawn from assets/projectiles/<kind>.png;
 # speed and life scale the form's shot_speed and range. Melee weapons hit every

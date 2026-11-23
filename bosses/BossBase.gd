@@ -268,6 +268,9 @@ func shoot(from: Vector2, dir: Vector2, spd: float, tint: Color = Color.WHITE, d
 func take_damage(amount: float):
 	if dead:
 		return
+	# Chemical sense: a wounded boss bleeds into the water (Player.taste_bonus)
+	if health < max_health and player and is_instance_valid(player) and player.has_method("taste_bonus"):
+		amount *= 1.0 + player.taste_bonus()
 	health = max(0.0, health - amount * damage_taken_mult())
 	hit_flash = 0.1
 	boss_health_changed.emit(health, max_health, boss_title)
