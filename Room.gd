@@ -74,6 +74,9 @@ func setup_room(data, floor_number: int):
         5: # SEEP: open ground around the seep
             raw_layout = room_layouts.get_treasure_layout()
             raw_layout["decals"] = []
+        _ when room_data.special in OPEN_SPECIALS: # open ground for the room's feature
+            raw_layout = room_layouts.get_treasure_layout()
+            raw_layout["decals"] = []
         _: # NORMAL
             var normal_layouts = room_layouts.get_normal_layouts()
             var l_idx = room_data.layout_idx
@@ -90,7 +93,7 @@ func setup_room(data, floor_number: int):
     spawn_layout_obstacles(clean_layout)
 
     # 7b. Era ground hazards in fight rooms (Hazard.gd)
-    if room_data.type == 1:
+    if room_data.type == 1 and room_data.special == "":
         spawn_hazards(floor_number)
 
     # 8. Restore or Initialize Contents based on Persistence State
@@ -120,6 +123,8 @@ func setup_room(data, floor_number: int):
                 add_child(ped)
         elif room_data.type == 5: # SEEP
             spawn_seep()
+        elif room_data.special != "":
+            start_special(clean_layout, floor_number, false)
         elif room_data.type == 3 and not room_data.cleared: # BOSS
             spawn_boss(floor_number)
         elif room_data.type == 1 and not room_data.cleared: # NORMAL left mid-fight
@@ -167,6 +172,8 @@ func setup_room(data, floor_number: int):
             for d_dir in door_nodes:
                 door_nodes[d_dir].close_door()
             spawn_boss(floor_number)
+        elif room_data.special != "":
+            start_special(clean_layout, floor_number, true)
         else: # NORMAL
             for d_dir in door_nodes:
                 door_nodes[d_dir].close_door()
@@ -184,6 +191,27 @@ func setup_room(data, floor_number: int):
     # A fight room with nobody to fight would keep its doors shut forever
     if room_data.type == 1 and not room_data.cleared and active_enemies.is_empty():
         clear_room.call_deferred()
+
+# ---- Special rooms (data/SpecialRooms.gd, rooms/SpecialRoom.gd) ----
+const OPEN_SPECIALS = ["vent", "dig", "extinction", "nest", "symbiont"]
+var special_node: Node2D = null
+
+func start_special(layout: Dictionary, floor_number: int, first: bool):
+    special_node = preload("res://rooms/SpecialRoom.gd").new()
+    special_node.name = "Special"
+    special_node.room = self
+    special_node.kind = room_data.special
+    special_node.floor_num = floor_number
+    special_node.layout = layout
+    add_child(special_node)
+    special_node.begin(first)
+
+# Shut the doors and start a fight in a room that began peaceful (an
+# ambush, an angry parent)
+func begin_fight():
+    room_data.cleared = false
+    for d_dir in door_nodes:
+        door_nodes[d_dir].close_door()
 
 # Animals still to beat here: the GROW screen stays shut until they are
 # (HUD.show_grow_screen). Special rooms with a fight in them say so too.
@@ -916,6 +944,8 @@ func clear_room():
         return
     room_data.cleared = true
     SoundManager.play_sfx("room_clear")
+    if special_node and is_instance_valid(special_node):
+        special_node.on_cleared()
     var m = get_parent()
     if room_data.type == 1 and m and m.has_method("field_event"):
         if not m.hit_this_room:

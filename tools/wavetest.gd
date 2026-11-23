@@ -13,7 +13,7 @@ func _initialize():
 	main.floor_number = 3
 	main.generate_floor()
 	for pos in main.dungeon_rooms:
-		if main.dungeon_rooms[pos].type == 1:
+		if main.dungeon_rooms[pos].type == 1 and main.dungeon_rooms[pos].special == "":
 			main.current_room_pos = pos
 			main.load_room(pos)
 			break

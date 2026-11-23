@@ -20,6 +20,11 @@ float hash(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.545
 uniform vec2 doors[8];
 uniform int door_count = 0;
 uniform float door_radius = 150.0;
+// Glowing animals in a dark cave (rooms/GlowCritter.gd): x, y, radius
+uniform vec3 lights[12];
+uniform int light_count = 0;
+// 0 normally, 1 in a glowing cave: the fog turns to real darkness
+uniform float cave = 0.0;
 
 void fragment() {
 	vec2 p = UV * rect_size;
@@ -27,11 +32,15 @@ void fragment() {
 	for (int i = 0; i < door_count; i++) {
 		a = min(a, smoothstep(door_radius * 0.6, door_radius, distance(p, doors[i])));
 	}
+	for (int i = 0; i < light_count; i++) {
+		a = min(a, smoothstep(lights[i].z * 0.35, lights[i].z, distance(p, lights[i].xy)));
+	}
 	vec3 col = fog_color + (hash(FRAGCOORD.xy) - 0.5) * 0.05;
 	// A faint brown edge where the sketch stops, like a vignette of ink
 	float rim = smoothstep(0.0, 0.5, a) * (1.0 - smoothstep(0.5, 1.0, a));
 	col = mix(col, rim_color, rim * 0.35);
-	COLOR = vec4(col, a * darkness);
+	col = mix(col, vec3(0.07, 0.05, 0.035) + (hash(FRAGCOORD.xy) - 0.5) * 0.02, cave);
+	COLOR = vec4(col, a * mix(darkness, 0.97, cave));
 }
 """
 
@@ -44,6 +53,7 @@ var player # Player.gd (uses its drawn_position())
 var radius: float = 0.0
 var darkness: float = 0.0
 var target_radius: float = 0.0
+var cave: float = 0.0
 var target_darkness: float = 0.0
 
 func _ready():
@@ -99,13 +109,36 @@ func _process(delta: float):
 		if player == null:
 			return
 	radius = move_toward(radius, target_radius, delta * 400.0)
+	# A glowing cave (rooms/SpecialRoom.gd): darker, and you see less
+	var main = get_tree().get_first_node_in_group("main")
+	var room = main.get("current_room_node") if main else null
+	var in_cave = room != null and is_instance_valid(room) and room.get("room_data") != null and room.room_data.special == "glow"
+	cave = move_toward(cave, 1.0 if in_cave else 0.0, delta * 1.5)
+	mat.set_shader_parameter("cave", cave)
+	var lights: Array = []
+	if cave > 0.0:
+		for g in get_tree().get_nodes_in_group("fog_lights"):
+			if lights.size() >= 12:
+				break
+			if g.is_queued_for_deletion():
+				continue
+			var lp = rect.get_global_transform_with_canvas().affine_inverse() * (g.get_global_transform_with_canvas() * Vector2.ZERO)
+			var scale_f = g.get_global_transform_with_canvas().get_scale().x
+			lights.append(Vector3(lp.x, lp.y, g.light_radius * scale_f))
+	mat.set_shader_parameter("light_count", lights.size())
+	if not lights.is_empty():
+		lights.resize(12)
+		for i in 12:
+			if lights[i] == null:
+				lights[i] = Vector3.ZERO
+		mat.set_shader_parameter("lights", PackedVector3Array(lights))
 	darkness = move_toward(darkness, target_darkness, delta * 0.4)
 	# Interpolated position: where the player is drawn this frame
 	var screen_pos = player.get_canvas_transform() * player.drawn_position()
 	var local_pos = rect.get_global_transform_with_canvas().affine_inverse() * screen_pos
 	mat.set_shader_parameter("rect_size", rect.size)
 	mat.set_shader_parameter("center", local_pos)
-	mat.set_shader_parameter("radius", radius)
+	mat.set_shader_parameter("radius", radius * (1.0 - 0.3 * cave))
 	mat.set_shader_parameter("softness", radius * 0.6)
 	mat.set_shader_parameter("darkness", darkness)
 	var door_pts := PackedVector2Array()

@@ -26,9 +26,12 @@ class RoomData:
     var hazards: Array = [] # Room.spawn_hazards: [{pos, size, seed}], rolled on first visit
     var hazards_rolled: bool = false
     var waves_left: int = 0 # Room.start_wave: animals still to come in through the doors # which RoomLayouts normal layout this room uses
+    var special: String = "" # data/SpecialRooms.gd kind, run by rooms/SpecialRoom.gd
+    var special_state: Dictionary = {} # what happened there, kept for revisits
     var shop_inventory: Array = [] # [{ "item_id": String, "price": int, "pos": Vector2, "bought": bool }]
 
-static func generate_level(floor_number: int = 1) -> Dictionary:
+# avoid: special room kinds already met this run, dealt last
+static func generate_level(floor_number: int = 1, avoid: Array = []) -> Dictionary:
     # Returns a dictionary of Vector2i -> RoomData
     var min_rooms = max(7, 6 + floor_number * 2)
     var max_rooms = min_rooms + 2
@@ -160,6 +163,27 @@ static func generate_level(floor_number: int = 1) -> Dictionary:
     # Third dead end is a mineral seep (MineralSeep.gd): a heal and elements
     if leaves.size() > 2:
         leaves[2].type = RoomType.SEEP
+
+    # A few side rooms become special rooms (data/SpecialRooms.gd): the
+    # remaining dead ends first, then other fight rooms, never one next to
+    # the start. Kinds not met yet this run come first.
+    var specials = preload("res://data/SpecialRooms.gd")
+    var kinds: Array = specials.kinds_for(floor_number)
+    kinds.shuffle()
+    kinds.sort_custom(func(a, b): return int(a in avoid) < int(b in avoid))
+    var spots: Array = []
+    for r in leaves:
+        if r.type == RoomType.NORMAL:
+            spots.append(r)
+    var others: Array = []
+    for pos in rooms:
+        var r = rooms[pos]
+        if r.type == RoomType.NORMAL and not r in spots and (pos - start_pos).length_squared() > 1:
+            others.append(r)
+    others.shuffle()
+    spots.append_array(others)
+    for i in mini(specials.count_for(floor_number), spots.size()):
+        spots[i].special = kinds[i % kinds.size()]
 
     # Deal the fight-room layouts like a shuffled deck, so a floor doesn't
     # repeat one until it has used them all and runs don't always open alike
