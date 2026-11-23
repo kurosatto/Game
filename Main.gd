@@ -178,7 +178,19 @@ func _field_note_done(n: Dictionary):
     if player.has_method("heal"):
         player.heal(field_notes.REWARD_HEAL)
     SoundManager.play_sfx("level_up", 1.1, -4.0)
-    hud.show_item_banner("FIELD NOTE: " + n.text.to_upper(), n.fact + "\n+1 heart and elements to GROW with.\n" + field_notes.describe(floor_number, notes_progress), true)
+    # No banner over the room: a short tag rises off you and the quest mark
+    # under the map pops; the fact waits on the pause screen
+    player.popup_text(player.global_position + Vector2(0, -90), "QUEST ✓", Color(0.98, 0.76, 0.38))
+    _update_quest_mark(true)
+    hud.last_banner = ["QUEST: " + n.text, n.fact]
+
+func _update_quest_mark(pop: bool = false):
+    var notes = field_notes.for_floor(floor_number)
+    var done = 0
+    for i in notes.size():
+        if int(notes_progress.get(i, 0)) >= notes[i].need:
+            done += 1
+    hud.update_quests(done, notes.size(), pop)
 
 func start_new_game():
     floor_number = 1
@@ -214,6 +226,7 @@ func check_challenges():
 func generate_floor():
     hit_this_floor = false
     notes_progress = {}
+    _update_quest_mark()
     hud.update_floor(floor_number)
     if floor_number == 1:
         SoundManager.new_run()
