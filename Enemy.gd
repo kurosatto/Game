@@ -1466,6 +1466,9 @@ func take_damage(amount: float):
 	# Stolen stingers (item): some hits fire a nematocyst and stun
 	if player and is_instance_valid(player) and player.get("stun_chance") and randf() < player.stun_chance:
 		apply_stun(0.9)
+	# Chemical sense: blood in the water, wounded prey is easier to finish
+	if health < max_health and player and is_instance_valid(player) and player.has_method("taste_bonus"):
+		amount *= 1.0 + player.taste_bonus()
 	if armour_blocks():
 		amount *= 0.25
 		SoundManager.play_sfx("hit_glance", randf_range(0.8, 0.95))

@@ -78,8 +78,8 @@ func apply_style(id: String):
 	mat.set_shader_parameter("rim_color", st.rim)
 
 # rating: 1-10 and the sense's name from Lineages.SENSES
-func set_sense(rating: int, kind: String):
-	hints.set_sense(rating, kind)
+func set_sense(rating: int, kind: String, profile: Dictionary = {}):
+	hints.set_sense(rating, kind, profile)
 
 # rating: 1 (blind) to 10 (best eyes alive)
 func set_vision(rating: int, instant: bool = false):

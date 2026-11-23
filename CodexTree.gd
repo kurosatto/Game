@@ -45,6 +45,7 @@ var icon_layer: Control
 var info_name: Label
 var info_clade: Label
 var info_body: Label
+var info_senses: HBoxContainer # the form's six senses as icons (SenseBadge.gd)
 
 func _ready():
 	clip_contents = true
@@ -375,6 +376,9 @@ func build_info_panel():
 	box.add_child(info_name)
 	info_clade = make_label(20, UI.MUTED, font_med)
 	box.add_child(info_clade)
+	info_senses = HBoxContainer.new()
+	info_senses.add_theme_constant_override("separation", 6)
+	box.add_child(info_senses)
 	var scroll = ScrollContainer.new()
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
@@ -407,11 +411,17 @@ func select(path: String):
 		info_icon.texture = at
 	info_icon.modulate = Color.WHITE if n.known else Color(0.10, 0.065, 0.04, 0.95)
 	info_icon.material = UI.sepia_material() if n.known else null
+	for c in info_senses.get_children():
+		c.queue_free()
+	info_senses.visible = n.known
 	if n.known:
+		for b in preload("res://SenseBadge.gd").row(form, 54.0, false):
+			info_senses.add_child(b)
 		info_name.text = pretty(form.name)
 		info_clade.text = form.clade_path
-		info_body.text = "%s\n\n%s\n\nLiving today: %s\n\nAttack: %s" % [
-			form.clade, form.fact, form.living_example, form.get("weapon_name", "")]
+		info_body.text = "%s\n\n%s\n\nLiving today: %s\n\nAttack: %s\n\nBest sense: %s" % [
+			form.clade, form.fact, form.living_example, form.get("weapon_name", ""),
+			preload("res://data/Lineages.gd").describe_sense(form)]
 	else:
 		info_name.text = "Undiscovered"
 		if path == "":
