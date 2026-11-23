@@ -103,8 +103,19 @@ const RECIPES = [
 	{"id": "keratin_horn", "name": "Keratin Horn", "cost": {"S": 5}, "icon": "grow_keratin_horn",
 		"fact": "Horn sheaths are dense keratin; the more sulfur bridges, the harder the horn.",
 		"effect": "Hits knock enemies back", "mods": {"knockback": 260.0}},
+	{"id": "calcium_signalling", "name": "Calcium Signalling", "cost": {"Ca": 3}, "icon": "grow_calcium_signalling",
+		"fact": "A rush of calcium ions into a cell is the trigger that fires nerves, muscles and electric organs alike.",
+		"effect": "ZAP recharges 20% faster, reaches 10% farther", "mods": {"zap_cd": 0.2, "zap_radius": 0.1}},
+	{"id": "zinc_enzymes", "name": "Zinc Digestive Enzymes", "cost": {"Zn": 3}, "icon": "grow_zinc_enzymes",
+		"fact": "Carboxypeptidase and many other gut enzymes hold a zinc atom that splits protein chains apart.",
+		"effect": "+25% elements from prey", "mods": {"biomass": 0.25}},
+	{"id": "copper_myelin", "name": "Copper-Built Myelin", "cost": {"Cu": 3}, "icon": "grow_copper_myelin",
+		"fact": "Making myelin, the fatty wrap that speeds nerve signals, needs copper enzymes; without copper, nerves lose it.",
+		"effect": "Dash or escape keeps you untouchable 0.15 s longer", "mods": {"iframes": 0.15}},
+	{"id": "sulfated_slime", "name": "Sulfated Slime", "cost": {"S": 3}, "icon": "grow_sulfated_slime", "once": true,
+		"fact": "Slugs, hagfish and worms coat themselves in mucins, sugary proteins studded with sulfate, and slip out of a predator's grip.",
+		"effect": "Shed the first hit after each room you clear", "mods": {"autotomy": 1}},
 ]
-
 static func get_recipe(id: String) -> Dictionary:
 	for r in RECIPES:
 		if r.id == id:

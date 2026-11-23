@@ -590,7 +590,7 @@ func _create_grow_screen():
         have_row.add_child(chip)
         grow_chips[el] = chip
     grow_grid = GridContainer.new()
-    grow_grid.columns = 4
+    grow_grid.columns = 5
     grow_grid.add_theme_constant_override("h_separation", 12)
     grow_grid.add_theme_constant_override("v_separation", 10)
     grow_grid.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
@@ -686,7 +686,7 @@ func _create_grow_screen():
 
 func _make_grow_tile(r: Dictionary):
     var tile = Button.new()
-    tile.custom_minimum_size = Vector2(440, 130)
+    tile.custom_minimum_size = Vector2(358, 130)
     tile.pressed.connect(_on_grow_tile.bind(r.id))
     tile.focus_entered.connect(func():
         # Moving the pad highlight reads the part, like hovering
