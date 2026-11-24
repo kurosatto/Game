@@ -54,6 +54,9 @@ jobs:
           mkdir -p build/web
           ~/godot/godot --headless --path . --export-release Web build/web/index.html
           test -s build/web/index.wasm && test -s build/web/index.pck
+          # Installable app (PWA): manifest + service worker for Add to Home screen
+          test -s build/web/index.manifest.json && test -s build/web/index.service.worker.js
+          cat build/web/index.manifest.json
           touch build/web/.nojekyll
 
       - uses: actions/upload-pages-artifact@v3
