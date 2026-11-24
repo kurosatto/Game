@@ -102,7 +102,7 @@ func _initialize():
 	for i in 20:
 		await process_frame
 	p = main.player
-	var tests = ["vent", "tar", "dig", "frenzy", "extinction", "nest", "tide", "symbiont", "ambush", "glow", "dark", "deal", "run"]
+	var tests = ["vent", "tar", "dig", "frenzy", "extinction", "nest", "tide", "symbiont", "ambush", "glow", "dark", "fire", "deal", "run"]
 	for t in tests:
 		if only != "" and t != only:
 			continue
@@ -327,6 +327,61 @@ func t_dark():
 	root.get_node("SettingsManager").dark_rooms_all = false
 	check(plain == 0, "DARK ROOMS: EVERY ROOM leaves no lit fight room (%d)" % plain)
 
+# Wildfire: lit on the far side after a moment, crosses the room, burns you
+# and the animals in it, chars the plants, leaves phosphorus in the ash
+func t_fire():
+	for f in [4, 5]:
+		var d = await setup("fire", f)
+		var w = feature("Wildfire.gd")
+		check(w != null, "the fire feature is there (era %d)" % f)
+		check(w.state.dir < 0.0, "it starts on the side away from you")
+		check(not w.lit(), "not lit at first")
+		await frames(200, Vector2(300, 540))
+		check(w.lit(), "lightning lights it")
+		var hp0 = 0
+		var burnt_any = false
+		var start_hp = {}
+		for e in room().active_enemies:
+			start_hp[e] = e.health
+		# Stand still in its path
+		p.invincibility_time = 0.0
+		var hurt = false
+		for i in 60 * 32:
+			p.global_position = room().global_position + Vector2(960, 540)
+			p.health = max(p.health, 4)
+			p.is_dashing = false
+			var before = p.health
+			await physics_frame
+			if p.health < before:
+				hurt = true
+			for e in start_hp:
+				if not is_instance_valid(e) or e.dead or e.health < start_hp[e]:
+					burnt_any = true
+			if w.state.get("done", false):
+				break
+			if i == 60 * 9 or (out != "" and i == 60 * 4):
+				await snap("12_fire_era%d_%ds" % [f, i / 60], f == 4)
+		check(hurt, "standing in the fire hurts")
+		check(burnt_any, "animals get burnt")
+		check(w.state.get("done", false), "it burns out")
+		var charred = room().get_children().filter(func(c): return c.is_in_group("obstacles") and c.modulate.r < 0.6).size()
+		var plants = room().get_children().filter(func(c): return c.is_in_group("obstacles")).size()
+		check(plants == 0 or charred == plants, "the plants are charred (%d / %d)" % [charred, plants])
+		await frames(5)
+		var ash = room().get_children().filter(func(c): return c.get_script() == preload("res://BiomassOrb.gd") and c.element == "P").size()
+		check(ash > 0, "the ash leaves phosphorus (%d orbs)" % ash)
+		for k in 4: # a second wave may come in
+			await kill_all()
+			await frames(60)
+		check(d.cleared, "the fire room clears")
+		# Back again: burnt, no second ash
+		main.load_room(main.current_room_pos)
+		await frames(10)
+		var w2 = feature("Wildfire.gd")
+		var ash2 = room().get_children().filter(func(c): return c.get_script() == preload("res://BiomassOrb.gd")).size()
+		check(w2 != null and w2.state.done and ash2 == 0, "a revisit is burnt, no new ash (%d)" % ash2)
+		print("SPECIALTEST fire era %d: ash orbs %d, plants %d" % [f, ash, plants])
+
 # Every floor deals its special rooms, fitting the era
 func t_deal():
 	var SR = preload("res://data/SpecialRooms.gd")
@@ -348,7 +403,7 @@ func t_deal():
 				check(false, "floor %d got no special rooms" % f)
 			if not rooms.values().any(func(r): return r.special == "dark"):
 				check(false, "floor %d got no dark room" % f)
-	check(seen.size() == 11, "all eleven kinds turn up (%d)" % seen.size())
+	check(seen.size() == 12, "all twelve kinds turn up (%d)" % seen.size())
 
 func t_run():
 	# The ordinary floor still works with specials in it

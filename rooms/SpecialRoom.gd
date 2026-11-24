@@ -37,6 +37,7 @@ func begin(first: bool):
 		"ambush": _ambush()
 		"glow": _glow(first)
 		"dark": fight(first)
+		"fire": _fire(first)
 	if first and kind != "ambush":
 		introduce()
 
@@ -321,3 +322,8 @@ func _glow(first: bool):
 	for i in spots.size():
 		# Sea pens stay put; in the Ordovician comb jellies drift about too
 		add_feature("GlowCritter.gd", {"position": spots[i], "drifter": floor_num >= 3 and i % 3 == 0, "seed_val": rng.randi()})
+
+# ---- 12. Wildfire: a fire front crosses the room mid-fight ----
+func _fire(first: bool):
+	fight(first)
+	add_feature("Wildfire.gd", {"state": state, "room": room, "first": first})
