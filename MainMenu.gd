@@ -476,8 +476,10 @@ func _update_grow_text():
 	var bank = progress.bank()
 	var ranks = progress.lineage_ranks()
 	var can = 0
+	var U = preload("res://data/Unlocks.gd")
+	var st = progress.stats()
 	for r in B.lineage_recipes():
-		if B.can_grow_lineage(r, bank, ranks):
+		if B.can_grow_lineage(r, bank, ranks) and U.is_unlocked(r.id, st, ranks):
 			can += 1
 	grow_btn.text = "🌱  GROW YOUR LINEAGE" + ("  (%d ready)" % can if can > 0 else "")
 

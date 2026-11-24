@@ -137,6 +137,8 @@ static func grow_lineage(id: String) -> bool:
 	var ranks: Dictionary = config.get_value("lineage", "ranks", {})
 	if not B.can_grow_lineage(r, b, ranks):
 		return false
+	if not preload("res://data/Unlocks.gd").is_unlocked(id, stats(), ranks):
+		return false
 	var c = B.lineage_cost(r, int(ranks.get(id, 0)))
 	for el in c:
 		b[el] = max(0.0, float(b.get(el, 0.0)) - c[el])
@@ -145,3 +147,30 @@ static func grow_lineage(id: String) -> bool:
 	config.set_value("lineage", "ranks", ranks)
 	config.save(SAVE_PATH)
 	return true
+
+# Lifetime counts that open GROW parts (data/Unlocks.gd): "eat:Isotelus",
+# "eat_all", "seep", "hatch", "sketch", "boss:2"; "reach:<form id>" keeps the
+# furthest floor reached as a descendant of that form
+static func stats() -> Dictionary:
+	return _load().get_value("lineage", "stats", {})
+
+static func add_stats(delta: Dictionary, maxima: Dictionary = {}):
+	if delta.is_empty() and maxima.is_empty():
+		return
+	var config = _load()
+	var st: Dictionary = config.get_value("lineage", "stats", {})
+	for k in delta:
+		st[k] = int(st.get(k, 0)) + int(delta[k])
+	for k in maxima:
+		st[k] = max(int(st.get(k, 0)), int(maxima[k]))
+	config.set_value("lineage", "stats", st)
+	config.save(SAVE_PATH)
+
+# Parts already shown as open on the GROW page, so new ones can say NEW
+static func seen_unlocks() -> Array:
+	return _load().get_value("lineage", "seen", [])
+
+static func set_seen_unlocks(ids: Array):
+	var config = _load()
+	config.set_value("lineage", "seen", ids)
+	config.save(SAVE_PATH)

@@ -10,6 +10,7 @@ extends VBoxContainer
 const UI = preload("res://data/UIStyle.gd")
 const B = preload("res://data/Biominerals.gd")
 const PROGRESS = preload("res://data/Progress.gd")
+const UNLOCKS = preload("res://data/Unlocks.gd")
 const START_FORM := "ancestral_collar_cell"
 # Parts PlayerBody draws on the creature
 const VISIBLE = ["calcite_spines", "keratin_horn", "keratin_claws", "magnetite_teeth",
@@ -17,6 +18,9 @@ const VISIBLE = ["calcite_spines", "keratin_horn", "keratin_claws", "magnetite_t
 
 var bank: Dictionary = {}
 var ranks: Dictionary = {}
+var stats: Dictionary = {}
+var open: Dictionary = {} # id -> unlocked (data/Unlocks.gd)
+var fresh: Array = [] # opened since the page was last seen
 var selected: String = ""
 var just_grown: String = ""
 var tiles: Dictionary = {} # id -> {tile, name, cost, effect, icon, meter, pips}
@@ -77,8 +81,21 @@ func _ready():
 	add_theme_constant_override("separation", 10)
 	bank = PROGRESS.bank()
 	ranks = PROGRESS.lineage_ranks()
+	stats = PROGRESS.stats()
+	var seen = PROGRESS.seen_unlocks()
+	for r in B.lineage_recipes():
+		open[r.id] = UNLOCKS.is_unlocked(r.id, stats, ranks)
+		if open[r.id] and not r.id in UNLOCKS.STARTERS and not r.id in seen:
+			fresh.append(r.id)
+	PROGRESS.set_seen_unlocks(open.keys().filter(func(k): return open[k]))
 	_build()
 	_fill()
+	for id in fresh:
+		_pulse_new(id)
+
+# Parts you can grow right now: open and affordable
+func _can(r: Dictionary) -> bool:
+	return open.get(r.id, true) and B.can_grow_lineage(r, bank, ranks)
 
 func _build():
 	var have_row = HBoxContainer.new()
@@ -113,7 +130,7 @@ func _build():
 
 	var info = PanelContainer.new()
 	info.add_theme_stylebox_override("panel", UI.panel(UI.MEMBRANE, 20, 0.9, 14.0))
-	info.custom_minimum_size = Vector2(0, 220)
+	info.custom_minimum_size = Vector2(0, 200)
 	info.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	add_child(info)
 	var irow = HBoxContainer.new()
@@ -190,7 +207,7 @@ func _build():
 
 func _make_tile(grid: GridContainer, r: Dictionary):
 	var tile = Button.new()
-	tile.custom_minimum_size = Vector2(330, 112)
+	tile.custom_minimum_size = Vector2(330, 122)
 	tile.pressed.connect(_on_tile.bind(r.id))
 	tile.focus_entered.connect(func():
 		if PadInput.using_pad and selected != r.id:
@@ -244,6 +261,29 @@ func _make_tile(grid: GridContainer, r: Dictionary):
 	cost.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	cost.add_theme_font_size_override("normal_font_size", 16)
 	v.add_child(cost)
+	# Locked: the goal that opens it, as a picture and a short line
+	var goal_row = HBoxContainer.new()
+	goal_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	goal_row.add_theme_constant_override("separation", 6)
+	v.add_child(goal_row)
+	var gic = TextureRect.new()
+	var g = UNLOCKS.goal(r.id)
+	gic.texture = UNLOCKS.icon_texture(g)
+	gic.custom_minimum_size = Vector2(36, 36)
+	gic.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	gic.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	gic.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	gic.material = UI.sepia_material()
+	goal_row.add_child(gic)
+	var gl = RichTextLabel.new()
+	gl.bbcode_enabled = true
+	gl.fit_content = true
+	gl.scroll_active = false
+	gl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	gl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	gl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	gl.add_theme_font_size_override("normal_font_size", 14)
+	goal_row.add_child(gl)
 	var e = Label.new()
 	e.text = _effect(r)
 	e.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -259,8 +299,19 @@ func _make_tile(grid: GridContainer, r: Dictionary):
 	meter.offset_top = -12
 	meter.offset_bottom = -7
 	tile.add_child(meter)
+	var tag = Label.new()
+	tag.text = "NEW!"
+	tag.visible = false
+	tag.add_theme_font_size_override("font_size", 16)
+	tag.add_theme_color_override("font_color", UI.SUN)
+	tag.add_theme_color_override("font_outline_color", Color(0.08, 0.05, 0.03))
+	tag.add_theme_constant_override("outline_size", 6)
+	tag.position = Vector2(8, -10)
+	tag.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	tile.add_child(tag)
 	grid.add_child(tile)
-	tiles[r.id] = {"tile": tile, "name": t, "cost": cost, "icon": ic, "meter": meter, "pips": pips}
+	tiles[r.id] = {"tile": tile, "name": t, "cost": cost, "icon": ic, "meter": meter, "pips": pips,
+		"goal": goal_row, "goal_text": gl, "effect": e, "tag": tag}
 	if r.id == B.lineage_recipes()[0].id:
 		tile.set_meta("pad_default", true)
 
@@ -268,8 +319,25 @@ func _make_tile(grid: GridContainer, r: Dictionary):
 func _effect(r: Dictionary) -> String:
 	return String(r.effect).replace(", healed now", "")
 
+func _goal_line(id: String) -> String:
+	var g = UNLOCKS.goal(id)
+	var p = UNLOCKS.progress_of(id, stats)
+	var tier: String = g.get("tier", "easy")
+	var count = ("  %d/%d" % [p[0], p[1]]) if int(p[1]) > 1 else ""
+	return "[color=#%s]%s[/color] %s[color=#%s]%s[/color]" % [UNLOCKS.TIER_COLOR[tier].to_html(false), tier.to_upper(),
+		g.get("text", ""), UI.MUTED.to_html(false), count]
+
+# A part opened since you last looked: a tag and a glow
+func _pulse_new(id: String):
+	var w = tiles[id]
+	w.tag.visible = true
+	var tile: Button = w.tile
+	var tw = tile.create_tween().set_loops(3)
+	tw.tween_property(tile, "self_modulate", Color(1.5, 1.4, 1.0), 0.35).set_trans(Tween.TRANS_SINE)
+	tw.tween_property(tile, "self_modulate", Color.WHITE, 0.45).set_trans(Tween.TRANS_SINE)
+
 func _on_tile(id: String):
-	if selected == id and B.can_grow_lineage(B.get_recipe(id), bank, ranks):
+	if selected == id and _can(B.get_recipe(id)):
 		_on_grow()
 		return
 	selected = id
@@ -299,7 +367,8 @@ func _fill():
 		grown += n
 		most += top
 		var maxed = n >= top
-		var ok = B.can_grow_lineage(r, bank, ranks)
+		var ok = _can(r)
+		var locked = not open.get(r.id, true)
 		var sel = r.id == selected
 		var tint = UI.LEAF if ok else (UI.SUN if sel else UI.MEMBRANE)
 		for state in ["normal", "hover", "pressed", "disabled"]:
@@ -319,13 +388,26 @@ func _fill():
 			w.cost.text = _cost_bbcode(B.lineage_cost(r, n))
 		w.meter.frac = B.lineage_progress(r, bank, ranks)
 		w.meter.col = UI.LEAF if (ok or maxed) else Color(UI.SUN, 0.85)
+		# Locked: a dark ink silhouette of the part, and its goal
+		w.cost.visible = not locked
+		w.goal.visible = locked
+		w.pips.visible = not locked
+		w.effect.add_theme_color_override("font_color", UI.MUTED if locked else UI.LEAF)
+		w.icon.self_modulate = Color(0.12, 0.08, 0.05, 0.9) if locked else Color.WHITE
+		if locked:
+			w.goal_text.text = _goal_line(r.id)
+			w.name.add_theme_color_override("font_color", UI.MUTED)
+			tile.modulate = Color(1, 1, 1, 1.0 if sel else 0.78)
+			var p = UNLOCKS.progress_of(r.id, stats)
+			w.meter.frac = clampf(float(p[0]) / max(1.0, float(p[1])), 0.0, 1.0)
+			w.meter.col = Color(UNLOCKS.TIER_COLOR[UNLOCKS.goal(r.id).get("tier", "easy")], 0.8)
 		w.meter.queue_redraw()
 	total_label.text = "  ·  %d / %d grown" % [grown, most]
 	# The creature every run starts as, with the lineage's parts on it
 	var parts := {}
 	for id in ranks:
 		parts[id] = int(ranks[id])
-	var showing = selected in VISIBLE and just_grown != selected and int(ranks.get(selected, 0)) < B.max_rank(B.get_recipe(selected))
+	var showing = selected in VISIBLE and open.get(selected, true) and just_grown != selected and int(ranks.get(selected, 0)) < B.max_rank(B.get_recipe(selected))
 	if showing:
 		parts[selected] = int(parts.get(selected, 0)) + 1
 	body_art.preview_parts = parts
@@ -335,13 +417,21 @@ func _fill():
 	if r.is_empty():
 		title.text = PadInput.prompt("Move to a part to see what it is made of", "Tap a part to see what it is made of", "Click a part to see what it is made of")
 		change.text = ""
-		body.text = "What you eat in a run is banked here when the run ends. Parts grown here are part of your lineage for good: every run starts with them. Each part grows up to three times."
+		body.text = "What you eat in a run is banked here. Parts grown here are part of your lineage for good: every run starts with them. Each part grows up to three times. Dark parts are still locked: reach the goal shown on them, in any run, to open them."
 		go.disabled = true
+		return
+	if not open.get(r.id, true):
+		var g = UNLOCKS.goal(r.id)
+		title.text = "🔒 " + r.name
+		change.text = "[b]%s[/b]   [color=#%s]Opens it: every run %s[/color]" % [_goal_line(r.id), UI.MUTED.to_html(false), _effect(r).to_lower()]
+		body.text = r.fact
+		go.disabled = true
+		go.text = "LOCKED"
 		return
 	var n = int(ranks.get(r.id, 0))
 	var top = B.max_rank(r)
 	title.text = r.name + ("  ·  GROWN!" if just_grown == r.id else "")
-	var ok = B.can_grow_lineage(r, bank, ranks)
+	var ok = _can(r)
 	var line = "Every run: %s" % _effect(r)
 	if top > 1:
 		line += "   (×%d → ×%d)" % [n, min(top, n + 1)] if n < top else "   (×%d, fully grown)" % n
