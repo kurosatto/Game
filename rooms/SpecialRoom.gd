@@ -45,6 +45,7 @@ func begin(first: bool):
 		"drought": _drought()
 		"treefall": _treefall(first)
 		"brachiopods": _brachiopods()
+		"current": _current(first)
 	if first and kind != "ambush":
 		introduce()
 
@@ -394,3 +395,8 @@ func _treefall(first: bool):
 func _brachiopods():
 	peaceful()
 	add_feature("BrachiopodBed.gd", {"room": room, "state": state})
+
+# ---- Strong current: everything drifts, graptolites with it ----
+func _current(first: bool):
+	fight(first)
+	add_feature("Current.gd", {"room": room, "state": state})

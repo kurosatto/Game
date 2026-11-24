@@ -102,7 +102,7 @@ func _initialize():
 	for i in 20:
 		await process_frame
 	p = main.player
-	var tests = ["vent", "tar", "dig", "frenzy", "extinction", "nest", "tide", "symbiont", "ambush", "glow", "dark", "fire", "molt", "procession", "meadow", "mat", "drought", "treefall", "brachiopods", "deal", "run"]
+	var tests = ["vent", "tar", "dig", "frenzy", "extinction", "nest", "tide", "symbiont", "ambush", "glow", "dark", "fire", "molt", "procession", "meadow", "mat", "drought", "treefall", "brachiopods", "current", "deal", "run"]
 	for t in tests:
 		if only != "" and t != only:
 			continue
@@ -390,6 +390,45 @@ func t_brachiopods():
 	var g2 = feature("BrachiopodBed.gd")
 	check(g2 != null and g2.shells[0].eaten, "eaten shells stay eaten on a revisit")
 	preload("res://data/Worlds.gd").sea = false
+
+func t_current():
+	var d = await setup("current", 3)
+	d.waves_left = 0
+	var g = feature("Current.gd")
+	check(g != null, "the current is there")
+	check(main.in_combat(), "current room is a fight")
+	# Standing still in open water, you are carried along
+	g.angle = 0.0
+	g.to_angle = 0.0
+	g.turn_t = 1.0
+	g.next_turn = 99.0
+	var start = room().global_position + Vector2(700, 540)
+	p.global_position = start
+	await frames(60)
+	var moved = p.global_position - start
+	check(moved.x > 40.0 and absf(moved.y) < 30.0, "the current carries you (%.0f, %.0f)" % [moved.x, moved.y])
+	# It swings round
+	g.next_turn = 0.01
+	await frames(int(60 * (g.TURN_TIME + 0.3)), Vector2(250, 250))
+	check(absf(angle_difference(0.0, g.angle)) > 0.4, "the current swings round (%.2f)" % g.angle)
+	if out != "":
+		await snap("20_current_era3", true)
+	# Graptolites to catch
+	var c = g.colonies.filter(func(x): return not x.eaten)[0]
+	var els = total(p.elements)
+	for i in 10:
+		p.global_position = room().global_position + c.pos
+		await physics_frame
+	check(c.eaten, "touching a graptolite colony eats it")
+	await frames(30, room().global_position + c.pos)
+	check(total(p.elements) > els, "it gives phosphorus")
+	for e in room().active_enemies:
+		if is_instance_valid(e) and e.get("enroll_time") != null:
+			e.enroll_time = 0.0
+	for k in 3:
+		await kill_all()
+	await frames(40)
+	check(d.cleared, "the room clears")
 
 func t_procession():
 	var d = await setup("procession", 3)
