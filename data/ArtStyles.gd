@@ -6,9 +6,10 @@
 # One pass with a handful of texture reads each, so they all run on the
 # phone's Compatibility renderer.
 #
-# The first eleven entries: the sepia sketchbook look the game has used since
-# PR #51 (the default) and the ten style samples kuro chose from
-# (screenshots/art-options/all_10_styles.png).
+# The sepia sketchbook look the game has used since PR #51 (the default) and
+# eight of the ten style samples kuro chose from
+# (screenshots/art-options/all_10_styles.png). Silhouette and low-poly were
+# cut on 2026-11-24; a saved one falls back to sepia (SettingsManager).
 extends RefCounted
 
 const DEFAULT := "sepia"
@@ -42,12 +43,6 @@ const STYLES := [
 	{"id": "neon", "name": "Bioluminescent neon", "desc": "Glowing outlines in the dark abyss.",
 		"fog": Color(0.01, 0.02, 0.05), "rim": Color(0.05, 0.30, 0.40), "dark": true, "floor": Color(0.02, 0.03, 0.06), "swatch": Color(0.20, 0.95, 1.00),
 		"ui": {"INK": Color(0.01, 0.03, 0.07), "INK_SOFT": Color(0.03, 0.07, 0.13), "MEMBRANE": Color(0.20, 0.95, 1.0), "CREAM": Color(0.86, 1.0, 1.0), "MUTED": Color(0.45, 0.72, 0.82), "SUN": Color(1.0, 0.45, 0.90), "LEAF": Color(0.45, 1.0, 0.55), "AQUA": Color(0.30, 0.95, 1.0), "CORAL": Color(1.0, 0.35, 0.45), "SHADE": Color(0.10, 0.85, 1.0, 0.30), "BACKDROP": Color(0.0, 0.01, 0.03), "TITLE": Color(0.60, 1.0, 1.0), "TITLE_OUTLINE": Color(0.05, 0.30, 0.55), "ROUND": 0.9, "RIM": 3, "CORNER_DETAIL": 12, "SMOOTH": true, "SHADOW_SIZE": 18, "SHADOW_OFFSET": Vector2(0, 0)}},
-	{"id": "silhouette", "name": "Silhouette + rim light", "desc": "Dark shapes lit from behind with warm rims and light shafts.",
-		"fog": Color(0.05, 0.15, 0.18), "rim": Color(0.65, 0.50, 0.25), "dark": true, "floor": Color(0.15, 0.35, 0.38), "swatch": Color(0.20, 0.45, 0.48),
-		"ui": {"INK": Color(0.02, 0.03, 0.04), "INK_SOFT": Color(0.06, 0.08, 0.09), "MEMBRANE": Color(0.95, 0.72, 0.35), "CREAM": Color(0.94, 0.95, 0.92), "MUTED": Color(0.58, 0.70, 0.70), "SUN": Color(1.0, 0.80, 0.40), "LEAF": Color(0.62, 0.88, 0.62), "CORAL": Color(1.0, 0.48, 0.35), "SHADE": Color(1.0, 0.70, 0.30, 0.18), "BACKDROP": Color(0.02, 0.06, 0.07), "TITLE": Color(0.03, 0.04, 0.05), "TITLE_OUTLINE": Color(1.0, 0.78, 0.40), "ROUND": 1.0, "RIM": 2, "CORNER_DETAIL": 12, "SMOOTH": true, "SHADOW_SIZE": 14, "SHADOW_OFFSET": Vector2(4, -4)}},
-	{"id": "low_poly", "name": "Low-poly facets", "desc": "Flat-shaded triangles, like papercraft or a cut gem.",
-		"fog": Color(0.11, 0.15, 0.21), "rim": Color(0.28, 0.36, 0.46), "dark": true, "floor": Color(0.22, 0.30, 0.40), "swatch": Color(0.40, 0.55, 0.70),
-		"ui": {"INK": Color(0.10, 0.14, 0.20), "INK_SOFT": Color(0.15, 0.21, 0.29), "MEMBRANE": Color(0.58, 0.72, 0.88), "CREAM": Color(0.94, 0.96, 0.98), "MUTED": Color(0.65, 0.72, 0.80), "SUN": Color(0.98, 0.78, 0.42), "LEAF": Color(0.62, 0.86, 0.55), "CORAL": Color(0.98, 0.50, 0.42), "SHADE": Color(0.02, 0.04, 0.08, 0.6), "BACKDROP": Color(0.06, 0.09, 0.13), "TITLE": Color(0.98, 0.82, 0.50), "TITLE_OUTLINE": Color(0.10, 0.14, 0.22), "ROUND": 0.8, "RIM": 3, "CORNER_DETAIL": 1, "SMOOTH": true, "SHADOW_SIZE": 1, "SHADOW_OFFSET": Vector2(0, 7)}},
 	{"id": "soft_3d", "name": "Soft 3D", "desc": "Rounded lit volumes, soft shadows and rippling water light.",
 		"fog": Color(0.09, 0.24, 0.26), "rim": Color(0.30, 0.55, 0.55), "dark": true, "floor": Color(0.24, 0.48, 0.48), "swatch": Color(0.35, 0.70, 0.68),
 		"ui": {"INK": Color(0.07, 0.20, 0.22), "INK_SOFT": Color(0.12, 0.30, 0.32), "MEMBRANE": Color(0.62, 0.92, 0.86), "CREAM": Color(0.97, 1.0, 0.98), "MUTED": Color(0.70, 0.86, 0.84), "SUN": Color(1.0, 0.86, 0.52), "LEAF": Color(0.66, 0.95, 0.60), "CORAL": Color(1.0, 0.55, 0.48), "SHADE": Color(0.0, 0.08, 0.08, 0.5), "BACKDROP": Color(0.04, 0.13, 0.14), "TITLE": Color(1.0, 0.92, 0.70), "TITLE_OUTLINE": Color(0.06, 0.22, 0.24), "ROUND": 1.5, "RIM": 2, "CORNER_DETAIL": 16, "SMOOTH": true, "SHADOW_SIZE": 34, "SHADOW_OFFSET": Vector2(0, 14)}},
@@ -390,71 +385,6 @@ void fragment() {
 }
 """
 
-# ---- 8. Silhouette and rim light: things darker than their surroundings become
-# black shapes against a teal sea lit by slanting shafts, with warm rims
-# on the side facing the light ----
-const SILHOUETTE = """
-void fragment() {
-	vec2 px = SCREEN_PIXEL_SIZE;
-	vec2 fc = FRAGCOORD.xy;
-	vec2 uv = SCREEN_UV;
-	// Shapes are everything that is not the open floor (exact, from the floor key)
-	float shape = thing_mask(uv, px);
-	// Rim: the shape's edge that faces the light, up and to the right
-	float o = 3.0;
-	float lit_side = 1.0 - thing_mask(uv + vec2(o, -o) * px, px);
-	float rim = shape * lit_side;
-	float ray = smoothstep(0.55, 1.0, sin((fc.x * 0.9 + fc.y * 0.45) / 70.0 + TIME * 0.25) * 0.5 + 0.5);
-	vec3 sea = mix(vec3(0.12, 0.30, 0.34), vec3(0.20, 0.44, 0.47), SCREEN_UV.y);
-	sea += vec3(0.30, 0.50, 0.45) * ray * 0.18;
-	// Inside a shape: a dark body that still shows a hint of its own
-	// colours and markings, so animals stay readable
-	vec3 c = expose(tex(uv));
-	vec3 body = mix(vec3(0.04, 0.05, 0.06), c * 0.42 + vec3(0.02, 0.03, 0.04), 0.55);
-	vec3 col = mix(sea, body, shape);
-	col = mix(col, vec3(1.0, 0.78, 0.42), rim * 0.85);
-	COLOR = vec4(col, 1.0);
-}
-"""
-
-# ---- 9. Low-poly facets: the screen cut into 14 px triangles, each one a
-# single colour from its middle, shaded by its slope like folded paper ----
-const LOW_POLY = """
-const float CELL = 14.0;
-void fragment() {
-	vec2 px = SCREEN_PIXEL_SIZE;
-	vec2 fc = FRAGCOORD.xy / CELL;
-	vec2 cell = floor(fc);
-	vec2 f = fract(fc);
-	float flip = mod(cell.x + cell.y, 2.0);
-	if (flip > 0.5) f.x = 1.0 - f.x;
-	bool lower = f.x > f.y;
-	// The triangle's three corners in cell space, then on screen
-	vec2 a = vec2(0.0, 0.0);
-	vec2 b = lower ? vec2(1.0, 0.0) : vec2(0.0, 1.0);
-	vec2 d = vec2(1.0, 1.0);
-	if (flip > 0.5) { a.x = 1.0 - a.x; b.x = 1.0 - b.x; d.x = 1.0 - d.x; }
-	vec2 mid = (a + b + d) / 3.0;
-	vec2 to_uv = CELL * px;
-	vec3 cm = tex((cell + mid) * to_uv);
-	vec3 ca = tex((cell + mix(mid, a, 0.7)) * to_uv);
-	vec3 cb = tex((cell + mix(mid, b, 0.7)) * to_uv);
-	vec3 cd = tex((cell + mix(mid, d, 0.7)) * to_uv);
-	vec3 c = tame_magenta(expose((cm * 2.0 + ca + cb + cd) / 5.0), 0.8);
-	// The floor: slate-blue paper facets, like the sample's backdrop
-	vec3 bg = mix(vec3(0.22, 0.30, 0.40), vec3(0.14, 0.20, 0.28), SCREEN_UV.y);
-	c = mix(ground(bg, cm, 0.2), c, thing_mask((cell + mid) * to_uv, px));
-	// Facet tilt from brightness across its corners
-	vec2 slope = vec2(luma(cb) - luma(ca), luma(cd) - luma(cb));
-	float facet = 0.92 + clamp(dot(slope, vec2(-1.2, 1.2)), -0.15, 0.15) + (hash(cell * 2.0 + (lower ? 0.5 : 0.0)) - 0.5) * 0.16;
-	c = c * facet;
-	// A faint fold along each triangle's edges
-	float seam = min(min(abs(f.x - f.y), f.y), 1.0 - f.x);
-	c *= 1.0 - 0.07 * (1.0 - smoothstep(0.0, 0.08, seam));
-	COLOR = vec4(c, 1.0);
-}
-"""
-
 # ---- 10. Soft 3D: brightness read as height and lit like smooth rounded
 # volumes, with a soft drop shadow and caustic light rippling over all ----
 const SOFT_3D = """
@@ -601,8 +531,6 @@ static func shader_code(id: String) -> String:
 		"engraving": body = ENGRAVING
 		"watercolour": body = WATERCOLOUR
 		"neon": body = NEON
-		"silhouette": body = SILHOUETTE
-		"low_poly": body = LOW_POLY
 		"soft_3d": body = SOFT_3D
 		_: body = SEPIA
 	return PRELUDE + body
