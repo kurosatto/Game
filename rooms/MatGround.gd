@@ -53,7 +53,8 @@ func _ready():
 	state["grazers"] = n
 	for i in n:
 		var m = _pick_mat(null)
-		var at = room.free_spot(m.pos + Vector2(m.r + 60.0, 0).rotated(randf() * TAU) if m else Vector2(960, 540), 50.0)
+		# Already lying on its mat, feeding, when you walk in
+		var at = _lie_spot(m) if m else room.free_spot(Vector2(960, 540), 50.0)
 		room.spawn_enemy(at, "tank@Dickinsonia", floor_num)
 		var e = room.active_enemies.back()
 		e.set_physics_process(false)
@@ -95,6 +96,10 @@ func _pick_mat(from) -> Variant:
 			best_score = score
 			best = m
 	return best
+
+# Where a Dickinsonia lies on a mat: off-centre, moving on each time it shifts
+func _lie_spot(m: Dictionary) -> Vector2:
+	return m.pos + Vector2.from_angle(float(int(m.seed) % 628) / 100.0) * m.r * 0.35
 
 func _process(delta: float):
 	time += delta
@@ -139,7 +144,7 @@ func _graze_animals(delta: float):
 			g.target = _pick_mat(e.position)
 			g.lie = 0.0
 			continue
-		var to = m.pos + Vector2.from_angle(float(m.seed % 628) / 100.0) * m.r * 0.35 - e.position
+		var to = _lie_spot(m) - e.position
 		if g.lie > 0.0 or to.length() < 18.0:
 			# Lying on the mat, feeding through its underside
 			g.lie += delta

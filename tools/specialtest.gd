@@ -102,7 +102,7 @@ func _initialize():
 	for i in 20:
 		await process_frame
 	p = main.player
-	var tests = ["vent", "tar", "dig", "frenzy", "extinction", "nest", "tide", "symbiont", "ambush", "glow", "dark", "fire", "molt", "procession", "meadow", "mat", "drought", "deal", "run"]
+	var tests = ["vent", "tar", "dig", "frenzy", "extinction", "nest", "tide", "symbiont", "ambush", "glow", "dark", "fire", "molt", "procession", "meadow", "mat", "drought", "treefall", "deal", "run"]
 	for t in tests:
 		if only != "" and t != only:
 			continue
@@ -298,6 +298,58 @@ func t_drought():
 	await frames(10, Vector2(250, 250))
 	var g2 = feature("DroughtPool.gd")
 	check(g2 != null and g2.dry > 0.9 and g2.burrows.any(func(x): return x.dug), "a revisit finds it dry, the burrow dug")
+
+func t_treefall():
+	var d = await setup("treefall", 4)
+	d.waves_left = 0
+	var g = feature("TreeFall.gd")
+	check(g != null, "the scale tree is there")
+	check(main.in_combat(), "falling tree room is a fight")
+	# Keep the animals still, one right under the trunk's line
+	var foes = room().active_enemies.duplicate()
+	for e in foes:
+		e.set_physics_process(false)
+	var victim = foes[0]
+	victim.global_position = room().global_position + g.base + g.dir * 600.0
+	var safe = room().global_position + g.base + g.dir * 400.0 + g.dir.orthogonal() * 260.0
+	victim.max_health = 30.0
+	victim.health = 30.0
+	await frames(int(60 * (g.WAIT + 0.5)), safe)
+	check(g.phase == "tell", "it creaks first, its shadow showing (%s)" % g.phase)
+	if out != "":
+		await snap("18_treefall_tell", true)
+	await frames(int(60 * (g.TELL + g.FALL + 0.5)), safe)
+	check(g.phase == "down" and d.special_state.get("down", false), "the tree comes down")
+	check(not is_instance_valid(victim) or victim.health <= 30.0 - g.CRUSH + 0.1, "it crushes what's under it")
+	var roaches = room().active_enemies.filter(func(e): return is_instance_valid(e) and e.fauna_name == "Archimylacris")
+	check(roaches.size() >= g.ROACHES - 1, "cockroaches run from the bark (%d)" % roaches.size())
+	if out != "":
+		await frames(20, safe)
+		await snap("18_treefall_down", true)
+	# It's a wall now: you can't walk through it
+	var start = room().global_position + g.base + g.dir * 700.0 + g.dir.orthogonal() * 120.0
+	p.global_position = start
+	await frames(2)
+	for i in 60:
+		p.velocity = -g.dir.orthogonal() * 400.0
+		p.move_and_slide()
+		await physics_frame
+	var side = (p.global_position - room().global_position - g.base).cross(g.dir)
+	var side0 = (start - room().global_position - g.base).cross(g.dir)
+	check(signf(side) == signf(side0), "the trunk blocks the way")
+	# Anything the trunk hit may have rolled up for a moment
+	for e in room().active_enemies:
+		if is_instance_valid(e) and e.get("enroll_time") != null:
+			e.enroll_time = 0.0
+	for k in 3:
+		await kill_all()
+	await frames(40)
+	var left = room().active_enemies.filter(func(e): return is_instance_valid(e) and not e.dead).map(func(e): return e.fauna_name)
+	check(d.cleared, "the room clears (left: %s, pending %s)" % [str(left), str(room().get("wave_pending"))])
+	main.load_room(main.current_room_pos)
+	await frames(10, Vector2(250, 250))
+	var g2 = feature("TreeFall.gd")
+	check(g2 != null and g2.phase == "down", "the trunk still lies there on a revisit")
 
 func t_procession():
 	var d = await setup("procession", 3)
