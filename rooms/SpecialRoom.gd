@@ -41,6 +41,7 @@ func begin(first: bool):
 		"molt": _molt(first)
 		"procession": _procession()
 		"meadow": _meadow(first)
+		"mat": _mat()
 	if first and kind != "ambush":
 		introduce()
 
@@ -370,3 +371,8 @@ func _meadow(first: bool):
 					rd.covers.append({"pos": pos, "size": Vector2(rng.randf_range(150, 185), rng.randf_range(105, 125)), "seed": rng.randi()})
 	room.spawn_covers(floor_num)
 	fight(first)
+
+# ---- Microbial mat: graze the mats before the Dickinsonia do ----
+func _mat():
+	peaceful()
+	add_feature("MatGround.gd", {"room": room, "state": state})

@@ -13,7 +13,7 @@ const BIOMINERALS = preload("res://data/Biominerals.gd")
 const INK = Color(0.24, 0.15, 0.08)
 const PAPER = Color(0.95, 0.9, 0.78)
 
-const KINDS = ["vent", "tar", "dig", "frenzy", "extinction", "nest", "tide", "symbiont", "ambush", "glow", "dark", "fire", "molt", "procession", "meadow"]
+const KINDS = ["vent", "tar", "dig", "frenzy", "extinction", "nest", "tide", "symbiont", "ambush", "glow", "dark", "fire", "molt", "procession", "meadow", "mat"]
 
 # Which eras each kind can turn up in. No brood care, hunters lying in wait
 # or animal sidekicks before the Cambrian; no glowing animals known on land
@@ -33,10 +33,13 @@ const ERAS = {
 	"procession": [3],
 	# Sea-lily meadows: the Ordovician and the Mississippian "Age of Crinoids"
 	"meadow": [3, 6],
+	# Microbial mats carpeted the sea floor until Cambrian burrowers churned
+	# it up, so the mat ground is an Ediacaran room
+	"mat": [1],
 }
 
 # Rooms with nothing to fight when you walk in: open doors, open ground
-const PEACEFUL = ["vent", "dig", "extinction", "nest", "symbiont", "ambush", "procession"]
+const PEACEFUL = ["vent", "dig", "extinction", "nest", "symbiont", "ambush", "procession", "mat"]
 
 const Worlds = preload("res://data/Worlds.gd")
 
@@ -75,6 +78,7 @@ static func title(kind: String, f: int) -> String:
 		"molt": return "MASS MOLT"
 		"procession": return "TRILOBITE PROCESSION"
 		"meadow": return "CRINOID MEADOW"
+		"mat": return "MICROBIAL MAT"
 	return kind.to_upper()
 
 static func fact(kind: String, f: int) -> String:
@@ -123,6 +127,8 @@ static func fact(kind: String, f: int) -> String:
 			if Worlds.era(f) == 6:
 				return "The early Carboniferous is called the Age of Crinoids: sea lilies grew in meadows so thick that whole limestones, like the Burlington Limestone of Iowa, are made almost entirely of their broken stems. Small animals hid among the stalks, and hunters stalked them there."
 			return "Ordovician sea floors grew the first great meadows of sea lilies, crinoids standing on long stalks and combing the current for food with feathery arms. Small animals sheltered among them."
+		"mat":
+			return "Ediacaran sea floors were carpeted with mats of bacteria, which left a wrinkled \"elephant skin\" texture in the rock. Dickinsonia lay on the mat and digested it through its underside, then shifted and lay down again, leaving rows of oval scars called Epibaion. In the Cambrian, burrowing animals churned the mats away, and this way of life ended."
 		"procession":
 			return "About 480 million years ago in what is now Morocco, lines of the little trilobite Ampyx were buried as they walked, up to 22 in single file, each touching the one in front with its long spines. Ampyx was blind: the line kept together by touch, perhaps moving off to escape a storm or to spawn. It is one of the oldest signs of animals moving together."
 		"molt":
@@ -150,6 +156,7 @@ static func how(kind: String, f: int) -> String:
 		"fire": return "A fire front sweeps the room. Stay ahead of it or dash through."
 		"meadow": return "Thick sea lilies everywhere: slip between them to hide, or to stalk."
 		"procession": return "They're blind and walk by touch. Take them from the back and the line walks on; hit the middle and it breaks."
+		"mat": return "Rest on a mat to graze it. The Dickinsonia graze them too, so get there first."
 		"molt": return "Their shells are hard. Wait for one to molt, then strike while it's soft."
 	return ""
 
