@@ -28,6 +28,7 @@ var boss_phase: int = 1  # Phase 2 triggers at 50% HP
 # Hit flash & stun/knockback
 var hit_flash_timer: float = 0.0
 const HitFX = preload("res://HitFX.gd")
+const FieldSketch = preload("res://rooms/FieldSketch.gd")
 var knockback_velocity: Vector2 = Vector2.ZERO
 var stun_timer: float = 0.0
 # Weapon specials (Player.weapon_special): sting venom stacks, held by
@@ -1472,6 +1473,9 @@ func take_damage(amount: float):
 		# Rolled up: the blow glances off the shell
 		SoundManager.play_sfx("hit_glance", randf_range(0.9, 1.1))
 		return
+	# Sketched from life this run (rooms/FieldSketch.gd): you know where it is soft
+	if player and is_instance_valid(player) and fauna_name != "" and player.get("sketched") and player.sketched.has(fauna_name):
+		amount *= FieldSketch.BONUS
 	# Serrated Edges adaptation: some hits do double
 	if player and is_instance_valid(player) and player.get("crit_chance") and randf() < player.crit_chance:
 		amount *= 2.0

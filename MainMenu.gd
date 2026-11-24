@@ -533,7 +533,7 @@ func show_fossils():
 	var list = open_overlay("FOSSIL RECORD  %d / %d" % [eaten.size(), total])
 	add_overlay_button(list.get_parent(), "CODEX", show_codex)
 	add_overlay_button(list.get_parent(), "TRACES", show_traces)
-	list.add_child(label("Every animal you eat is added here, with what is known about it.", 19, UI.MUTED))
+	list.add_child(label("Every animal you eat, or sketch from life by holding still near it, is added here, with what is known about it.", 19, UI.MUTED))
 	for era in range(1, 6):
 		var head = label(ERA_NAMES[era - 1].to_upper() + " PERIOD", 26, UI.SUN)
 		head.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
@@ -546,7 +546,7 @@ func show_fossils():
 		alt["boss"] = true
 		species.append(alt)
 		for f in species:
-			list.add_child(fossil_row(f, eaten.has(f.name), ERA_NAMES[era - 1]))
+			list.add_child(fossil_row(f, eaten.has(f.name) or codex.load_sketches().has(f.name), ERA_NAMES[era - 1]))
 
 func fossil_row(f: Dictionary, known: bool, era_name: String) -> Control:
 	var card = PanelContainer.new()
@@ -587,9 +587,13 @@ func fossil_row(f: Dictionary, known: bool, era_name: String) -> Control:
 	var n = label(title if known else "?  " + ("Era boss" if f.get("boss", false) else "Unknown animal"), 22, UI.SUN if known else UI.MUTED)
 	n.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	col.add_child(n)
-	var body = label(f.fact if known else "Not yet eaten. It lived in the %s." % era_name, 18, UI.CREAM if known else UI.MUTED)
+	var body = label(f.fact if known else "Not yet eaten or sketched. It lived in the %s." % era_name, 18, UI.CREAM if known else UI.MUTED)
 	body.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	col.add_child(body)
+	if known and codex.load_sketches().has(f.name):
+		var sk = label("SKETCHED FROM LIFE", 17, UI.SUN)
+		sk.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+		col.add_child(sk)
 	if known:
 		var web = food_web_line(f.name)
 		if web != "":
