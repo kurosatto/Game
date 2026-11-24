@@ -45,7 +45,7 @@ var body_art: Node2D = null
 var heading_offset: float = -PI/2
 var current_attack_type: String = "single"
 # Weapon style from data/Lineages.gd WEAPONS (ranged projectile or melee swing)
-var current_weapon: String = "engulf"
+var current_weapon: String = "vesicle"
 var current_weapon_name: String = "Engulf (phagocytosis)"
 var melee_arc_bonus: float = 0.0
 var current_tear_perks: Dictionary = {}
