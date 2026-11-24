@@ -26,6 +26,8 @@ class RoomData:
     var hazards: Array = [] # Room.spawn_hazards: [{pos, size, seed}], rolled on first visit
     var hazards_rolled: bool = false
     var waves_left: int = 0 # Room.start_wave: animals still to come in through the doors # which RoomLayouts normal layout this room uses
+    var clutch_pos: Vector2 = Vector2.INF # where you laid your clutch (Main.lay_clutch)
+    var clutch_hatched: bool = false
     var special: String = "" # data/SpecialRooms.gd kind, run by rooms/SpecialRoom.gd
     var special_state: Dictionary = {} # what happened there, kept for revisits
     var shop_inventory: Array = [] # [{ "item_id": String, "price": int, "pos": Vector2, "bought": bool }]

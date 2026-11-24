@@ -547,7 +547,66 @@ func record_run(won: bool) -> bool:
     run_recorded = true
     return progress.record_run(floor_number, player.current_character_name, won)
 
+# ---- Your clutch (GROW screen, data/Reproduction.gd) ----
+# One clutch at a time, left in a cleared room of this floor. Dying on this
+# floor hatches it; going down to the next era leaves it behind.
+var clutch_floor: int = 0
+var clutch_room: Vector2i = Vector2i.ZERO
+var clutch_pos: Vector2 = Vector2.ZERO
+var hatching: bool = false
+
+func has_clutch() -> bool:
+    return clutch_floor == floor_number
+
+func can_lay_clutch() -> bool:
+    if has_clutch() or hatching or is_transitioning or player == null or player.health <= 0:
+        return false
+    if current_room_node == null or in_combat():
+        return false
+    return current_room_node.room_data != null and current_room_node.room_data.cleared
+
+func lay_clutch(world_pos: Vector2):
+    var local = current_room_node.to_local(world_pos)
+    # Keep it clear of the walls and doors
+    local.x = clamp(local.x, 260.0, 1660.0)
+    local.y = clamp(local.y, 230.0, 850.0)
+    clutch_floor = floor_number
+    clutch_room = current_room_pos
+    clutch_pos = local
+    current_room_node.room_data.clutch_pos = local
+    current_room_node.room_data.clutch_hatched = false
+    current_room_node.add_clutch()
+
+func _hatch_from_clutch():
+    hatching = true
+    clutch_floor = 0
+    var data = dungeon_rooms[clutch_room]
+    data.clutch_hatched = true
+    await get_tree().create_timer(1.1, true, false, true).timeout
+    transition_rect.visible = true
+    transition_rect.color.a = 0.0
+    var tween = create_tween()
+    tween.tween_property(transition_rect, "color:a", 1.0, 0.45)
+    await tween.finished
+    for tear in get_tree().get_nodes_in_group("tears"):
+        tear.queue_free()
+    current_room_pos = clutch_room
+    player.global_position = clutch_pos
+    load_room(clutch_room)
+    SoundManager.play_music(SoundManager.music_for_floor(floor_number))
+    player.hatch(clutch_pos, preload("res://data/Reproduction.gd").hatch_health(player.current_character_id, player.max_health))
+    var t2 = create_tween()
+    t2.tween_property(transition_rect, "color:a", 0.0, 0.45)
+    await t2.finished
+    transition_rect.visible = false
+    hatching = false
+
 func _on_player_died():
+    if hatching:
+        return # a blow landing on the body while the young one hatches
+    if has_clutch():
+        _hatch_from_clutch()
+        return
     var record = record_run(false)
     hud.show_game_over({
         "record": record,
