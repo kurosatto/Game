@@ -102,7 +102,7 @@ func _initialize():
 	for i in 20:
 		await process_frame
 	p = main.player
-	var tests = ["vent", "tar", "dig", "frenzy", "extinction", "nest", "tide", "symbiont", "ambush", "glow", "dark", "fire", "molt", "procession", "deal", "run"]
+	var tests = ["vent", "tar", "dig", "frenzy", "extinction", "nest", "tide", "symbiont", "ambush", "glow", "dark", "fire", "molt", "procession", "meadow", "deal", "run"]
 	for t in tests:
 		if only != "" and t != only:
 			continue
@@ -193,6 +193,29 @@ func t_frenzy():
 		var got = total(p.elements) - els
 		check(d.cleared, "frenzy clears when all are eaten")
 		check(got > 1.0, "frenzy is a feast (%.1f units)" % got)
+
+func t_meadow():
+	for f in [3, 4]:
+		if f == 4:
+			preload("res://data/Worlds.gd").sea = true
+		var d = await setup("meadow", f)
+		var covers = room().get_children().filter(func(c): return c.is_in_group("covers"))
+		check(covers.size() >= 5, "meadow era %d is grown over (%d patches)" % [f, covers.size()])
+		check(main.in_combat(), "meadow is a fight")
+		await frames(10, covers[0].position if not covers.is_empty() else Vector2(300, 540))
+		check(p.cover_time > 0.0, "you can hide in it")
+		if f == 3:
+			await snap("15_meadow_era3", true)
+		var n = covers.size()
+		await kill_all()
+		await frames(40)
+		check(d.cleared, "meadow clears")
+		# Revisit: the same meadow
+		main.load_room(main.current_room_pos)
+		await frames(10)
+		var again = room().get_children().filter(func(c): return c.is_in_group("covers") and not c.is_queued_for_deletion())
+		check(again.size() == n, "the meadow is the same on a revisit (%d)" % again.size())
+	preload("res://data/Worlds.gd").sea = false
 
 func t_procession():
 	var d = await setup("procession", 3)

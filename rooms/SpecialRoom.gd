@@ -40,6 +40,7 @@ func begin(first: bool):
 		"fire": _fire(first)
 		"molt": _molt(first)
 		"procession": _procession()
+		"meadow": _meadow(first)
 	if first and kind != "ambush":
 		introduce()
 
@@ -350,3 +351,22 @@ func _procession():
 	if state.get("broken", false) and state.get("left", 0) <= 0:
 		return
 	add_feature("Procession.gd", {"room": room, "state": state})
+
+# ---- Crinoid meadow: the whole floor grown over with sea lilies ----
+func _meadow(first: bool):
+	var rd = room.room_data
+	if not state.get("meadow", false):
+		state["meadow"] = true
+		rd.covers_rolled = true
+		rd.covers = []
+		var rng = RandomNumberGenerator.new()
+		rng.seed = int(rd.grid_pos.x * 131 + rd.grid_pos.y * 17)
+		# A loose grid of patches, kept off the doorways and the middle aisle
+		for gx in 4:
+			for gy in 2:
+				var pos = Vector2(330.0 + gx * 420.0 + rng.randf_range(-50, 50), 330.0 + gy * 420.0 + rng.randf_range(-40, 40))
+				pos = room.free_spot(pos, 70.0)
+				if rd.covers.all(func(c): return c.pos.distance_to(pos) > 260.0):
+					rd.covers.append({"pos": pos, "size": Vector2(rng.randf_range(150, 185), rng.randf_range(105, 125)), "seed": rng.randi()})
+	room.spawn_covers(floor_num)
+	fight(first)
