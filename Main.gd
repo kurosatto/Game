@@ -578,6 +578,14 @@ func lay_clutch(world_pos: Vector2):
     current_room_node.room_data.clutch_hatched = false
     current_room_node.add_clutch()
 
+# A molted skin stays in the room (rooms/Exuvia.gd)
+func add_exuvia(world_pos: Vector2, rot: float, form: String, parts: Dictionary):
+    if current_room_node == null or current_room_node.room_data == null:
+        return
+    var e = {"pos": current_room_node.to_local(world_pos), "rot": rot, "form": form, "parts": parts, "eaten": false}
+    current_room_node.room_data.exuviae.append(e)
+    current_room_node.add_exuvia(e)
+
 func _hatch_from_clutch():
     hatching = true
     clutch_floor = 0

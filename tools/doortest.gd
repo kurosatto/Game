@@ -44,9 +44,15 @@ func try_door(pos: Vector2i, dir: Vector2i) -> String:
 	var spawned = room.active_enemies.size()
 	var rtype = main.dungeon_rooms[pos].type
 	var was_init = main.dungeon_rooms[pos].cleared
-	for e in get_nodes_in_group("enemies"):
-		e.take_damage(99999.0)
-	for i in 30: await physics_frame
+	# Second waves (Room.start_wave) come in after the first group falls
+	for wave in 4:
+		for e in get_nodes_in_group("enemies"):
+			if is_instance_valid(e) and not e.dead:
+				e.take_damage(99999.0)
+		for i in 30: await physics_frame
+		if main.dungeon_rooms[pos].cleared:
+			break
+		for i in 90: await physics_frame
 	Engine.time_scale = 1.0
 	if main.hud.evolution_modal and main.hud.evolution_modal.visible:
 		main.hud.evolution_modal.visible = false

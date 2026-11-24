@@ -1295,11 +1295,49 @@ func grow(id: String) -> bool:
         heal(int(r.heal))
         emit_biomass()
         return true
+    if is_arthropod() and molt_from.is_empty():
+        molt_from = adaptations_taken.duplicate() # the skin it will shed
+        molt_from["_"] = true
     adapt_level += 1
     grant_adaptation(id)
     SoundManager.play_sfx("evolve", 1.2)
     emit_biomass()
     return true
+
+# ---- Molting (arthropods) ----
+# An arthropod can only grow by shedding its stiff skin. Parts grown on the
+# GROW screen come in with one molt when the screen closes (HUD): the old
+# skin stays behind (rooms/Exuvia.gd), and lost limbs grow back, as they do
+# in crabs and spiders, so a hurt arthropod heals half a heart.
+var molt_from: Dictionary = {}
+
+func is_arthropod() -> bool:
+    return preload("res://data/Reproduction.gd").ancestry(current_character_id).has("early_arthropod")
+
+func molt():
+    if molt_from.is_empty() or health <= 0:
+        molt_from = {}
+        return
+    var parts = molt_from.duplicate()
+    parts.erase("_")
+    molt_from = {}
+    var main = get_tree().get_first_node_in_group("main")
+    if main and main.has_method("add_exuvia"):
+        main.add_exuvia(global_position, $Sprite2D.global_rotation, current_character_id, parts)
+    # It squeezes out forward
+    var out = Vector2.RIGHT.rotated($Sprite2D.global_rotation - heading_offset) * 46.0
+    var tw = create_tween()
+    tw.tween_property(self, "global_position", global_position + out, 0.35).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+    if body_art:
+        var bt = create_tween()
+        bt.tween_property(body_art, "scale", Vector2(1.25, 0.8) * BODY_ART_SCALE, 0.12)
+        bt.tween_property(body_art, "scale", Vector2.ONE * BODY_ART_SCALE, 0.45).set_trans(Tween.TRANS_ELASTIC).set_ease(Tween.EASE_OUT)
+    SoundManager.play_sfx("dash", 0.7, -6.0)
+    if health < max_health:
+        heal(1)
+        popup_text(global_position + Vector2(0, -60), "MOLTED  +½ ♥", Color(0.96, 0.92, 0.8))
+    else:
+        popup_text(global_position + Vector2(0, -60), "MOLTED", Color(0.96, 0.92, 0.8))
 
 # ---- Laying a clutch (data/Reproduction.gd) ----
 const REPRO = preload("res://data/Reproduction.gd")

@@ -198,6 +198,19 @@ func setup_room(data, floor_number: int):
         clear_room.call_deferred()
     if room_data.clutch_pos != Vector2.INF:
         add_clutch()
+    for e in room_data.exuviae:
+        add_exuvia(e)
+
+func add_exuvia(e: Dictionary):
+    if e.eaten:
+        return
+    var x = preload("res://rooms/Exuvia.gd").new()
+    x.form_id = e.form
+    x.parts = e.parts
+    x.body_rot = e.rot
+    x.position = e.pos
+    x.on_eaten = func(): e.eaten = true
+    add_child(x)
 
 # Your own clutch (Main.lay_clutch): eggs while it waits, broken shells once
 # it has hatched
