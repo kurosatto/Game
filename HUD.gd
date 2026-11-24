@@ -503,6 +503,10 @@ func hide_grow_screen():
     if grow_modal:
         grow_modal.visible = false
     get_tree().paused = false
+    # Arthropods shed their skin to take on what they grew (Player.molt)
+    var player = get_tree().get_first_node_in_group("player")
+    if player and player.has_method("molt") and not player.molt_from.is_empty():
+        player.molt.call_deferred()
 
 func is_grow_up() -> bool:
     return grow_modal != null and grow_modal.visible
