@@ -233,6 +233,8 @@ func _physics_process(delta: float):
             heal(1)
             popup_text(global_position, "+½ ♥", Color(0.55, 0.95, 0.45))
 
+    if cover_time > 0.0:
+        cover_time -= delta
     if invincibility_time > 0:
         invincibility_time -= delta
         $Sprite2D.visible = sin(invincibility_time * 32.0) > 0.0
@@ -595,8 +597,13 @@ func spawn_escape_ring(radius: float, col: Color):
 # Multiplier on how close animals must come to notice you (Enemy.process_mood).
 # Most animals spot movement first, so holding still helps; so does hiding in
 # a shell or behind ink.
+# Seconds left hidden in a patch of growth (Cover.gd refreshes it)
+var cover_time: float = 0.0
+
 func notice_mult() -> float:
     var m = stealth
+    if cover_time > 0.0:
+        m *= preload("res://Cover.gd").HIDE
     if velocity.length() < 20.0:
         m *= 0.7
     if rooted_time > 0:
