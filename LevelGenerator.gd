@@ -25,6 +25,8 @@ class RoomData:
     var layout_idx: int = -1
     var hazards: Array = [] # Room.spawn_hazards: [{pos, size, seed}], rolled on first visit
     var hazards_rolled: bool = false
+    var covers: Array = [] # Room.spawn_covers: patches of growth to hide in [{pos, size, seed}]
+    var covers_rolled: bool = false
     var waves_left: int = 0 # Room.start_wave: animals still to come in through the doors # which RoomLayouts normal layout this room uses
     var clutch_pos: Vector2 = Vector2.INF # where you laid your clutch (Main.lay_clutch)
     var clutch_hatched: bool = false

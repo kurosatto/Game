@@ -98,6 +98,7 @@ func setup_room(data, floor_number: int):
     # 7b. Era ground hazards in fight rooms (Hazard.gd)
     if room_data.type == 1 and room_data.special == "":
         spawn_hazards(floor_number)
+        spawn_covers(floor_number)
 
     # 8. Restore or Initialize Contents based on Persistence State
     if room_data.has_initialized_contents:
@@ -928,6 +929,41 @@ func spawn_hazards(floor_number: int):
         hz.size = h.size
         hz.seed_val = h.seed
         add_child(hz)
+
+# Patches of growth to hide in (Cover.gd), in about half the fight rooms
+func spawn_covers(floor_number: int):
+    if not room_data.covers_rolled:
+        room_data.covers_rolled = true
+        if randf() < 0.5:
+            room_data.covers = roll_covers()
+    for c in room_data.covers:
+        var cv = preload("res://Cover.gd").new()
+        cv.floor_num = floor_number
+        cv.position = c.pos
+        cv.size = c.size
+        cv.seed_val = c.seed
+        add_child(cv)
+
+func roll_covers() -> Array:
+    var out: Array = []
+    var doors = [Vector2(960, 68), Vector2(960, 1012), Vector2(128 - side_margin, 540), Vector2(1792 + side_margin, 540)]
+    var area = interior_rect(130.0)
+    var want = 1 if randf() < 0.6 else 2
+    for attempt in 60:
+        if out.size() >= want:
+            break
+        var sz = Vector2(randf_range(130, 170), randf_range(90, 115))
+        var pos = Vector2(randf_range(area.position.x, area.end.x), randf_range(area.position.y, area.end.y))
+        var ok = spot_is_free(pos, sz.x * 0.7) and pos.distance_to(Vector2(960, 540)) > 200.0
+        for d in doors:
+            if pos.distance_to(d) < 300.0:
+                ok = false
+        for h in room_data.hazards + out:
+            if pos.distance_to(h.pos) < sz.x + h.size.x + 40.0:
+                ok = false
+        if ok:
+            out.append({"pos": pos, "size": sz, "seed": randi()})
+    return out
 
 func roll_hazards(floor_number: int) -> Array:
     var out: Array = []
