@@ -102,7 +102,7 @@ func _initialize():
 	for i in 20:
 		await process_frame
 	p = main.player
-	var tests = ["vent", "tar", "dig", "frenzy", "extinction", "nest", "tide", "symbiont", "ambush", "glow", "dark", "fire", "molt", "procession", "meadow", "mat", "deal", "run"]
+	var tests = ["vent", "tar", "dig", "frenzy", "extinction", "nest", "tide", "symbiont", "ambush", "glow", "dark", "fire", "molt", "procession", "meadow", "mat", "drought", "deal", "run"]
 	for t in tests:
 		if only != "" and t != only:
 			continue
@@ -263,6 +263,41 @@ func t_mat():
 	await frames(10, Vector2(150, 150))
 	var g2 = feature("MatGround.gd")
 	check(g2 != null and g2.mats.size() == n and g2.mats.any(func(x): return x.left <= 0.0), "the mats stay grazed on a revisit")
+
+func t_drought():
+	var d = await setup("drought", 5)
+	var g = feature("DroughtPool.gd")
+	check(g != null, "the drying pool is there")
+	check(not main.in_combat(), "drying pool room has open doors")
+	check(g.fish.size() == g.FISH and g.fish.all(func(f): return f.e.damage == 0), "harmless fish in the pool (%d)" % g.fish.size())
+	var a0 = g.axes()
+	await frames(60 * 8, Vector2(250, 250))
+	check(g.axes().x < a0.x - 30.0, "the pool shrinks (%.0f -> %.0f)" % [a0.x, g.axes().x])
+	# Let it dry right down
+	g.dry = 0.97
+	await frames(60 * 4, Vector2(250, 250))
+	var stranded = g.fish.filter(func(f): return is_instance_valid(f.e) and f.stranded)
+	check(stranded.size() >= 1, "some fish are left stranded (%d)" % stranded.size())
+	if out != "":
+		await frames(5, room().global_position + g.CENTRE + Vector2(g.axes().x + 120, 0))
+		await snap("17_drought_era5", true)
+	if not stranded.is_empty():
+		var e = stranded[0].e
+		var h = e.health
+		e.take_damage(1.0)
+		check(h - e.health >= 2.0, "a stranded fish takes more harm (%.1f)" % (h - e.health))
+	# Dig a burrow
+	var b = g.burrows.filter(func(x): return not x.dug)[0]
+	var els = total(p.elements)
+	await frames(int(60 * g.DIG_TIME) + 20, room().global_position + b.pos)
+	check(b.dug, "standing on a lungfish burrow digs it out")
+	await frames(30, room().global_position + b.pos + Vector2(8, 0))
+	check(total(p.elements) > els, "the burrow gives elements (%.2f)" % (total(p.elements) - els))
+	# Revisit: still dry, burrow still dug
+	main.load_room(main.current_room_pos)
+	await frames(10, Vector2(250, 250))
+	var g2 = feature("DroughtPool.gd")
+	check(g2 != null and g2.dry > 0.9 and g2.burrows.any(func(x): return x.dug), "a revisit finds it dry, the burrow dug")
 
 func t_procession():
 	var d = await setup("procession", 3)
