@@ -106,8 +106,13 @@ func _ensure_bus(bus_name: String):
 func load_sounds():
     for s_name in SOUND_VOLUMES.keys():
         var path = "res://assets/sfx/" + s_name + ".wav"
-        if FileAccess.file_exists(path):
+        # ResourceLoader, not FileAccess: exported builds (web, Windows,
+        # Android) pack only the imported copy of each .wav, so the source
+        # file "doesn't exist" there and every sound was skipped
+        if ResourceLoader.exists(path):
             sound_streams[s_name] = load(path)
+        else:
+            push_warning("SoundManager: missing sound " + path)
     for t in MUSIC.TRACKS:
         track_info[t.id] = t
 
