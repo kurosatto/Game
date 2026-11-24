@@ -1,0 +1,131 @@
+# Builds the Android APK on every push to main and puts it on the
+# "android-latest" GitHub Release, so the phone can download and install the
+# newest version straight from Chrome, no PC needed:
+# https://github.com/kurosatto/Game/releases/download/android-latest/EvoRoguelike.apk
+#
+# Signing: every APK must be signed with the same key, or Android refuses to
+# install it over the old one.
+#  - If the repo secret ANDROID_KEYSTORE_BASE64 is set (a base64 keystore,
+#    with ANDROID_KEYSTORE_ALIAS and ANDROID_KEYSTORE_PASSWORD), that key is used.
+#  - Otherwise a key is made on the first run and kept in the Actions cache,
+#    which is private to this repo. GitHub drops a cache after 7 days without a
+#    build, which would mean one reinstall; setting the secret avoids that.
+# The version code is the workflow run number, so each build is an update.
+name: Android build
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: android-build
+  cancel-in-progress: true
+
+env:
+  GODOT_VERSION: 4.7.1
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Cache Godot
+        id: godot-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/godot
+          key: godot-${{ env.GODOT_VERSION }}-android
+
+      - name: Download Godot and the Android export templates
+        if: steps.godot-cache.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p ~/godot && cd ~/godot
+          base=https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable
+          curl -sSL -o godot.zip "$base/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
+          unzip -q godot.zip && mv Godot_v${GODOT_VERSION}-stable_linux.x86_64 godot && rm godot.zip
+          curl -sSL -o templates.tpz "$base/Godot_v${GODOT_VERSION}-stable_export_templates.tpz"
+          unzip -qj templates.tpz templates/android_release.apk templates/android_debug.apk templates/version.txt -d templates
+          rm templates.tpz
+
+      - name: Restore the signing key
+        id: key-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/android-signing
+          key: android-signing-key-v1
+
+      - name: Set up the signing key
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_ALIAS: ${{ secrets.ANDROID_KEYSTORE_ALIAS }}
+          KEYSTORE_PASS: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+        run: |
+          mkdir -p ~/android-signing
+          if [ -n "$KEYSTORE_B64" ]; then
+            echo "Using the keystore from repo secrets"
+            echo "$KEYSTORE_B64" | base64 -d > ~/android-signing/secret.keystore
+            echo "KS_PATH=$HOME/android-signing/secret.keystore" >> "$GITHUB_ENV"
+            echo "KS_USER=$KEYSTORE_ALIAS" >> "$GITHUB_ENV"
+            echo "::add-mask::$KEYSTORE_PASS"
+            echo "KS_PASS=$KEYSTORE_PASS" >> "$GITHUB_ENV"
+          else
+            if [ ! -s ~/android-signing/evo.keystore ]; then
+              echo "No cached key yet, making one"
+              pass=$(openssl rand -hex 16)
+              keytool -genkeypair -keystore ~/android-signing/evo.keystore -storetype PKCS12 \
+                -alias evo -keyalg RSA -keysize 2048 -validity 36500 \
+                -storepass "$pass" -keypass "$pass" -dname "CN=Evo Roguelike"
+              echo "$pass" > ~/android-signing/pass.txt
+            fi
+            pass=$(cat ~/android-signing/pass.txt)
+            echo "::add-mask::$pass"
+            echo "KS_PATH=$HOME/android-signing/evo.keystore" >> "$GITHUB_ENV"
+            echo "KS_USER=evo" >> "$GITHUB_ENV"
+            echo "KS_PASS=$pass" >> "$GITHUB_ENV"
+          fi
+
+      - name: Export APK
+        run: |
+          dest=~/.local/share/godot/export_templates/${GODOT_VERSION}.stable
+          mkdir -p "$dest" && cp ~/godot/templates/* "$dest/"
+          # Point Godot at the runner's Android SDK and Java
+          mkdir -p ~/.config/godot
+          printf '[gd_resource type="EditorSettings" format=3]\n\n[resource]\nexport/android/android_sdk_path = "%s"\nexport/android/java_sdk_path = "%s"\n' \
+            "$ANDROID_HOME" "$JAVA_HOME" > ~/.config/godot/editor_settings-4.7.tres
+          # Each build gets a higher version code so Android treats it as an update
+          sed -i "s/^version\/code=.*/version\/code=${GITHUB_RUN_NUMBER}/" export_presets.cfg
+          ~/godot/godot --headless --path . --import || true
+          mkdir -p build/android
+          GODOT_ANDROID_KEYSTORE_RELEASE_PATH="$KS_PATH" \
+          GODOT_ANDROID_KEYSTORE_RELEASE_USER="$KS_USER" \
+          GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD="$KS_PASS" \
+            ~/godot/godot --headless --path . --export-release Android build/android/EvoRoguelike.apk
+          test -s build/android/EvoRoguelike.apk
+          ls -la build/android
+          apksigner="$(ls -d "$ANDROID_HOME"/build-tools/*/ | sort -V | tail -1)apksigner"
+          "$apksigner" verify --print-certs build/android/EvoRoguelike.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: EvoRoguelike-android
+          path: build/android/EvoRoguelike.apk
+
+      - name: Publish to the android-latest release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          short=$(git rev-parse --short HEAD)
+          notes="Android build of main at ${short} ($(date -u +%Y-%m-%d), version code ${GITHUB_RUN_NUMBER}). On the phone, open this page in Chrome, tap EvoRoguelike.apk, then Open, and allow Chrome to install unknown apps if asked. New builds install over the old one and keep your saves."
+          gh release delete android-latest --cleanup-tag --yes || true
+          gh release create android-latest build/android/EvoRoguelike.apk \
+            --target "$GITHUB_SHA" --title "Android build (latest)" --notes "$notes" --latest=false
