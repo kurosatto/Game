@@ -94,7 +94,8 @@ func _process(delta: float):
 	time += delta
 	label_left = max(0.0, label_left - delta)
 	# In a cave or a pitch-dark room the fog is black, so the marks glow
-	dark_fog = preload("res://data/ArtStyles.gd").get_style(SettingsManager.art_style).dark or (fog != null and fog.cave > 0.5)
+	# The fog is black in every style now, so marks always use bright ink
+	dark_fog = true
 	if player == null or not is_instance_valid(player):
 		player = get_tree().get_first_node_in_group("player")
 	var enemies = _alive_enemies()

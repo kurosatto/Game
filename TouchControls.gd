@@ -208,6 +208,8 @@ func _on_canvas_draw():
             if player and player.has_method("dash_label"):
                 label = player.dash_label()
         var tw = font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+        # A pale paper outline keeps the ink label readable over the black fog
+        canvas.draw_string_outline(font, bc + Vector2(-tw / 2.0, fs * 0.35), label, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, 6, Color(0.95, 0.9, 0.78, 0.9))
         canvas.draw_string(font, bc + Vector2(-tw / 2.0, fs * 0.35), label, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(UI.TITLE, 0.95))
 
 func _draw_stick(stick: Dictionary, col: Color):
