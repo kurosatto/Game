@@ -49,10 +49,25 @@ func _run():
 		P.grow_lineage("photoreceptors")
 	check(int(P.lineage_ranks().get("photoreceptors", 0)) == 3, "ranks stop at 3 (%s)" % P.lineage_ranks())
 	check(is_equal_approx(p0 - float(P.bank().P), 18.0), "ranks cost 3+6+9 P (spent %.1f)" % (p0 - float(P.bank().P)))
+	# Locked parts (data/Unlocks.gd) open with their goal
+	const U = preload("res://data/Unlocks.gd")
+	check(U.unlocked_ids().size() == 3, "three starter parts open (%s)" % [U.unlocked_ids()])
+	check(not P.grow_lineage("zinc_venom") and not P.grow_lineage("bone"), "locked parts can't be grown")
+	var tiers := {}
+	for id in U.GOALS:
+		tiers[U.GOALS[id].tier] = tiers.get(U.GOALS[id].tier, 0) + 1
+		check(B.get_recipe(id).size() > 0, "goal %s is a real part" % id)
+		check(U.icon_texture(U.GOALS[id]) != null, "goal %s has a picture" % id)
+	check(U.GOALS.size() + U.STARTERS.size() == B.lineage_recipes().size(), "every part has a goal or is a starter")
+	print("LINEAGE tiers: ", tiers)
+	P.add_stats({"eat:Sacabambaspis": 3, "eat:Arandaspis": 2, "eat:Isotelus": 6, "eat:Olenoides": 4, "seep": 2})
+	check(U.progress_of("calcium_signalling") == [2, 5], "seeps counted 2/5")
+	P.add_stats({}, {"reach:arachnid": 5})
+	check(U.is_unlocked("bone") and U.is_unlocked("calcite_lenses") and U.is_unlocked("zinc_venom"), "goals met open the parts")
+	check(not U.is_unlocked("hemocyanin"), "arthropod goal still locked")
 	check(P.grow_lineage("zinc_venom") and not P.grow_lineage("zinc_venom"), "a once-only part grows once")
 	check(not P.grow_lineage("membrane_repair"), "healing isn't a lineage part")
 	P.grow_lineage("bone")
-	P.grow_lineage("calcite_spines")
 
 	# The menu page
 	var menu = load("res://MainMenu.tscn").instantiate()
@@ -68,14 +83,18 @@ func _run():
 	await snap("1_grow_page")
 	if page.size() == 1:
 		var g = page[0]
-		g._on_tile("keratin_horn")
+		check(g.fresh.has("bone") and g.fresh.has("calcite_lenses"), "newly opened parts say NEW")
+		g._on_tile("magnetite_teeth")
 		for i in 5: await process_frame
-		await snap("2_picked_horn")
-		var before = int(P.lineage_ranks().get("keratin_horn", 0))
-		g._on_tile("keratin_horn") # tap again grows it
-		check(int(P.lineage_ranks().get("keratin_horn", 0)) == before + 1, "tap again grows a rank")
+		check(g.go.disabled and g.go.text == "LOCKED", "a locked part can't be grown")
+		await snap("2_locked_part")
+		g._on_tile("calcite_lenses")
+		for i in 5: await process_frame
+		var before = int(P.lineage_ranks().get("calcite_lenses", 0))
+		g._on_tile("calcite_lenses") # tap again grows it
+		check(int(P.lineage_ranks().get("calcite_lenses", 0)) == before + 1, "tap again grows a rank")
 		for i in 30: await process_frame
-		await snap("3_grown_horn")
+		await snap("3_grown_lenses")
 		g._on_tile("photoreceptors")
 		for i in 5: await process_frame
 		await snap("4_fully_grown")
@@ -95,7 +114,7 @@ func _run():
 	main.apply_lineage(P.lineage_ranks())
 	check(pl.adaptations_taken.get("photoreceptors", 0) == 3 and pl.vision >= vis0 + 3 or pl.vision >= 10, "three eyespot ranks: +3 vision (%d -> %d)" % [vis0, pl.vision])
 	check(pl.max_health == hp0 + 2 and pl.health == pl.max_health, "bone: +1 heart, full health")
-	check(pl.adaptations_taken.has("zinc_venom") and pl.adaptations_taken.has("keratin_horn"), "every part granted")
+	check(pl.adaptations_taken.has("zinc_venom") and pl.adaptations_taken.has("calcite_lenses"), "every part granted")
 	# In-run growing is healing only
 	pl.elements = {"Ca": 30.0, "P": 30.0, "S": 30.0}
 	check(not pl.grow("calcite_spines"), "no growing lasting parts in a run")
@@ -120,5 +139,14 @@ func _run():
 	main.flush_bank(true)
 	check(is_equal_approx(float(P.bank().Fe) - float(b0.Fe), 3.0), "spending in the run banks less")
 	check(pl.elements_eaten >= 5.0, "eaten total counted")
+	# Kills and seeps are tallied and saved with the bank
+	var st0 = P.stats().duplicate()
+	main.field_event("eat:Orthoceras")
+	main.field_event("eat:Orthoceras")
+	main.tally("boss:2")
+	main.flush_bank(true)
+	check(int(P.stats().get("eat:Orthoceras", 0)) == int(st0.get("eat:Orthoceras", 0)) + 2, "kills of a species are kept")
+	check(int(P.stats().get("eat_all", 0)) == int(st0.get("eat_all", 0)) + 2, "all kills are kept")
+	check(preload("res://data/Unlocks.gd").is_unlocked("electric_organ"), "beating the Cambrian boss opens the electric organ")
 	main.queue_free()
 	await process_frame

@@ -153,6 +153,12 @@ var field_notes = preload("res://data/FieldNotes.gd")
 var notes_progress: Dictionary = {} # note index -> count, this floor only
 
 func field_event(event: String, amount: int = 1):
+    # Lifetime counts that open GROW parts (data/Unlocks.gd)
+    if event.begins_with("eat:"):
+        tally(event, amount)
+        tally("eat_all", amount)
+    elif event == "seep":
+        tally("seep", amount)
     if player == null or player.health <= 0:
         return
     var notes = field_notes.for_floor(floor_number)
@@ -222,9 +228,17 @@ var bank_synced: Dictionary = {}
 func _exit_tree():
     flush_bank() # quitting to the menu or restarting keeps what you ate
 
+# Counts for the GROW page goals, saved with the bank
+var run_tally: Dictionary = {}
+
+func tally(key: String, n: int = 1):
+    run_tally[key] = int(run_tally.get(key, 0)) + n
+
 func flush_bank(force: bool = false):
     if (get_tree().get_script() != null and not force) or player == null:
         return
+    progress.add_stats(run_tally)
+    run_tally = {}
     var delta := {}
     for el in player.elements:
         var d = float(player.elements[el]) - float(bank_synced.get(el, 0.0))
@@ -523,6 +537,7 @@ func note_new_hunt(hunter: String, prey: String, pos: Vector2):
 
 # An animal sketched from life (rooms/FieldSketch.gd)
 func note_sketch(species: String, fact: String):
+    tally("sketch")
     hud.show_item_banner("FIELD SKETCH: " + species.to_upper(), fact, false, 3.0, "You know its weak spots: hits on it land harder this run")
 
 # The first time you see a kind of trace being made (rooms/TraceLayer.gd)
@@ -538,6 +553,7 @@ func on_boss_defeated(f_num: int):
     # the game over screen stands, no victory or evolution on top of it
     if player.health <= 0:
         return
+    tally("boss:%d" % f_num)
     if f_num == 1:
         complete_challenge("ediacaran")
     if not hit_this_floor:
@@ -617,6 +633,11 @@ func record_run(won: bool) -> bool:
     if get_tree().get_script() != null or run_recorded:
         return false
     run_recorded = true
+    # How far each branch of the tree you belong to has got
+    var reach := {}
+    for id in preload("res://data/Reproduction.gd").ancestry(player.current_character_id):
+        reach["reach:" + id] = floor_number
+    progress.add_stats({}, reach)
     # The lineage you walked, as form ids, for the past-runs page
     var ids: Array = []
     var L = player.lineages
@@ -672,6 +693,7 @@ func add_exuvia(world_pos: Vector2, rot: float, form: String, parts: Dictionary)
 
 func _hatch_from_clutch():
     hatching = true
+    tally("hatch")
     clutch_floor = 0
     var data = dungeon_rooms[clutch_room]
     data.clutch_hatched = true
