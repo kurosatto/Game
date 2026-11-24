@@ -13,7 +13,7 @@ const BIOMINERALS = preload("res://data/Biominerals.gd")
 const INK = Color(0.24, 0.15, 0.08)
 const PAPER = Color(0.95, 0.9, 0.78)
 
-const KINDS = ["vent", "tar", "dig", "frenzy", "extinction", "nest", "tide", "symbiont", "ambush", "glow", "dark", "fire", "molt", "procession"]
+const KINDS = ["vent", "tar", "dig", "frenzy", "extinction", "nest", "tide", "symbiont", "ambush", "glow", "dark", "fire", "molt", "procession", "meadow"]
 
 # Which eras each kind can turn up in. No brood care, hunters lying in wait
 # or animal sidekicks before the Cambrian; no glowing animals known on land
@@ -31,6 +31,8 @@ const ERAS = {
 	"molt": [2, 3, 6, 7],
 	# Blind Ampyx trilobites walking nose to tail, from Fezouata in Morocco
 	"procession": [3],
+	# Sea-lily meadows: the Ordovician and the Mississippian "Age of Crinoids"
+	"meadow": [3, 6],
 }
 
 # Rooms with nothing to fight when you walk in: open doors, open ground
@@ -72,6 +74,7 @@ static func title(kind: String, f: int) -> String:
 		"fire": return "WILDFIRE"
 		"molt": return "MASS MOLT"
 		"procession": return "TRILOBITE PROCESSION"
+		"meadow": return "CRINOID MEADOW"
 	return kind.to_upper()
 
 static func fact(kind: String, f: int) -> String:
@@ -116,6 +119,10 @@ static func fact(kind: String, f: int) -> String:
 				"Many animals hunt at night by smell, touch and sound, when the day's hunters can't see them.",
 				"Sharks find prey in the dark with their ampullae of Lorenzini, pores that feel the faint electricity of a beating heart.",
 				"In the deep, dark water off the Permian reefs, fish and sharks hunted by their lateral lines and electric sense."][Worlds.era(f) - 1]
+		"meadow":
+			if Worlds.era(f) == 6:
+				return "The early Carboniferous is called the Age of Crinoids: sea lilies grew in meadows so thick that whole limestones, like the Burlington Limestone of Iowa, are made almost entirely of their broken stems. Small animals hid among the stalks, and hunters stalked them there."
+			return "Ordovician sea floors grew the first great meadows of sea lilies, crinoids standing on long stalks and combing the current for food with feathery arms. Small animals sheltered among them."
 		"procession":
 			return "About 480 million years ago in what is now Morocco, lines of the little trilobite Ampyx were buried as they walked, up to 22 in single file, each touching the one in front with its long spines. Ampyx was blind: the line kept together by touch, perhaps moving off to escape a storm or to spawn. It is one of the oldest signs of animals moving together."
 		"molt":
@@ -141,6 +148,7 @@ static func how(kind: String, f: int) -> String:
 		"glow": return "It's dark. Glowing animals light the way."
 		"dark": return "Pitch dark. Hunt with your senses."
 		"fire": return "A fire front sweeps the room. Stay ahead of it or dash through."
+		"meadow": return "Thick sea lilies everywhere: slip between them to hide, or to stalk."
 		"procession": return "They're blind and walk by touch. Take them from the back and the line walks on; hit the middle and it breaks."
 		"molt": return "Their shells are hard. Wait for one to molt, then strike while it's soft."
 	return ""
