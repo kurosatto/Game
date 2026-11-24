@@ -102,7 +102,7 @@ func _initialize():
 	for i in 20:
 		await process_frame
 	p = main.player
-	var tests = ["vent", "tar", "dig", "frenzy", "extinction", "nest", "tide", "symbiont", "ambush", "glow", "dark", "fire", "molt", "deal", "run"]
+	var tests = ["vent", "tar", "dig", "frenzy", "extinction", "nest", "tide", "symbiont", "ambush", "glow", "dark", "fire", "molt", "procession", "deal", "run"]
 	for t in tests:
 		if only != "" and t != only:
 			continue
@@ -193,6 +193,39 @@ func t_frenzy():
 		var got = total(p.elements) - els
 		check(d.cleared, "frenzy clears when all are eaten")
 		check(got > 1.0, "frenzy is a feast (%.1f units)" % got)
+
+func t_procession():
+	var d = await setup("procession", 3)
+	var g = feature("Procession.gd")
+	check(g != null, "the procession is there")
+	check(not main.in_combat(), "procession room has open doors")
+	var line = g.line.duplicate()
+	check(line.size() == g.COUNT, "a line of %d (%d)" % [g.COUNT, line.size()])
+	check(line.all(func(e): return e.fauna_name == "Ampyx" and e.damage == 0), "harmless Ampyx")
+	var p0 = line[0].position
+	await frames(60, Vector2(150, 150))
+	check(line[0].position.distance_to(p0) > 40.0, "the leader walks on (%.0f px)" % line[0].position.distance_to(p0))
+	var gap = line[3].position.distance_to(line[4].position)
+	check(gap > 40.0 and gap < 80.0, "they keep nose to tail (%.0f px)" % gap)
+	if out != "":
+		await frames(90, Vector2(1500, 900))
+		await snap("14_procession_era3", true)
+	# Taking the tail: the rest walk on, a richer meal
+	var tail = g.line.back()
+	var w = tail.worth_override
+	tail.take_damage(9999.0)
+	await frames(5, Vector2(150, 150))
+	check(not g.broken, "eating the last in line doesn't break it")
+	check(w > 1.0, "the quiet kill is worth more (%.1f)" % w)
+	var alive = g.line.filter(func(e): return is_instance_valid(e) and not e.dead)
+	check(alive.size() == g.COUNT - 1, "one fewer in line (%d)" % alive.size())
+	# Hitting the middle breaks it
+	var mid = alive[3]
+	mid.take_damage(0.5)
+	await frames(5, Vector2(150, 150))
+	check(g.broken, "hitting the middle breaks the line")
+	check(g.line.all(func(e): return not is_instance_valid(e) or e.is_physics_processing()), "they scatter")
+	check(d.special_state.get("left", 0) == g.COUNT - 1, "the room remembers how many are left (%d)" % d.special_state.get("left", 0))
 
 func t_molt():
 	for f in [2, 3]:
