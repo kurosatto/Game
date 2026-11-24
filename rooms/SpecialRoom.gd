@@ -42,6 +42,7 @@ func begin(first: bool):
 		"procession": _procession()
 		"meadow": _meadow(first)
 		"mat": _mat()
+		"drought": _drought()
 	if first and kind != "ambush":
 		introduce()
 
@@ -376,3 +377,8 @@ func _meadow(first: bool):
 func _mat():
 	peaceful()
 	add_feature("MatGround.gd", {"room": room, "state": state})
+
+# ---- Drying pool: the water shrinks, fish are stranded, lungfish dig in ----
+func _drought():
+	peaceful()
+	add_feature("DroughtPool.gd", {"room": room, "state": state})
