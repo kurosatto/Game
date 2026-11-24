@@ -15,6 +15,14 @@ const ERA_NAMES = {
     7: "ERA 5: PERMIAN REEF SEAS (260 MYA)",
 }
 const Worlds = preload("res://data/Worlds.gd")
+# The end-Permian extinction finale (data/Endgame.gd), in either world
+const FINALE_INFO = {
+    "label": "THE GREAT DYING (252 MYA)",
+    "name": "THE GREAT DYING",
+    "dates": "251.9 million years ago, the end of the Permian",
+    "fact_land": "The Siberian Traps are erupting. Gas vents burst, the air is thick with ash, and the last gorgonopsians hunt a dying world.",
+    "fact_sea": "The sea is losing its oxygen. Dead, sulfide water wells up from the deep, and the last sea scorpion rakes the mud.",
+}
 
 # Shown on the card at the start of each floor: period, its dates and one
 # thing that happened then (dates from the ICS chronostratigraphic chart)
@@ -1138,6 +1146,8 @@ var current_floor: int = 1
 func update_floor(floor_num: int):
     current_floor = floor_num
     var era_str = ERA_NAMES.get(Worlds.era(floor_num), "ERA %d" % floor_num)
+    if Worlds.finale and floor_num >= 5:
+        era_str = FINALE_INFO.label
     floor_label.text = "%s | %s" % [era_str, current_creature_name]
 
 func update_minimap(rooms: Dictionary, current_pos: Vector2i):
@@ -1394,7 +1404,7 @@ func show_victory(summary: Dictionary = {}):
         label.text = "600 MILLION YEARS OF EVOLUTION COMPLETE!"
         sublabel.text = "Your lineage dominated Earth through all 5 eras!"
     else:
-        label.text = "APEX EVOLUTION: VICTORY!"
+        label.text = "YOU LIVED THROUGH THE GREAT DYING!" if Worlds.finale else "APEX EVOLUTION: VICTORY!"
         add_lineage_strip($VictoryScreen/Center)
         var text = "Final Evolved Lineage: " + summary.get("title", "Apex Organism") + "\n"
         text += summary.get("clade", "") + "\n\nPhylogenetic Path Across Earth's Eras:\n"
@@ -2084,11 +2094,15 @@ func show_era_card(floor_num: int, form: Dictionary):
         rows = [dash_row(form, touch, pad)]
     var color: Color = form.get("color", Color(0.0, 0.95, 1.0))
     var era: Dictionary = ERA_INFO.get(Worlds.era(floor_num), {})
+    var finale = Worlds.finale and floor_num >= 5
+    if finale:
+        era = {"name": FINALE_INFO.name, "dates": FINALE_INFO.dates,
+            "fact": FINALE_INFO.fact_sea if Worlds.sea else FINALE_INFO.fact_land}
     item_banner.visible = false # an old note would sit on top of the page
     var vbox = _open_card(color, 1500, 0.95)
     vbox.add_theme_constant_override("separation", 10)
 
-    for l in [_card_label("ERA %d OF 5" % floor_num, 18, UI.MUTED),
+    for l in [_card_label("BEYOND THE END" if finale else "ERA %d OF 5" % floor_num, 18, UI.MUTED),
             _card_label(era.get("name", ""), 46, UI.SUN),
             _card_label(era.get("dates", ""), 22, UI.LEAF),
             _card_label(era.get("fact", ""), 22, UI.CREAM)]:

@@ -22,6 +22,9 @@ const ERA_ORDER := [1, 2, 3, 4, 6, 5, 7]
 # The world of the floor being played. Main sets it whenever a floor is
 # made; the main menu resets it so its lists start from the land eras.
 static var sea: bool = false
+# The end-Permian extinction finale (data/Endgame.gd "great_dying"): played
+# as a second floor 5, in the same world, after the Permian boss
+static var finale: bool = false
 
 const LAND_FORMS := ["arachnid", "myriapod", "hexapod", "scorpion", "spider", "centipede",
 	"millipede", "dragonfly_line", "beetle", "synapsid", "sauropsid", "land_snail"]

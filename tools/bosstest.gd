@@ -6,6 +6,7 @@
 # Optional BOSS=3 tests one floor; FIGHT_SECONDS=25 sets the length;
 # BOSS_ALT=1 fights the alternate drawn bosses (bosses/DrawnBoss.gd), 0 the originals.
 # WORLD=sea fights the sea-world bosses of floors 4 and 5 (data/Worlds.gd).
+# FINALE=1 fights the Great Dying's last bosses (data/Endgame.gd) on floor 5.
 extends SceneTree
 
 var out := OS.get_environment("SHOT_DIR")
@@ -28,6 +29,10 @@ func run():
 	current_scene = main
 	for i in 20: await process_frame
 	var room_script = load("res://Room.gd")
+	var finale := OS.get_environment("FINALE") == "1"
+	load("res://data/Worlds.gd").finale = finale
+	if finale:
+		only = 5
 	for floor_num in range(1, 6):
 		if only != 0 and floor_num != only:
 			continue
@@ -79,6 +84,9 @@ func run():
 		var forced: Array = force.get(load("res://data/Worlds.gd").era(floor_num), [])
 		if boss.has_method("start_move"):
 			forced = boss.kit.duplicate()
+		if finale:
+			forced = {"Inostrancevia": ["swipe_wind", "pounce_wind", "ash_wind", "sabre_wind"],
+				"Campylocephalus": ["tail_wind", "lurch_wind", "silt_wind", "rake_wind"]}.get(boss.killer_name(), [])
 		for st in forced:
 			if not is_instance_valid(boss):
 				break
