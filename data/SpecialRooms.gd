@@ -13,7 +13,7 @@ const BIOMINERALS = preload("res://data/Biominerals.gd")
 const INK = Color(0.24, 0.15, 0.08)
 const PAPER = Color(0.95, 0.9, 0.78)
 
-const KINDS = ["vent", "tar", "dig", "frenzy", "extinction", "nest", "tide", "symbiont", "ambush", "glow", "dark"]
+const KINDS = ["vent", "tar", "dig", "frenzy", "extinction", "nest", "tide", "symbiont", "ambush", "glow", "dark", "fire"]
 
 # Which eras each kind can turn up in. No brood care, hunters lying in wait
 # or animal sidekicks before the Cambrian; no glowing animals known on land
@@ -23,6 +23,8 @@ const ERAS = {
 	"frenzy": [1, 2, 3, 4, 5], "extinction": [1, 2, 3, 4, 5], "tide": [1, 2, 3, 4, 5],
 	"nest": [2, 3, 4, 5], "symbiont": [2, 3, 4, 5], "ambush": [2, 3, 4, 5], "glow": [2, 3],
 	"dark": [1, 2, 3, 4, 5],
+	# Land plants to burn, and air rich enough in oxygen to burn them often
+	"fire": [4, 5],
 }
 
 # Rooms with nothing to fight when you walk in: open doors, open ground
@@ -57,6 +59,7 @@ static func title(kind: String, f: int) -> String:
 		"ambush": return "QUIET ROOM"
 		"glow": return "GLOWING CAVE"
 		"dark": return "NIGHT" if is_land(f) else "THE DEEP"
+		"fire": return "WILDFIRE"
 	return kind.to_upper()
 
 static func fact(kind: String, f: int) -> String:
@@ -97,6 +100,10 @@ static func fact(kind: String, f: int) -> String:
 				"Below about 200 m the sea is black. Fish feel moving water with their lateral line and find prey unseen.",
 				"Spiders and scorpions hunt at night by feeling footsteps through the ground, as they did in the coal swamps.",
 				"Many animals hunt at night by smell, touch and sound, when the day's hunters can't see them."][clampi(f - 1, 0, 4)]
+		"fire":
+			if f <= 4:
+				return "Late Carboniferous air was about 35% oxygen, against 21% today, so lightning set the forests burning again and again. Coal from this time is full of fossil charcoal, called fusain. Ash puts back the phosphorus the plants had locked up."
+			return "Early Permian air still held more oxygen than today's, and wildfires swept the dry uplands. Their charcoal lies in the rocks beside the bones. Ash puts back the phosphorus the plants had locked up."
 	return ""
 
 # What to do, in one short line
@@ -113,6 +120,7 @@ static func how(kind: String, f: int) -> String:
 		"ambush": return ""
 		"glow": return "It's dark. Glowing animals light the way."
 		"dark": return "Pitch dark. Hunt with your senses."
+		"fire": return "A fire front sweeps the room. Stay ahead of it or dash through."
 	return ""
 
 # ---- Per-kind details ----
