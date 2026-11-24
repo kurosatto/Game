@@ -96,6 +96,9 @@ func setup_room(data, floor_number: int):
         5: # SEEP: open ground around the seep
             raw_layout = room_layouts.get_treasure_layout()
             raw_layout["decals"] = []
+        _ when room_data.lair != "": # a secret lair: open ground for its boss
+            raw_layout = room_layouts.get_treasure_layout()
+            raw_layout["decals"] = []
         _ when room_data.special in OPEN_SPECIALS: # open ground for the room's feature
             raw_layout = room_layouts.get_treasure_layout()
             raw_layout["decals"] = []
@@ -116,7 +119,7 @@ func setup_room(data, floor_number: int):
     close_tight_gaps()
 
     # 7b. Era ground hazards in fight rooms (Hazard.gd)
-    if room_data.type == 1 and room_data.special == "":
+    if room_data.type == 1 and room_data.special == "" and room_data.lair == "":
         spawn_hazards(floor_number)
         spawn_covers(floor_number)
 
@@ -151,6 +154,15 @@ func setup_room(data, floor_number: int):
             start_special(clean_layout, floor_number, false)
         elif room_data.type == 3 and not room_data.cleared: # BOSS
             spawn_boss(floor_number)
+        elif room_data.lair != "":
+            if room_data.cleared:
+                if room_data.treasure_item_id != "":
+                    var ped = pedestal_scene.instantiate()
+                    ped.position = Vector2(960, 540)
+                    ped.item_id = room_data.treasure_item_id
+                    add_child(ped)
+            else:
+                spawn_lair_boss()
         elif room_data.type == 1 and not room_data.cleared: # NORMAL left mid-fight
             spawn_tactical_enemies(clean_layout, floor_number)
             spawn_fronds(floor_number)
@@ -160,6 +172,12 @@ func setup_room(data, floor_number: int):
                 door_nodes[d_dir].open_door()
             if room_data.type == 3:
                 spawn_trapdoor()
+                if room_data.treasure_item_id != "":
+                    # A gauntlet boss's reward, not picked up yet
+                    var gped = pedestal_scene.instantiate()
+                    gped.position = GAUNTLET_PRIZE_AT
+                    gped.item_id = room_data.treasure_item_id
+                    add_child(gped)
         else:
             for d_dir in door_nodes:
                 door_nodes[d_dir].close_door()
@@ -199,6 +217,10 @@ func setup_room(data, floor_number: int):
             spawn_boss(floor_number)
         elif room_data.special != "":
             start_special(clean_layout, floor_number, true)
+        elif room_data.lair != "":
+            for d_dir in door_nodes:
+                door_nodes[d_dir].close_door()
+            spawn_lair_boss()
         else: # NORMAL
             for d_dir in door_nodes:
                 door_nodes[d_dir].close_door()
@@ -289,7 +311,7 @@ func save_room_state():
             })
             
     # 2. Save treasure pedestal state
-    if room_data.type == 2:
+    if room_data.type == 2 or room_data.type == 3 or room_data.lair != "":
         for child in get_children():
             if child is Area2D and "item_id" in child and not child.is_shop_item:
                 room_data.treasure_item_id = child.item_id
@@ -935,9 +957,25 @@ func spawn_boss(floor_number: int):
 
     get_parent().register_boss(boss)
 
-func spawn_treasure_pedestal():
+# FOSSIL GAUNTLET: each boss leaves an item, clear of the trapdoor
+const GAUNTLET_PRIZE_AT := Vector2(960, 300)
+
+# A secret lair (data/Endgame.gd LAIRS): a hidden giant in a dead-end room
+func spawn_lair_boss():
+    var info = preload("res://data/Endgame.gd").LAIRS.get(room_data.lair, {})
+    if info.is_empty():
+        return
+    var boss = load(info.script).new()
+    boss.position = Vector2(960, 540) + Vector2(entry_dir) * Vector2(420.0 + side_margin * 0.5, 220.0)
+    boss.setup_enemy(current_floor)
+    add_child(boss)
+    active_enemies.append(boss)
+    boss.enemy_died.connect(_on_enemy_died.bind(boss))
+    get_parent().register_boss(boss)
+
+func spawn_treasure_pedestal(at: Vector2 = Vector2(960, 540)):
     var ped = pedestal_scene.instantiate()
-    ped.position = Vector2(960, 540)
+    ped.position = at
     # Something not yet found this run (data/Items.gd)
     var player = get_tree().get_first_node_in_group("player")
     var chosen_item = preload("res://data/Items.gd").roll(player.items_found if player else [])
@@ -1199,6 +1237,13 @@ func clear_room():
         if randf() < Difficulty.CLEAR_DROP_CHANCE or had_wave:
             spawn_random_pickup(Vector2(960, 540))
             
+    if room_data.lair != "":
+        # The lair's giant is down: an item and the floor's music back
+        spawn_treasure_pedestal()
+        var lm = get_parent()
+        if lm and lm.has_method("on_lair_cleared"):
+            lm.on_lair_cleared(room_data.lair)
+
     if room_data.type == 3:
         var main = get_parent()
         if main and main.has_method("on_boss_defeated"):

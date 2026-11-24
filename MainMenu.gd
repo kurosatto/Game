@@ -536,7 +536,7 @@ func endgame_card(e: Dictionary) -> Control:
 	var pics = VBoxContainer.new()
 	row.add_child(pics)
 	for b in e.get("bosses", []):
-		var info = endgame.BOSSES[b]
+		var info = endgame.boss_info(b)
 		pics.add_child(preload("res://BossPortrait.gd").new().setup(info.script, not open))
 		var cap = label(("%s  (%s)" % [info.name, info.world]) if open else "? ? ?", 18, UI.CREAM if open else UI.MUTED)
 		pics.add_child(cap)
@@ -574,7 +574,7 @@ func endgame_card(e: Dictionary) -> Control:
 		col.add_child(tg)
 	if open:
 		for b in e.get("bosses", []):
-			var info = endgame.BOSSES[b]
+			var info = endgame.boss_info(b)
 			var l = label("%s: %s" % [info.name, info.fact], 18, UI.MUTED)
 			l.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 			l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART

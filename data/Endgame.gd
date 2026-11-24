@@ -41,7 +41,27 @@ const ENTRIES = [
 		"what": "A switch for harder runs: animals +30% health, bosses +30% health and less rest, one more animal in every fight room. Wins are marked on the past runs page.",
 		"fact": "Deep time is the geologists' name for the vast age of the Earth, 4.5 billion years. Squeezed into one day, the first animals would turn up at about 9 pm.",
 		"toggle": true},
+	{"id": "lairs", "name": "SECRET LAIRS",
+		"goal": "Win 3 runs", "type": "wins", "need": 3,
+		"what": "On the Carboniferous floor a giant hides in a dead-end room: the giant shark Saivodus at sea, and on land Megarachne, the 'giant spider' that wasn't. Each leaves an item behind.",
+		"fact": "Fossils get misread: Megarachne was drawn as a spider for 25 years, until a second specimen showed it was a sea scorpion.",
+		"bosses": ["megarachne", "saivodus"]},
 ]
+
+# Secret lair giants: floor 4, one per world
+const LAIR_FLOOR := 4
+const LAIRS = {
+	"megarachne": {"name": "Megarachne", "world": "land", "script": "res://bosses/Megarachne.gd",
+		"fact": "Described in 1980 as the biggest spider ever, a third of a metre long. A second fossil, studied in 2005, showed it was a sea scorpion, close kin to Campylocephalus."},
+	"saivodus": {"name": "Saivodus", "world": "sea", "script": "res://bosses/Saivodus.gd",
+		"fact": "A ctenacanth shark 6 to 9 m long, the size of a great white, 330 million years ago. Its teeth are found in the walls of Mammoth Cave, Kentucky."},
+}
+
+static func boss_info(id: String) -> Dictionary:
+	return BOSSES.get(id, LAIRS.get(id, {}))
+
+static func lair_for(sea: bool) -> String:
+	return "saivodus" if sea else "megarachne"
 
 # The mode of the run being started (set by the main menu, read by Main):
 # "" a normal run, "gauntlet" the boss rush

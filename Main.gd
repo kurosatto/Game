@@ -301,6 +301,7 @@ func generate_floor():
         player.health_changed.emit(player.health, player.max_health)
     else:
         dungeon_rooms = level_gen.generate_level(floor_number, specials_seen)
+        place_lair()
     for pos in dungeon_rooms:
         if dungeon_rooms[pos].special != "":
             specials_seen.append(dungeon_rooms[pos].special)
@@ -517,6 +518,35 @@ func advance_floor(pick: String = ""):
             hud.show_era_card(floor_number, current_form())
     )
 
+# ---- Secret lairs (data/Endgame.gd LAIRS) ----
+# Once open, floor 4 hides a giant in one dead-end fight room
+func place_lair():
+    if floor_number != Endgame.LAIR_FLOOR or Worlds.finale or not Endgame.is_unlocked("lairs"):
+        return
+    var want = Endgame.lair_for(Worlds.sea)
+    var spots: Array = []
+    for pos in dungeon_rooms:
+        var r = dungeon_rooms[pos]
+        if r.type == 1 and r.special == "" and r.connections.size() == 1 and pos.distance_to(Vector2i(4, 4)) > 1.5:
+            spots.append(r)
+    if spots.is_empty():
+        for pos in dungeon_rooms:
+            var r = dungeon_rooms[pos]
+            if r.type == 1 and r.special == "":
+                spots.append(r)
+    if spots.is_empty():
+        return
+    var r = spots.pick_random()
+    r.lair = want
+    r.waves_left = 0
+
+func on_lair_cleared(id: String):
+    tally("lair:" + id)
+    SoundManager.play_music(SoundManager.music_for_floor(floor_number))
+    update_ambient_lighting(1)
+    var info = Endgame.LAIRS[id]
+    hud.show_item_banner("LAIR CLEARED: " + String(info.name).to_upper(), info.fact, false, 3.2, "An item was left in its lair")
+
 # ---- The Great Dying (data/Endgame.gd) ----
 # Once a run has been won, the Permian boss leaves two ways down: one ends
 # the run as before, the other goes on into the end-Permian extinction, a
@@ -600,6 +630,9 @@ func on_boss_defeated(f_num: int):
     if player.health <= 0:
         return
     tally("boss:%d" % f_num)
+    if Endgame.gauntlet() and current_room_node and not Worlds.finale:
+        # The rush has no other rooms to find things in: each boss pays out
+        current_room_node.spawn_treasure_pedestal(current_room_node.GAUNTLET_PRIZE_AT)
     if f_num == 1:
         complete_challenge("ediacaran")
     if not hit_this_floor:
