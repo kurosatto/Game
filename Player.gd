@@ -1499,7 +1499,7 @@ func apply_evolution(floor_num: int, choice: int):
     var main = get_tree().get_first_node_in_group("main")
     if main and main.has_method("display_item_banner"):
         if refined:
-            main.display_item_banner("REFINED " + current_character_name, "No real split is known here, so your lineage adapts: +damage, +speed, +2 health")
+            main.display_item_banner("REFINED " + current_character_name, "No real split is known here, so your lineage adapts: +damage, +speed, +2 health", -1.0, "+damage, +speed, +2 health")
         else:
             main.display_item_banner(current_character_name, data.fact)
 

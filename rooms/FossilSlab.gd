@@ -68,7 +68,7 @@ func split_open():
 	var main = get_tree().get_first_node_in_group("main")
 	if main and main.get("hud"):
 		var el_name = preload("res://data/Biominerals.gd").ELEMENTS[rare].name
-		main.hud.show_item_banner("FOSSIL: " + fossil.name.to_upper(), fossil.fact + "\nThe rock was rich in %s, rare in this era." % el_name.to_lower(), true)
+		main.hud.show_item_banner("FOSSIL: " + fossil.name.to_upper(), fossil.fact + "\nThe rock was rich in %s, rare in this era." % el_name.to_lower(), true, -1.0, "Rich in " + el_name.to_lower())
 
 func _process(delta: float):
 	time += delta

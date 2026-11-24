@@ -183,6 +183,7 @@ func _field_note_done(n: Dictionary):
     player.popup_text(player.global_position + Vector2(0, -90), "QUEST ✓", Color(0.98, 0.76, 0.38))
     _update_quest_mark(true)
     hud.last_banner = ["QUEST: " + n.text, n.fact]
+    hud.note_journal("QUEST: " + n.text, n.fact)
 
 func _update_quest_mark(pop: bool = false):
     var notes = field_notes.for_floor(floor_number)
@@ -208,7 +209,7 @@ func complete_challenge(id: String):
         var c = progress.get_challenge(id)
         var a = player.adaptations.get_adaptation(c.unlock)
         SoundManager.play_sfx("level_up", 0.9)
-        hud.show_item_banner("CHALLENGE: " + c.name, "%s. New starting trait on the main menu: %s." % [c.goal, a.name], true)
+        hud.show_item_banner("CHALLENGE: " + c.name, "%s. New starting trait on the main menu: %s." % [c.goal, a.name], true, -1.0, "New starting trait: " + a.name)
 
 # Codex, form and adaptation challenges, checked whenever they could change
 func check_challenges():
@@ -459,8 +460,8 @@ func note_new_hunt(hunter: String, prey: String, pos: Vector2):
     pos.y = clamp(pos.y, o.y + 220.0, o.y + 1000.0)
     player.popup_text(pos + Vector2(0, -40), text, Color(0.98, 0.76, 0.38))
 
-func display_item_banner(title: String, desc: String, hold: float = -1.0):
-    hud.show_item_banner(title, desc, false, hold)
+func display_item_banner(title: String, desc: String, hold: float = -1.0, short: String = ""):
+    hud.show_item_banner(title, desc, false, hold, short)
 
 func on_boss_defeated(f_num: int):
     # A poison tick or acid pool can finish the boss after you have died:

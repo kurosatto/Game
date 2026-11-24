@@ -42,7 +42,7 @@ func _initialize():
 	main.hud.toggle_settings()
 	await process_frame
 	print("NOTES pause: ", main.hud.pause_info_body.text.replace("\n", " | "))
-	if not "Field notes" in main.hud.pause_info_body.text:
+	if not "Floor quests" in main.hud.pause_info_body.text:
 		fails += 1
 	await snap("notes_pause")
 	print("NOTES done, %d failures" % fails)

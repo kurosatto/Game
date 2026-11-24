@@ -210,7 +210,7 @@ func _show_hint(title: String, desc: String):
 		return
 	hint_cooldown = 3.0
 	if main and main.has_method("display_item_banner"):
-		main.display_item_banner(title, desc, 1.5) # a quick note, not a long read
+		main.display_item_banner(title, "", 1.5, desc) # a quick note, not a long read
 
 func _player_keys() -> int:
 	var p = get_tree().get_first_node_in_group("player")
