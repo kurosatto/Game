@@ -13,7 +13,7 @@ const CHALLENGES = [
 	{"id": "arthropod", "name": "Jointed Legs", "goal": "Evolve into an arthropod", "unlock": "reach"},
 	{"id": "ordovician", "name": "Into the Ordovician", "goal": "Reach the third era", "unlock": "myoglobin"},
 	{"id": "untouched", "name": "Untouched", "goal": "Clear a whole era without being hit", "unlock": "body_wall"},
-	{"id": "well_fed", "name": "Well Fed", "goal": "Grow 10 parts in one run", "unlock": "mitochondria"},
+	{"id": "well_fed", "name": "Well Fed", "goal": "Eat 60 elements in one run", "unlock": "mitochondria"},
 	{"id": "codex_10", "name": "Taxonomist", "goal": "Discover 10 lineages in the codex", "unlock": "senses"},
 	{"id": "codex_25", "name": "Systematist", "goal": "Discover 25 lineages in the codex", "unlock": "gut"},
 	{"id": "survivor", "name": "Survive the Great Dying", "goal": "Win a run", "unlock": "armour"},
@@ -105,3 +105,43 @@ static func run_stats() -> Dictionary:
 		"best_era": int(config.get_value("runs", "best_era", 0)),
 		"best_form": str(config.get_value("runs", "best_form", "")),
 	}
+
+# ---- Banked elements and lineage growth (main menu GROW page) ----
+# Elements eaten in runs are banked here (Main.flush_bank) and spent on parts
+# grown into the lineage for good (data/Biominerals.gd lineage_*). Main.gd
+# grants every rank at the start of each run.
+static func bank() -> Dictionary:
+	return _load().get_value("lineage", "bank", {})
+
+static func add_to_bank(delta: Dictionary):
+	if delta.is_empty():
+		return
+	var config = _load()
+	var b: Dictionary = config.get_value("lineage", "bank", {})
+	for el in delta:
+		b[el] = max(0.0, float(b.get(el, 0.0)) + float(delta[el]))
+	config.set_value("lineage", "bank", b)
+	config.save(SAVE_PATH)
+
+static func lineage_ranks() -> Dictionary:
+	return _load().get_value("lineage", "ranks", {})
+
+# Spends the bank on one more rank of a part; false if it can't be afforded
+static func grow_lineage(id: String) -> bool:
+	var B = preload("res://data/Biominerals.gd")
+	var r = B.get_recipe(id)
+	if r.is_empty() or r.has("heal"):
+		return false
+	var config = _load()
+	var b: Dictionary = config.get_value("lineage", "bank", {})
+	var ranks: Dictionary = config.get_value("lineage", "ranks", {})
+	if not B.can_grow_lineage(r, b, ranks):
+		return false
+	var c = B.lineage_cost(r, int(ranks.get(id, 0)))
+	for el in c:
+		b[el] = max(0.0, float(b.get(el, 0.0)) - c[el])
+	ranks[id] = int(ranks.get(id, 0)) + 1
+	config.set_value("lineage", "bank", b)
+	config.set_value("lineage", "ranks", ranks)
+	config.save(SAVE_PATH)
+	return true
