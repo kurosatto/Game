@@ -532,6 +532,7 @@ func show_fossils():
 		total += FAUNA.era_species(era).size() + 2
 	var list = open_overlay("FOSSIL RECORD  %d / %d" % [eaten.size(), total])
 	add_overlay_button(list.get_parent(), "CODEX", show_codex)
+	add_overlay_button(list.get_parent(), "TRACES", show_traces)
 	list.add_child(label("Every animal you eat is added here, with what is known about it.", 19, UI.MUTED))
 	for era in range(1, 6):
 		var head = label(ERA_NAMES[era - 1].to_upper() + " PERIOD", 26, UI.SUN)
@@ -595,6 +596,53 @@ func fossil_row(f: Dictionary, known: bool, era_name: String) -> Control:
 			var w = label(web, 17, UI.MUTED)
 			w.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 			col.add_child(w)
+	return card
+
+# Trace fossils (data/Traces.gd): every kind of track you have seen made,
+# drawn as a strip of sediment, with who made it
+func show_traces():
+	var traces = preload("res://data/Traces.gd")
+	var seen: Array = codex.load_traces()
+	var ids: Array = traces.all_ids()
+	var list = open_overlay("TRACE FOSSILS  %d / %d" % [ids.filter(func(i): return seen.has(i)).size(), ids.size()])
+	add_overlay_button(list.get_parent(), "FOSSILS", show_fossils)
+	list.add_child(label("Tracks, trails and resting marks left in the mud. They are named as their own genera, because the animal that made one is seldom found with it.", 19, UI.MUTED))
+	# Found ones first, in the order of the eras
+	for id in ids.filter(func(i): return seen.has(i)) + ids.filter(func(i): return not seen.has(i)):
+		list.add_child(trace_row(id, seen.has(id)))
+
+func trace_row(id: String, known: bool) -> Control:
+	var t: Dictionary = preload("res://data/Traces.gd").TRACES[id]
+	var card = PanelContainer.new()
+	card.add_theme_stylebox_override("panel", UI.panel(UI.MEMBRANE, 18, 0.7, 12.0))
+	var row = HBoxContainer.new()
+	row.add_theme_constant_override("separation", 18)
+	card.add_child(row)
+	# A strip of pale sediment with the trace pressed into it
+	var pic = Control.new()
+	pic.custom_minimum_size = Vector2(220, 96)
+	var paper = StyleBoxFlat.new()
+	paper.bg_color = Color(0.86, 0.8, 0.66)
+	paper.border_color = Color(0.45, 0.33, 0.2)
+	paper.set_border_width_all(2)
+	paper.set_corner_radius_all(10)
+	pic.draw.connect(func():
+		var box = Rect2(Vector2.ZERO, pic.size)
+		pic.draw_style_box(paper, box)
+		if known:
+			preload("res://data/Traces.gd").draw_sample(pic, id, box.grow(-6.0), 1.6)
+		else:
+			pic.draw_string(ThemeDB.fallback_font, Vector2(box.get_center().x - 12.0, box.get_center().y + 16.0), "?", HORIZONTAL_ALIGNMENT_LEFT, -1, 44, Color(0.24, 0.15, 0.08, 0.5)))
+	row.add_child(pic)
+	var col = VBoxContainer.new()
+	col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(col)
+	var n = label(("%s  ·  made by %s" % [t.name, t.maker]) if known else "?  Unknown trace", 22, UI.SUN if known else UI.MUTED)
+	n.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	col.add_child(n)
+	var body = label(t.fact if known else "Not yet seen. Watch the ground behind the animals you meet.", 18, UI.CREAM if known else UI.MUTED)
+	body.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	col.add_child(body)
 	return card
 
 # What it was seen eating and being eaten by (data/FoodWeb.gd); links not

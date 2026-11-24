@@ -54,6 +54,33 @@ static func note_eaten(species: String) -> bool:
     config.save(SAVE_PATH)
     return true
 
+# ---- Trace fossils ----
+# Every kind of trace (data/Traces.gd) the player has seen made, across runs
+static var _traces: Array = []
+static var _traces_loaded: bool = false
+
+static func load_traces() -> Array:
+    if not _traces_loaded:
+        var config = ConfigFile.new()
+        if config.load(SAVE_PATH) == OK:
+            _traces = config.get_value("fossils", "traces", [])
+        _traces_loaded = true
+    return _traces
+
+# True the first time this kind of trace is seen
+static func note_trace(id: String) -> bool:
+    if load_traces().has(id):
+        return false
+    _traces.append(id)
+    var tree = Engine.get_main_loop()
+    if tree and tree.get_script() != null:
+        return true # tools/*.gd runs: remember for this run only
+    var config = ConfigFile.new()
+    config.load(SAVE_PATH)
+    config.set_value("fossils", "traces", _traces)
+    config.save(SAVE_PATH)
+    return true
+
 # ---- Food web ----
 # Every hunt the player has watched ("Pred>Prey", data/FoodWeb.gd), across
 # runs. The fossil record lists them under each animal.
