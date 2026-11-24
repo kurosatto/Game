@@ -25,7 +25,6 @@ while the favourites are being picked. The same list is shown in-game under
 | explore | Exploration Theme | Cleyton Kauffman | CC0 | https://opengameart.org/content/exploration-theme |
 | explore | Krakatoa | Kistol | CC0 | https://opengameart.org/content/krakatoa |
 | explore | Parasite | Kistol | CC0 | https://opengameart.org/content/parasite |
-| explore | Tribal | Of Far Different Nature | CC0 | https://opengameart.org/content/tribal |
 | explore | Green Forests | Alexandr Zhelanov | [CC-BY 4.0](https://creativecommons.org/licenses/by/4.0/) | https://opengameart.org/content/tribal-music |
 | explore | Safety (Tribe version) | fupi | CC0 | https://opengameart.org/content/safety-2-versions |
 | explore | Revenge of the Jungle | oglsdl | CC0 | https://opengameart.org/content/revenge-of-the-jungle |
