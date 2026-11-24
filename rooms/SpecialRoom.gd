@@ -53,7 +53,7 @@ func introduce():
 		return
 	main.set_meta(key, true)
 	var how = SR.how(kind, floor_num)
-	main.hud.show_item_banner(SR.title(kind, floor_num), SR.fact(kind, floor_num) + ("\n" + how if how != "" else ""), true)
+	main.hud.show_item_banner(SR.title(kind, floor_num), SR.fact(kind, floor_num) + ("\n" + how if how != "" else ""), true, -1.0, how)
 
 func peaceful():
 	room.room_data.cleared = true
@@ -298,7 +298,7 @@ func _spring_ambush():
 		var key = "special_ambush"
 		var text = SR.fact("ambush", floor_num) if not main.has_meta(key) else "An elder %s was lying in wait." % info.species
 		main.set_meta(key, true)
-		main.hud.show_item_banner("AMBUSH!", text, true)
+		main.hud.show_item_banner("AMBUSH!", text, true, 2.0, text if text.length() < 60 else "")
 
 # ---- 10. Glowing cave: dark, lit by glowing animals ----
 func _glow(first: bool):

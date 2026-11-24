@@ -97,7 +97,7 @@ func introduce():
 	main.set_meta("hazard_" + kind, true)
 	var effect = "It bursts every few seconds and hurts anything standing on it. Lure animals onto it!" \
 		if kind == "fumarole" else "Wading through it slows you down; the animals here know to go round."
-	main.hud.show_item_banner(INFO[kind].name.to_upper(), INFO[kind].fact + "\n" + effect, true)
+	main.hud.show_item_banner(INFO[kind].name.to_upper(), INFO[kind].fact + "\n" + effect, true, -1.0, "Bursts every few seconds: lure animals onto it" if kind == "fumarole" else "Slows you down")
 
 func burst():
 	burst_flash = 1.0

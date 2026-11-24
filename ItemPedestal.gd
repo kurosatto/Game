@@ -121,7 +121,7 @@ func _on_body_entered(body: Node):
         # Display banner
         var main = get_tree().get_first_node_in_group("main")
         if main and main.has_method("display_item_banner"):
-            main.display_item_banner(get_item_name(item_id), get_item_description(item_id))
+            main.display_item_banner(get_item_name(item_id), get_item_description(item_id), -1.0, get_item_description(item_id).split("\n")[0])
             
         item_id = ""
         setup_visuals()

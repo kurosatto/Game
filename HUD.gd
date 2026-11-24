@@ -1223,27 +1223,44 @@ func _make_banner_card():
     item_desc.add_theme_color_override("font_color", UI.CREAM)
     item_banner = card
 
-func show_item_banner(title: String, desc: String, near_top: bool = false, hold_for: float = -1.0):
-    item_banner.offset_left = -560.0
-    item_banner.offset_right = 560.0
-    item_banner.offset_top = -430.0 if near_top else -90.0
+# Over play only a small tag shows near the top: the name, plus one short
+# line when it changes how you play (short). The whole fact goes into the
+# run's field journal on the pause screen, to read when you like (kuro:
+# no text blocking gameplay).
+func show_item_banner(title: String, desc: String, near_top: bool = false, hold_for: float = -1.0, short: String = ""):
+    item_banner.offset_left = -320.0
+    item_banner.offset_right = 320.0
+    item_banner.offset_top = -470.0
     item_banner.offset_bottom = item_banner.offset_top # grows down to fit the text
     item_banner.visible = true
     item_title.text = title
-    item_desc.text = desc
+    item_desc.text = short
+    item_desc.visible = short != ""
     item_banner.modulate.a = 1.0
     last_banner = [title, desc]
-    # Long enough to read: about 4 s plus a second per 25 characters, and the
-    # pause screen keeps the latest one for later
+    note_journal(title, desc)
     if banner_tween and banner_tween.is_valid():
         banner_tween.kill()
-    var hold = clamp(4.0 + desc.length() / 25.0, 4.0, 10.0) if hold_for < 0.0 else hold_for
+    var hold = clamp(2.2 + short.length() / 22.0, 2.2, 5.0) if hold_for < 0.0 else hold_for
     banner_tween = create_tween()
     banner_tween.tween_property(item_banner, "modulate:a", 0.0, 0.6).set_delay(hold)
     banner_tween.tween_callback(func(): item_banner.visible = false)
 
 var banner_tween: Tween = null
 var last_banner: Array = []
+# This run's discoveries, oldest first: [title, text] (pause screen)
+var journal: Array = []
+const JOURNAL_MAX := 24
+
+func note_journal(title: String, desc: String):
+    if desc == "":
+        return
+    for i in range(journal.size() - 1, -1, -1):
+        if journal[i][0] == title:
+            journal.remove_at(i)
+    journal.append([title, desc])
+    if journal.size() > JOURNAL_MAX:
+        journal.pop_front()
 
 # Anything besides the pause screen that holds the game: cards, the grow
 # screen, the evolution and adaptation picks, and the end screens
@@ -1664,6 +1681,8 @@ var pause_dates: Label
 var pause_you: HBoxContainer
 var pause_wildlife: HFlowContainer
 var pause_adapt: HFlowContainer
+var pause_journal: HFlowContainer
+var pause_journal_head: Label
 var pause_info_title: Label
 var pause_info_body: Label
 var pause_tiles: Array = []
@@ -1714,6 +1733,13 @@ func _create_pause_info():
     pause_adapt.add_theme_constant_override("h_separation", 10)
     pause_adapt.add_theme_constant_override("v_separation", 10)
     col.add_child(pause_adapt)
+
+    pause_journal_head = _pause_label(17, UI.LEAF, true, "FIELD JOURNAL")
+    col.add_child(pause_journal_head)
+    pause_journal = HFlowContainer.new()
+    pause_journal.add_theme_constant_override("h_separation", 8)
+    pause_journal.add_theme_constant_override("v_separation", 8)
+    col.add_child(pause_journal)
 
     var spacer = Control.new()
     spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -1790,8 +1816,25 @@ func show_pause_info():
         if is_instance_valid(t):
             t.queue_free()
     pause_tiles.clear()
-    for c in pause_you.get_children() + pause_wildlife.get_children() + pause_adapt.get_children():
+    for c in pause_you.get_children() + pause_wildlife.get_children() + pause_adapt.get_children() + pause_journal.get_children():
         c.queue_free()
+    # Field journal: every fact that popped up this run, newest first
+    pause_journal_head.visible = not journal.is_empty()
+    for i in range(journal.size() - 1, -1, -1):
+        var entry: Array = journal[i]
+        var b = Button.new()
+        b.text = entry[0]
+        b.add_theme_font_size_override("font_size", 16)
+        b.custom_minimum_size = Vector2(0, 44)
+        for state in ["normal", "hover", "pressed", "disabled", "focus"]:
+            b.add_theme_stylebox_override(state, UI.button_box("pressed" if state == "focus" else state, UI.MEMBRANE))
+        b.pressed.connect(func():
+            for t in pause_tiles:
+                if is_instance_valid(t):
+                    t.selected = false
+            pause_info_title.text = entry[0]
+            pause_info_body.text = entry[1])
+        pause_journal.add_child(b)
 
     var main = get_tree().get_first_node_in_group("main")
     var player = get_tree().get_first_node_in_group("player")
@@ -1894,7 +1937,7 @@ func show_pause_info():
     var touch = TouchControls.should_show()
     pause_info_title.text = "Tap a picture to learn about it" if touch else "Point at a picture to learn about it"
     pause_info_body.text = ""
-    if not last_banner.is_empty() and last_banner[0] != "WILDLIFE OF THIS ERA":
+    if not last_banner.is_empty() and last_banner[0] != "WILDLIFE OF THIS ERA" and last_banner[1] != "":
         pause_info_title.text = "Last discovery: " + last_banner[0]
         pause_info_body.text = last_banner[1]
     # Floor quests, with the fossil fact of each one done
