@@ -54,6 +54,32 @@ static func note_eaten(species: String) -> bool:
     config.save(SAVE_PATH)
     return true
 
+# ---- Field sketches ----
+# Every kind of animal sketched from life (rooms/FieldSketch.gd), across runs
+static var _sketches: Array = []
+static var _sketches_loaded: bool = false
+
+static func load_sketches() -> Array:
+    if not _sketches_loaded:
+        var config = ConfigFile.new()
+        if config.load(SAVE_PATH) == OK:
+            _sketches = config.get_value("fossils", "sketches", [])
+        _sketches_loaded = true
+    return _sketches
+
+static func note_sketch(species: String) -> bool:
+    if species == "" or load_sketches().has(species):
+        return false
+    _sketches.append(species)
+    var tree = Engine.get_main_loop()
+    if tree and tree.get_script() != null:
+        return true # tools/*.gd runs: remember for this run only
+    var config = ConfigFile.new()
+    config.load(SAVE_PATH)
+    config.set_value("fossils", "sketches", _sketches)
+    config.save(SAVE_PATH)
+    return true
+
 # ---- Trace fossils ----
 # Every kind of trace (data/Traces.gd) the player has seen made, across runs
 static var _traces: Array = []

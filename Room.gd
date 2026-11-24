@@ -13,6 +13,7 @@ var side_margin: float = 0.0
 var entry_dir: Vector2i = Vector2i.ZERO
 
 const TraceLayerScript = preload("res://rooms/TraceLayer.gd")
+const FieldSketchScript = preload("res://rooms/FieldSketch.gd")
 const ERA_ART = ["ediacaran", "cambrian", "ordovician", "carboniferous", "permian"]
 
 # Tests can force a margin (headless runs always report a 1920px viewport)
@@ -64,6 +65,11 @@ func setup_room(data, floor_number: int):
     traces.name = "Traces"
     traces.room = self
     add_child(traces)
+    # Sketching animals from life while they haven't noticed you
+    var sketch = FieldSketchScript.new()
+    sketch.name = "FieldSketch"
+    sketch.room = self
+    add_child(sketch)
     
     # 4. Add Impenetrable Room Boundary Colliders & Door Placements
     spawn_boundary_colliders_and_doors()

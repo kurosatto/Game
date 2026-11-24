@@ -460,6 +460,10 @@ func note_new_hunt(hunter: String, prey: String, pos: Vector2):
     pos.y = clamp(pos.y, o.y + 220.0, o.y + 1000.0)
     player.popup_text(pos + Vector2(0, -40), text, Color(0.98, 0.76, 0.38))
 
+# An animal sketched from life (rooms/FieldSketch.gd)
+func note_sketch(species: String, fact: String):
+    hud.show_item_banner("FIELD SKETCH: " + species.to_upper(), fact, false, 3.0, "You know its weak spots: hits on it land harder this run")
+
 # The first time you see a kind of trace being made (rooms/TraceLayer.gd)
 func note_new_trace(id: String):
     var t = preload("res://data/Traces.gd").TRACES[id]

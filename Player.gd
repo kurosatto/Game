@@ -102,6 +102,8 @@ var autotomy: bool = false # shed the first hit after each cleared room
 var autotomy_ready: bool = false
 var iframe_bonus: float = 0.0 # extra untouchable time on dash or escape
 var crit_chance: float = 0.0 # Enemy.take_damage doubles this share of hits
+# Kinds of animal sketched from life this run (rooms/FieldSketch.gd): hit harder
+var sketched: Dictionary = {}
 var symbionts: float = 0.0 # each stack heals half a heart per 12 biomass
 var symbiont_meter: float = 0.0
 var thorns: float = 0.0 # enemies pressing against you take this x damage
