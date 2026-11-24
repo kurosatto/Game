@@ -43,6 +43,7 @@ func begin(first: bool):
 		"meadow": _meadow(first)
 		"mat": _mat()
 		"drought": _drought()
+		"treefall": _treefall(first)
 	if first and kind != "ambush":
 		introduce()
 
@@ -382,3 +383,8 @@ func _mat():
 func _drought():
 	peaceful()
 	add_feature("DroughtPool.gd", {"room": room, "state": state})
+
+# ---- Falling tree: a scale tree comes down across the room mid-fight ----
+func _treefall(first: bool):
+	fight(first)
+	add_feature("TreeFall.gd", {"room": room, "state": state, "first": first})
