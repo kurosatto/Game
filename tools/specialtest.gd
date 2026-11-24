@@ -102,7 +102,7 @@ func _initialize():
 	for i in 20:
 		await process_frame
 	p = main.player
-	var tests = ["vent", "tar", "dig", "frenzy", "extinction", "nest", "tide", "symbiont", "ambush", "glow", "dark", "fire", "molt", "procession", "meadow", "deal", "run"]
+	var tests = ["vent", "tar", "dig", "frenzy", "extinction", "nest", "tide", "symbiont", "ambush", "glow", "dark", "fire", "molt", "procession", "meadow", "mat", "deal", "run"]
 	for t in tests:
 		if only != "" and t != only:
 			continue
@@ -216,6 +216,53 @@ func t_meadow():
 		var again = room().get_children().filter(func(c): return c.is_in_group("covers") and not c.is_queued_for_deletion())
 		check(again.size() == n, "the meadow is the same on a revisit (%d)" % again.size())
 	preload("res://data/Worlds.gd").sea = false
+
+func t_mat():
+	var d = await setup("mat", 1)
+	var g = feature("MatGround.gd")
+	check(g != null, "the mat ground is there")
+	check(not main.in_combat(), "mat room has open doors")
+	check(g.mats.size() >= 5, "mats on the floor (%d)" % g.mats.size())
+	var dick = g.grazers.map(func(x): return x.e)
+	check(dick.size() == g.GRAZERS and dick.all(func(e): return e.fauna_name == "Dickinsonia" and e.damage == 0), "harmless Dickinsonia grazing")
+	# The Dickinsonia go and lie on the mats, and eat them
+	var before = g.mats.map(func(m): return m.left)
+	await frames(60 * 8, Vector2(150, 150))
+	var eaten = 0.0
+	for i in g.mats.size():
+		eaten += before[i] - g.mats[i].left
+	check(eaten > 0.2, "Dickinsonia eat the mat (%.2f)" % eaten)
+	check(g.scars.size() >= 1, "they leave Epibaion feeding scars (%d)" % g.scars.size())
+	# You graze one by resting on it
+	var m = null
+	for x in g.mats:
+		if x.left >= 1.0 and not g.grazers.any(func(gr): return gr.target == x):
+			m = x
+			break
+	check(m != null, "a whole mat left to graze")
+	if m == null:
+		return
+	var at = room().global_position + m.pos
+	await frames(60, at)
+	check(m.left < 1.0 and m.left > 0.0, "resting on it grazes it (%.2f left)" % m.left)
+	if out != "":
+		await snap("16_mat_era1", true)
+	var els = total(p.elements)
+	await frames(int(60 * g.GRAZE_TIME) + 20, at)
+	check(m.left <= 0.0, "grazed bare")
+	await frames(30, at + Vector2(10, 0))
+	check(total(p.elements) > els, "the mat gives elements (%.2f)" % (total(p.elements) - els))
+	# A hurt Dickinsonia stops feeding
+	var e = dick[0]
+	e.take_damage(0.5)
+	await frames(20, Vector2(150, 150))
+	check(not is_instance_valid(e) or e.is_physics_processing(), "hurt, it stops feeding (%s)" % (str(e.health) if is_instance_valid(e) else "gone"))
+	# Revisit: the same mats, still grazed
+	var n = g.mats.size()
+	main.load_room(main.current_room_pos)
+	await frames(10, Vector2(150, 150))
+	var g2 = feature("MatGround.gd")
+	check(g2 != null and g2.mats.size() == n and g2.mats.any(func(x): return x.left <= 0.0), "the mats stay grazed on a revisit")
 
 func t_procession():
 	var d = await setup("procession", 3)
