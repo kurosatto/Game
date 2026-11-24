@@ -8,6 +8,7 @@ extends CharacterBody2D
 
 signal enemy_died
 const HitFX = preload("res://HitFX.gd")
+const Difficulty = preload("res://data/Difficulty.gd")
 signal boss_health_changed(current, max_value, boss_title)
 
 # Shared lighting (preloaded: works even before the editor has rescanned)
@@ -72,6 +73,8 @@ func _ready():
 
 func setup_enemy(_floor_number: int):
 	setup()
+	# Tougher in every era, more so later (data/Difficulty.gd)
+	max_health *= Difficulty.boss_health_mult(_floor_number)
 	health = max_health
 	call_deferred("emit_boss_health")
 	set_state("intro", 1.4) # a moment to see it before it moves
@@ -104,7 +107,8 @@ func _physics_process(delta: float):
 	if _room_sliding():
 		return
 	t += delta
-	state_time += delta
+	# Less circling between attacks; wind-ups keep their full length
+	state_time += delta * Difficulty.boss_clock(state)
 	if hit_flash > 0:
 		hit_flash -= delta
 	if grabbed_time > 0:
