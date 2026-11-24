@@ -500,9 +500,25 @@ func advance_floor(pick: String = ""):
         flush_bank()
         # Arthropods shed their skin for each new era
         player.molt_into_era()
+        apply_air()
         if get_tree().get_script() == null:
             hud.show_era_card(floor_number, current_form())
     )
+
+# The Carboniferous coal-swamp air held far more oxygen than today's, and
+# arthropods, which breathe through fine tubes oxygen has to diffuse along,
+# grew to giant sizes: arthropod forms get an extra heart on land in era 4
+const AIR_FACT = "Late Carboniferous air was about 35% oxygen, against 21% today. Insects, millipedes and spiders breathe through fine tubes that oxygen has to seep along, so richer air is thought to be why they grew so big: the griffinfly Meganeura spanned 70 cm and Arthropleura grew longer than 2 m."
+
+func apply_air():
+    var hp = 2 if Worlds.era(floor_number) == 4 and player.is_arthropod() else 0
+    var had = player.air_bonus
+    player.set_air_bonus(hp)
+    if hp > had:
+        player.popup_text(player.global_position + Vector2(0, -80), "OXYGEN-RICH AIR: +1 HEART", Color(0.85, 0.95, 0.75))
+        hud.note_journal("HIGH OXYGEN", AIR_FACT)
+    elif hp < had:
+        player.popup_text(player.global_position + Vector2(0, -80), "THINNER AIR: -1 HEART", Color(0.9, 0.8, 0.7))
 
 # A species eaten for the first time joins the fossil record (main menu)
 func note_new_fossil(species: String):

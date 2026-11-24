@@ -1738,6 +1738,18 @@ func heal(amount: int):
     SoundManager.play_sfx("heart_pickup", 1.0)
     health_changed.emit(health, max_health)
 
+# Oxygen-rich air (Main.apply_air): extra health for arthropods in the
+# Carboniferous coal swamp, taken away again when the air thins
+var air_bonus: int = 0
+
+func set_air_bonus(hp: int):
+    if hp == air_bonus:
+        return
+    max_health = max(2, max_health + hp - air_bonus)
+    health = clampi(health + max(0, hp - air_bonus), 1, max_health)
+    air_bonus = hp
+    health_changed.emit(health, max_health)
+
 func add_max_health(amount: int):
     max_health += amount
     health += amount
