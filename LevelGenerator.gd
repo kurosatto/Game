@@ -31,6 +31,7 @@ class RoomData:
     var clutch_pos: Vector2 = Vector2.INF # where you laid your clutch (Main.lay_clutch)
     var clutch_hatched: bool = false
     var exuviae: Array = [] # shed skins: [{pos, rot, form, parts, eaten}] (Main.add_exuvia)
+    var lair: String = "" # a secret lair's boss (data/Endgame.gd LAIRS), "" if none
     var special: String = "" # data/SpecialRooms.gd kind, run by rooms/SpecialRoom.gd
     var special_state: Dictionary = {} # what happened there, kept for revisits
     var shop_inventory: Array = [] # [{ "item_id": String, "price": int, "pos": Vector2, "bought": bool }]

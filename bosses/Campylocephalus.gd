@@ -57,9 +57,13 @@ func damage_taken_mult() -> float:
 		return 0.3 # half out of the old shell, still covered
 	return 1.6 if soft_time > 0.0 else 1.0
 
+# Megarachne (bosses/Megarachne.gd) reuses this body and doesn't moult
+var moults: bool = true
+
 func on_phase2():
 	super.on_phase2()
-	set_state("moult")
+	if moults:
+		set_state("moult")
 
 func think(delta: float):
 	var to_p = to_player()
