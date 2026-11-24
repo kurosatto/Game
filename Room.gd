@@ -62,6 +62,12 @@ func setup_room(data, floor_number: int):
     
     # 3. Add Ambient Bioluminescent Particles tailored to room theme
     spawn_ambient_particles()
+    # Ash, or dead plankton at sea, over the whole Great Dying floor
+    if Worlds.finale and floor_number >= 5:
+        var ash = preload("res://rooms/AshFall.gd").new()
+        ash.name = "AshFall"
+        ash.sea = Worlds.sea
+        add_child(ash)
     # Tracks in the sediment that you and the animals leave (data/Traces.gd)
     var traces = TraceLayerScript.new()
     traces.name = "Traces"
@@ -898,7 +904,15 @@ const BOSSES = {
 # (bosses/DrawnBoss.gd). The pick holds for the whole floor.
 const ALT_BOSS := "res://bosses/DrawnBoss.gd"
 
+# The Great Dying's last giants (data/Endgame.gd), one per world
+const FINALE_BOSSES = {
+    "land": "res://bosses/Inostrancevia.gd",
+    "sea": "res://bosses/Campylocephalus.gd",
+}
+
 func pick_boss_script(floor_number: int) -> String:
+    if Worlds.finale and floor_number >= 5:
+        return FINALE_BOSSES["sea" if Worlds.sea else "land"]
     var main = get_parent()
     var era = Worlds.era(floor_number)
     var key = "boss_pick_%d" % era
@@ -937,7 +951,7 @@ func spawn_treasure_pedestal():
 func spawn_hazards(floor_number: int):
     if not room_data.hazards_rolled:
         room_data.hazards_rolled = true
-        if floor_number >= 2 and randf() < 0.45:
+        if Worlds.finale or (floor_number >= 2 and randf() < 0.45):
             room_data.hazards = roll_hazards(floor_number)
     var kind = preload("res://Hazard.gd").kind_for_floor(floor_number)
     for h in room_data.hazards:
@@ -985,11 +999,12 @@ func roll_covers() -> Array:
 
 func roll_hazards(floor_number: int) -> Array:
     var out: Array = []
-    var vent = Worlds.era(floor_number) == 5
+    var vent = Worlds.era(floor_number) == 5 or (Worlds.finale and floor_number >= 5)
+    var most = 3 if Worlds.finale else 2
     var doors = [Vector2(960, 68), Vector2(960, 1012), Vector2(128 - side_margin, 540), Vector2(1792 + side_margin, 540)]
     var area = interior_rect(110.0)
     for attempt in 60:
-        if out.size() >= 2:
+        if out.size() >= most:
             break
         var sz = Vector2(95, 66) if vent else Vector2(randf_range(130, 190), randf_range(80, 110))
         var pos = Vector2(randf_range(area.position.x, area.end.x), randf_range(area.position.y, area.end.y))
@@ -1199,6 +1214,11 @@ func spawn_trapdoor():
     if Worlds.splits(current_floor + 1) and Worlds.habitat(form_id) == "shore" and current_floor < 5:
         _make_trapdoor(Vector2(720, 540), "sea")
         _make_trapdoor(Vector2(1200, 540), "land")
+    elif current_floor >= 5 and not Worlds.finale and main and main.has_method("finale_open") and main.finale_open():
+        # After a won run: end it here (the sun), or go on down into the
+        # end-Permian extinction (the eruption) (data/Endgame.gd)
+        _make_trapdoor(Vector2(720, 540), "end")
+        _make_trapdoor(Vector2(1200, 540), "finale")
     else:
         _make_trapdoor(Vector2(960, 540), "")
 
@@ -1216,7 +1236,7 @@ func _make_trapdoor(pos: Vector2, world: String):
     
     var td_light = PointLight2D.new()
     td_light.texture = load("res://assets/light.png")
-    td_light.color = Color(0.0, 0.95, 1.0) if world != "land" else Color(1.0, 0.85, 0.35)
+    td_light.color = {"land": Color(1.0, 0.85, 0.35), "end": Color(1.0, 0.95, 0.7), "finale": Color(1.0, 0.35, 0.15)}.get(world, Color(0.0, 0.95, 1.0))
     td_light.energy = 1.4
     td_light.scale = Vector2(1.8, 1.8)
     td.add_child(td_light)

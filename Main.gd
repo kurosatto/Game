@@ -204,6 +204,7 @@ func _update_quest_mark(pop: bool = false):
 func start_new_game():
     floor_number = 1
     Worlds.sea = false # floors 1-3 are sea anyway; advance_floor picks 4 and 5
+    Worlds.finale = false
     generate_floor()
     # Starting trait chosen on the main menu (unlocked by a challenge)
     var start_trait = progress.start_trait()
@@ -367,7 +368,7 @@ func register_boss(boss_node: Node):
         tween.tween_property($CanvasModulate, "color", boss_floor_color, 0.6)
 
 func get_boss_floor_color(floor_num: int) -> Color:
-    return era_look.get_look(floor_num).boss_tint * (SettingsManager.brightness / 1.2)
+    return era_look.get_look(floor_num).boss_tint * (SettingsManager.brightness / 1.2) * finale_tint()
 
 # -------------------------------------------------------------
 # Smooth 1080p Sliding Camera Room Transition with Anti-Loop Lock
@@ -466,6 +467,9 @@ func advance_floor(pick: String = ""):
     if advancing:
         return
     if floor_number >= 5:
+        if pick == "finale" and not Worlds.finale:
+            enter_finale()
+            return
         record_run(true)
         hud.show_victory(player.get_evolution_summary())
         player.set_physics_process(false)
@@ -501,6 +505,40 @@ func advance_floor(pick: String = ""):
         # Arthropods shed their skin for each new era
         player.molt_into_era()
         apply_air()
+        if get_tree().get_script() == null:
+            hud.show_era_card(floor_number, current_form())
+    )
+
+# ---- The Great Dying (data/Endgame.gd) ----
+# Once a run has been won, the Permian boss leaves two ways down: one ends
+# the run as before, the other goes on into the end-Permian extinction, a
+# second floor 5 in the same world with its own last boss
+func finale_open() -> bool:
+    return preload("res://data/Endgame.gd").is_unlocked("great_dying")
+
+func enter_finale():
+    advancing = true
+    Worlds.finale = true
+    transition_rect.visible = true
+    transition_rect.color = Color(0.25, 0.05, 0.02, 0.0)
+    player.set_physics_process(false)
+    SoundManager.play_sfx("boss_roar", 0.45)
+    var tween = create_tween()
+    tween.tween_property(transition_rect, "color:a", 1.0, 0.9)
+    tween.tween_callback(func():
+        for tear in get_tree().get_nodes_in_group("tears"):
+            tear.queue_free()
+        for pickup in get_tree().get_nodes_in_group("pickups"):
+            pickup.queue_free()
+        generate_floor()
+    )
+    tween.tween_property(transition_rect, "color:a", 0.0, 0.9)
+    tween.tween_callback(func():
+        transition_rect.visible = false
+        transition_rect.color = Color(0, 0, 0, 0)
+        advancing = false
+        player.set_physics_process(true)
+        flush_bank()
         if get_tree().get_script() == null:
             hud.show_era_card(floor_number, current_form())
     )
@@ -561,6 +599,19 @@ func on_boss_defeated(f_num: int):
     if f_num >= 5:
         complete_challenge("survivor")
     SoundManager.play_music(SoundManager.music_for_floor(f_num))
+    if f_num >= 5 and Worlds.finale:
+        # The last giant of the Great Dying is down: the lineage made it
+        # through into the Triassic
+        tally("finale_won")
+        record_run(true)
+        hud.show_victory(player.get_evolution_summary())
+        player.set_physics_process(false)
+        return
+    if f_num >= 5 and finale_open() and current_room_node and current_room_node.has_method("spawn_trapdoor"):
+        # Two ways down: the end of the run, or on into the extinction
+        # (Room.spawn_trapdoor)
+        current_room_node.spawn_trapdoor()
+        return
     if f_num >= 5:
         # Ultimate Final Boss Defeated!
         record_run(true)
@@ -615,7 +666,11 @@ func get_room_theme_color(room_type: int) -> Color:
         2: return era_tint * Color(0.92, 1.05, 0.95) * b # Treasure
         4: return era_tint * Color(1.05, 0.98, 0.85) * b # Shop
         3: return get_boss_floor_color(floor_number) # Boss
-        _: return era_tint * b
+        _: return era_tint * b * finale_tint()
+
+# Ash-red light over the whole of the Great Dying
+func finale_tint() -> Color:
+    return Color(1.08, 0.82, 0.72) if Worlds.finale else Color.WHITE
 
 func update_ambient_lighting(target_type: int = -1):
     if not has_node("CanvasModulate"):
@@ -648,7 +703,9 @@ func record_run(won: bool) -> bool:
     return progress.record_run(floor_number, player.current_character_name, won, {
         "path": ids,
         "world_era": Worlds.era(floor_number),
-        "killer": "" if won else player.last_hurt_by,
+        # A death in the Great Dying still counts the Permian win
+        "finale": ("won" if player.health > 0 else "died") if Worlds.finale else "",
+        "killer": player.last_hurt_by if (not won or (Worlds.finale and player.health <= 0)) else "",
         "kills": player.kills,
         "parts": player.adaptations_taken.size(),
     })
@@ -722,7 +779,8 @@ func _on_player_died():
     if has_clutch():
         _hatch_from_clutch()
         return
-    var record = record_run(false)
+    # Dying in the Great Dying: the run already beat the Permian
+    var record = record_run(Worlds.finale)
     hud.show_game_over({
         "record": record,
         "floor": floor_number,

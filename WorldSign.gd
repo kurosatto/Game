@@ -2,6 +2,8 @@
 # The ink picture over each trapdoor when an amphibious form chooses its
 # next world (Room.spawn_trapdoor, data/Worlds.gd): waves and a fish for the
 # sea, a fern and footprints for the land. Pictures only, no words.
+# After a won Permian boss (data/Endgame.gd): a rising sun ends the run, an
+# erupting volcano goes on into the Great Dying.
 extends Node2D
 
 const INK = Color(0.24, 0.15, 0.08)
@@ -28,10 +30,11 @@ func _draw():
 	draw_colored_polygon(slip, Color(PAPER, 0.9))
 	slip.append(slip[0])
 	draw_polyline(slip, Color(INK, 0.8), 2.5, true)
-	if world == "sea":
-		_sea()
-	else:
-		_land()
+	match world:
+		"sea": _sea()
+		"end": _end()
+		"finale": _finale()
+		_: _land()
 	# Pointer down to the trapdoor
 	draw_colored_polygon(PackedVector2Array([Vector2(-10, 48), Vector2(10, 48), Vector2(0, 64)]), Color(INK, 0.8))
 
@@ -77,3 +80,35 @@ func _land():
 		for s in [-1.0, 1.0]:
 			var leaf = p + dir.rotated(s * 1.1) * w
 			draw_line(p, leaf, Color(LAND, 0.95), 3.0, true)
+
+func _end():
+	# The sun coming up over a calm horizon: the run is over, you made it
+	draw_line(Vector2(-48, 20), Vector2(48, 20), Color(INK, 0.8), 2.0, true)
+	var c = Vector2(0, 20)
+	var r = 24.0 + sin(time * 1.5) * 1.5
+	draw_arc(c, r, PI, TAU, 24, INK, 2.5, true)
+	var half := PackedVector2Array()
+	for i in 13:
+		half.append(c + Vector2.from_angle(PI + PI * i / 12.0) * r)
+	draw_colored_polygon(half, Color(0.98, 0.78, 0.35, 0.9))
+	for k in 7:
+		var a = PI + PI * (k + 0.5) / 7.0
+		draw_line(c + Vector2.from_angle(a) * (r + 6.0), c + Vector2.from_angle(a) * (r + 16.0 + sin(time * 3.0 + k) * 3.0), Color(INK, 0.8), 2.0, true)
+	for row in 2:
+		var y = 30.0 + row * 8.0
+		draw_line(Vector2(-30 + row * 10, y), Vector2(30 - row * 10, y), Color(INK, 0.4), 1.5, true)
+
+func _finale():
+	# A volcano throwing up ash and glowing lava: on into the extinction
+	var cone = PackedVector2Array([Vector2(-48, 34), Vector2(-12, -6), Vector2(12, -6), Vector2(48, 34)])
+	draw_colored_polygon(cone, Color(0.45, 0.32, 0.25, 0.9))
+	var outline = cone.duplicate()
+	draw_polyline(outline, INK, 2.5, true)
+	# Lava down the side
+	var glow = 0.75 + 0.25 * sin(time * 4.0)
+	draw_polyline(PackedVector2Array([Vector2(-4, -6), Vector2(-10, 8), Vector2(-4, 18), Vector2(-14, 32)]), Color(0.95, 0.4, 0.12, glow), 3.5, true)
+	# Billowing ash clouds
+	for i in 4:
+		var t = fmod(time * 0.5 + i * 0.25, 1.0)
+		var p = Vector2(sin(i * 2.3) * 10.0 * t, -10.0 - t * 34.0)
+		draw_arc(p, 6.0 + t * 12.0, 0, TAU, 14, Color(INK, 0.85 * (1.0 - t)), 2.0, true)

@@ -9,6 +9,7 @@ var codex = preload("res://data/Codex.gd")
 var music_credits = preload("res://data/MusicCredits.gd")
 var progress = preload("res://data/Progress.gd")
 var adaptations = preload("res://data/Adaptations.gd")
+var endgame = preload("res://data/Endgame.gd")
 
 const UI = preload("res://data/UIStyle.gd")
 var ACCENT = UI.SUN
@@ -205,9 +206,12 @@ func build_menu():
 	var pair = HBoxContainer.new()
 	pair.add_theme_constant_override("separation", 16)
 	col.add_child(pair)
-	for b in [button("CHALLENGES", show_challenges), button("CODEX", show_codex)]:
-		b.custom_minimum_size = Vector2(292, 76)
-		b.add_theme_font_size_override("font_size", 26)
+	# ENDGAME: what a won run opens (data/Endgame.gd)
+	var eg = endgame.unlocked_count()
+	var eg_text = "ENDGAME" if eg > 0 else "🔒 ENDGAME"
+	for b in [button("CHALLENGES", show_challenges), button("CODEX", show_codex), button(eg_text, show_endgame, UI.CORAL if eg > 0 else UI.MEMBRANE)]:
+		b.custom_minimum_size = Vector2(189, 76)
+		b.add_theme_font_size_override("font_size", 22)
 		pair.add_child(b)
 	if not OS.has_feature("mobile") and not OS.has_feature("web"):
 		var row2 = HBoxContainer.new()
@@ -514,6 +518,52 @@ func show_challenges():
 		list.add_child(trait_card(adaptations.get_adaptation(c.unlock), done, progress.start_trait() == c.unlock))
 		list.add_child(HSeparator.new())
 
+# ENDGAME: content a won run opens, each with its goal while locked, and the
+# bosses waiting there drawn live (BossPortrait.gd), dark until unlocked
+func show_endgame():
+	var list = open_overlay("ENDGAME  %d / %d" % [endgame.unlocked_count(), endgame.ENTRIES.size()])
+	for e in endgame.ENTRIES:
+		list.add_child(endgame_card(e))
+
+func endgame_card(e: Dictionary) -> Control:
+	var open = endgame.is_unlocked(e.id)
+	var card = PanelContainer.new()
+	card.add_theme_stylebox_override("panel", UI.panel(UI.CORAL if open else LOCKED, 20, 0.75, 16.0))
+	var row = HBoxContainer.new()
+	row.add_theme_constant_override("separation", 18)
+	card.add_child(row)
+	var pics = VBoxContainer.new()
+	row.add_child(pics)
+	for b in e.get("bosses", []):
+		var info = endgame.BOSSES[b]
+		pics.add_child(preload("res://BossPortrait.gd").new().setup(info.script, not open))
+		var cap = label(("%s  (%s)" % [info.name, info.world]) if open else "? ? ?", 18, UI.CREAM if open else UI.MUTED)
+		pics.add_child(cap)
+	var col = VBoxContainer.new()
+	col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	col.add_theme_constant_override("separation", 6)
+	row.add_child(col)
+	var title = label(("" if open else "🔒 ") + e.name, 30, UI.SUN if open else UI.CREAM)
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	col.add_child(title)
+	var p = endgame.progress_of(e.id)
+	var goal = label(("UNLOCKED" if open else "To unlock: %s  (%d / %d)" % [e.goal, p[0], p[1]]), 22, UI.LEAF if open else UI.SUN)
+	goal.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	col.add_child(goal)
+	for t in [e.what, e.fact]:
+		var l = label(t, 19, SOFT if open else UI.MUTED)
+		l.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		col.add_child(l)
+	if open:
+		for b in e.get("bosses", []):
+			var info = endgame.BOSSES[b]
+			var l = label("%s: %s" % [info.name, info.fact], 18, UI.MUTED)
+			l.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+			l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			col.add_child(l)
+	return card
+
 # What a challenge's starting trait does: name, effect and the real biology
 func trait_card(a: Dictionary, unlocked: bool, chosen: bool) -> Control:
 	var card = PanelContainer.new()
@@ -559,6 +609,7 @@ func show_fossils():
 	var total := 0
 	# Era lists start from the land worlds; the sea worlds are eras 6 and 7
 	Worlds.sea = false
+	Worlds.finale = false
 	for era in Worlds.ERA_ORDER:
 		total += FAUNA.era_species(era).size() + 2
 	var list = open_overlay("FOSSIL RECORD  %d / %d" % [eaten.size(), total])

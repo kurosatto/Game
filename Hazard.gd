@@ -8,6 +8,8 @@
 #   fumarole (era 5)     a gas vent of the Siberian Traps eruptions. It hisses
 #                        for a moment, then bursts, hurting anything on it,
 #                        animals included, so you can lure them onto it.
+#   euxinic  (Great Dying, sea)  dead, sulfide-poisoned water welling up from
+#                        the deep (data/Endgame.gd). Bursts like a fumarole.
 # Flying forms (passive "flight") pass over pools but not over gas.
 extends Node2D
 
@@ -17,6 +19,7 @@ const INK = Color(0.24, 0.15, 0.08)
 const INFO = {
 	"brine": {"name": "Brine pool", "fact": "Brine pools are lakes of super-salty water on the seafloor, so dense they have shores and waves."},
 	"bog": {"name": "Peat bog", "fact": "Carboniferous swamp plants piled up as peat, which became most of the world's coal."},
+	"euxinic": {"name": "Dead water", "fact": "In the Great Dying the deep sea lost its oxygen and filled with hydrogen sulfide. Rocks from the time hold the chemical traces of green sulfur bacteria, which only live in sulfidic water lit by the sun."},
 	"fumarole": {"name": "Fumarole", "fact": "The Siberian Traps eruptions poured out gas for thousands of years and drove the end-Permian extinction, the worst in Earth's history."},
 }
 
@@ -37,7 +40,10 @@ var marks: Array = []
 var told: bool = false
 
 static func kind_for_floor(f: int) -> String:
-	if not preload("res://data/Worlds.gd").is_land(f):
+	var W = preload("res://data/Worlds.gd")
+	if W.finale and f >= 5 and W.sea:
+		return "euxinic"
+	if not W.is_land(f):
 		return "brine"
 	if f >= 5:
 		return "fumarole"
@@ -50,7 +56,7 @@ func _ready():
 	player = get_tree().get_first_node_in_group("player")
 	var rng = RandomNumberGenerator.new()
 	rng.seed = seed_val
-	if kind == "fumarole":
+	if is_vent():
 		size = Vector2(VENT_RADIUS, VENT_RADIUS * 0.7)
 		vent_timer = rng.randf_range(0.5, VENT_PERIOD)
 	for i in 28:
@@ -78,7 +84,7 @@ func _physics_process(delta: float):
 		return
 	if player.global_position.distance_to(global_position) < size.x + 220.0:
 		introduce()
-	if kind == "fumarole":
+	if is_vent():
 		vent_timer -= delta
 		if vent_timer <= 0.0:
 			vent_timer = VENT_PERIOD
@@ -98,18 +104,21 @@ func introduce():
 		return
 	main.set_meta("hazard_" + kind, true)
 	var effect = "It bursts every few seconds and hurts anything standing on it. Lure animals onto it!" \
-		if kind == "fumarole" else "Wading through it slows you down; the animals here know to go round."
-	main.hud.show_item_banner(INFO[kind].name.to_upper(), INFO[kind].fact + "\n" + effect, true, -1.0, "Bursts every few seconds: lure animals onto it" if kind == "fumarole" else "Slows you down")
+		if is_vent() else "Wading through it slows you down; the animals here know to go round."
+	main.hud.show_item_banner(INFO[kind].name.to_upper(), INFO[kind].fact + "\n" + effect, true, -1.0, "Bursts every few seconds: lure animals onto it" if is_vent() else "Slows you down")
+
+func is_vent() -> bool:
+	return kind == "fumarole" or kind == "euxinic"
 
 func burst():
 	burst_flash = 1.0
-	HitFX.pop(get_parent(), global_position, Color(0.85, 0.6, 0.4), 30.0, VENT_RADIUS * 2.2, 0.35)
+	HitFX.pop(get_parent(), global_position, Color(0.55, 0.75, 0.45) if kind == "euxinic" else Color(0.85, 0.6, 0.4), 30.0, VENT_RADIUS * 2.2, 0.35)
 	if player.global_position.distance_to(global_position) < 700.0:
 		var sm = get_node_or_null("/root/SoundManager")
 		if sm:
 			sm.play_sfx("explosion", 0.55, -12.0)
 	if covers(player.global_position, 20.0) and player.has_method("take_damage"):
-		player.take_damage(1, "a fumarole")
+		player.take_damage(1, "dead water" if kind == "euxinic" else "a fumarole")
 	for e in get_tree().get_nodes_in_group("enemies"):
 		if is_instance_valid(e) and not e.dead and covers(e.global_position, 20.0) \
 				and not e.is_boss() and not e.is_burrowed():
@@ -160,7 +169,8 @@ func _draw_bog():
 func _draw_vent():
 	var warn = clamp(1.0 - vent_timer / VENT_WARN, 0.0, 1.0) if vent_timer < VENT_WARN else 0.0
 	# Scorched ground, darker as it is about to go
-	draw_colored_polygon(outline, Color(0.35, 0.22, 0.14, 0.18 + 0.25 * warn + 0.3 * burst_flash))
+	var ground = Color(0.28, 0.34, 0.2) if kind == "euxinic" else Color(0.35, 0.22, 0.14)
+	draw_colored_polygon(outline, Color(ground, 0.18 + 0.25 * warn + 0.3 * burst_flash))
 	draw_polyline(outline, Color(INK, 0.55 + 0.4 * warn), 1.6 + 2.0 * warn, true)
 	# Cracks out from the mouth
 	for m in marks:
@@ -180,4 +190,4 @@ func _draw_vent():
 		draw_arc(Vector2(x, -t * (50.0 + 50.0 * warn)), r, 0, TAU, 14, Color(INK, (0.35 + 0.4 * warn) * (1.0 - t)), 1.6, true)
 	if burst_flash > 0.0:
 		var r = VENT_RADIUS * (1.2 - burst_flash * 0.4)
-		draw_arc(Vector2.ZERO, r, 0, TAU, 32, Color(0.55, 0.25, 0.1, burst_flash), 4.0, true)
+		draw_arc(Vector2.ZERO, r, 0, TAU, 32, Color(0.3, 0.45, 0.2, burst_flash) if kind == "euxinic" else Color(0.55, 0.25, 0.1, burst_flash), 4.0, true)

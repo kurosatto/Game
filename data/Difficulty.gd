@@ -53,8 +53,14 @@ const BOSS_REST_STATES := ["cruise", "recover", "wander", "stalk", "approach", "
 static func era(floor_number: int) -> int:
 	return clampi(floor_number, 1, LAST_ERA)
 
+# The Great Dying (data/Endgame.gd): its animals are the toughest survivors
+const FINALE_ENEMY_HEALTH := 1.15
+
 static func enemy_health_mult(floor_number: int) -> float:
-	return 1.0 + ENEMY_HEALTH_PER_ERA * (era(floor_number) - 1)
+	var m = 1.0 + ENEMY_HEALTH_PER_ERA * (era(floor_number) - 1)
+	if preload("res://data/Worlds.gd").finale and floor_number >= 5:
+		m *= FINALE_ENEMY_HEALTH
+	return m
 
 static func enemy_speed_mult(floor_number: int) -> float:
 	return 1.0 + ENEMY_SPEED_PER_ERA * (era(floor_number) - 1)
