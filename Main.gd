@@ -196,7 +196,7 @@ func _update_quest_mark(pop: bool = false):
 
 func start_new_game():
     floor_number = 1
-    Worlds.sea = true
+    Worlds.sea = false # floors 1-3 are sea anyway; advance_floor picks 4 and 5
     generate_floor()
     # Starting trait chosen on the main menu (unlocked by a challenge)
     var start_trait = progress.start_trait()

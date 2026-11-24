@@ -64,7 +64,7 @@ func _draw():
 		for e in eggs.slice(0, 5):
 			draw_arc(e[0], e[1] * 0.8, 0.3, PI + 0.3, 8, Color(INK, 0.55), 1.4, true)
 		return
-	var label = SR.NESTS[preload("res://data/Worlds.gd").era(floor_num)].label
+	var label = SR.NESTS.get(preload("res://data/Worlds.gd").era(floor_num), SR.NESTS[2]).label
 	for i in eggs.size():
 		var e = eggs[i]
 		var p: Vector2 = e[0]
