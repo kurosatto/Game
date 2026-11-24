@@ -13,7 +13,7 @@ const BIOMINERALS = preload("res://data/Biominerals.gd")
 const INK = Color(0.24, 0.15, 0.08)
 const PAPER = Color(0.95, 0.9, 0.78)
 
-const KINDS = ["vent", "tar", "dig", "frenzy", "extinction", "nest", "tide", "symbiont", "ambush", "glow", "dark", "fire", "molt", "procession", "meadow", "mat", "drought", "treefall"]
+const KINDS = ["vent", "tar", "dig", "frenzy", "extinction", "nest", "tide", "symbiont", "ambush", "glow", "dark", "fire", "molt", "procession", "meadow", "mat", "drought", "treefall", "brachiopods"]
 
 # Which eras each kind can turn up in. No brood care, hunters lying in wait
 # or animal sidekicks before the Cambrian; no glowing animals known on land
@@ -40,10 +40,12 @@ const ERAS = {
 	"drought": [5],
 	# Scale trees of the coal swamps, 30 m tall on shallow roots
 	"treefall": [4],
+	# Lamp-shell beds of the late Palaeozoic seas, Richthofenia among them
+	"brachiopods": [6, 7],
 }
 
 # Rooms with nothing to fight when you walk in: open doors, open ground
-const PEACEFUL = ["vent", "dig", "extinction", "nest", "symbiont", "ambush", "procession", "mat", "drought"]
+const PEACEFUL = ["vent", "dig", "extinction", "nest", "symbiont", "ambush", "procession", "mat", "drought", "brachiopods"]
 
 const Worlds = preload("res://data/Worlds.gd")
 
@@ -85,6 +87,7 @@ static func title(kind: String, f: int) -> String:
 		"mat": return "MICROBIAL MAT"
 		"drought": return "DRYING POOL"
 		"treefall": return "FALLING TREE"
+		"brachiopods": return "LAMP-SHELL BED"
 	return kind.to_upper()
 
 static func fact(kind: String, f: int) -> String:
@@ -133,6 +136,10 @@ static func fact(kind: String, f: int) -> String:
 			if Worlds.era(f) == 6:
 				return "The early Carboniferous is called the Age of Crinoids: sea lilies grew in meadows so thick that whole limestones, like the Burlington Limestone of Iowa, are made almost entirely of their broken stems. Small animals hid among the stalks, and hunters stalked them there."
 			return "Ordovician sea floors grew the first great meadows of sea lilies, crinoids standing on long stalks and combing the current for food with feathery arms. Small animals sheltered among them."
+		"brachiopods":
+			if Worlds.era(f) == 7:
+				return "Brachiopods, or lamp shells, were the commonest shellfish of the Palaeozoic seas. In the Permian reefs lived the strangest of all: Richthofenia, a horn-shaped shell with a lid, cemented to the reef like a coral. A brachiopod feeds with a coiled lophophore inside its gaping shell, and snaps shut when it feels the water move. The Great Dying wiped most of them out, and clams took their place."
+			return "Brachiopods, or lamp shells, were the commonest shellfish of the Palaeozoic seas, packed in beds on the sea floor. A brachiopod feeds with a coiled lophophore inside its gaping shell, and snaps shut when it feels the water move. A few kinds, like Lingula, still live today."
 		"treefall":
 			return "The coal swamps were forests of giant club mosses like Lepidodendron, 30 m tall on shallow roots called Stigmaria spread through wet peat. They toppled easily, and fossil forests are strewn with their fallen trunks, patterned all over with diamond-shaped leaf scars. Cockroaches swarmed in the rotting wood and leaf litter."
 		"drought":
@@ -166,6 +173,7 @@ static func how(kind: String, f: int) -> String:
 		"fire": return "A fire front sweeps the room. Stay ahead of it or dash through."
 		"meadow": return "Thick sea lilies everywhere: slip between them to hide, or to stalk."
 		"procession": return "They're blind and walk by touch. Take them from the back and the line walks on; hit the middle and it breaks."
+		"brachiopods": return "They feel the water move and snap shut. Creep up, wait for them to open, then lunge."
 		"treefall": return "A scale tree is about to fall. Get out from under its shadow and lure the animals beneath it."
 		"drought": return "The pool is drying up. Stranded fish are easy prey; stand on a lungfish burrow in the dry mud to dig it out."
 		"mat": return "Rest on a mat to graze it. The Dickinsonia graze them too, so get there first."
