@@ -390,7 +390,7 @@ func _setup_element_bar():
     element_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
     row.add_child(element_label)
     grow_btn = Button.new()
-    grow_btn.text = "GROW"
+    grow_btn.text = "BODY"
     grow_btn.custom_minimum_size = Vector2(110, 34)
     grow_btn.add_theme_font_size_override("font_size", 16)
     grow_btn.focus_mode = Control.FOCUS_NONE
@@ -452,7 +452,7 @@ func _refresh_grow_btn():
         grow_btn.text = "FIGHTING"
         grow_btn.modulate = Color(0.6, 0.6, 0.6, 0.8)
     else:
-        grow_btn.text = ("GROW %d" % _growable) if _growable > 0 else "GROW"
+        grow_btn.text = ("BODY %d" % _growable) if _growable > 0 else "BODY"
         grow_btn.modulate = Color(1.25, 1.25, 1.05) if _growable > 0 else Color(0.75, 0.75, 0.75)
 
 # Rooms clear and fights start without the elements changing
@@ -469,7 +469,7 @@ func _watch_grow_fight(delta: float):
 func deny_grow():
     var player = get_tree().get_first_node_in_group("player")
     if player and player.has_method("popup_text"):
-        player.popup_text(player.global_position + Vector2(0, -80), "CLEAR THE ROOM TO GROW", Color(1.0, 0.75, 0.45))
+        player.popup_text(player.global_position + Vector2(0, -80), "CLEAR THE ROOM FIRST", Color(1.0, 0.75, 0.45))
     SoundManager.play_sfx("parry", 0.6, -8.0)
     if grow_btn:
         var tw = grow_btn.create_tween()
@@ -494,7 +494,7 @@ func show_grow_screen():
     get_tree().paused = true
     # Start the pad on the first part you can grow
     if PadInput.using_pad:
-        for r in BIOMINERALS.RECIPES:
+        for r in BIOMINERALS.run_recipes():
             if _can_grow(r):
                 grow_tiles[r.id].tile.grab_focus.call_deferred()
                 break
@@ -503,10 +503,6 @@ func hide_grow_screen():
     if grow_modal:
         grow_modal.visible = false
     get_tree().paused = false
-    # Arthropods shed their skin to take on what they grew (Player.molt)
-    var player = get_tree().get_first_node_in_group("player")
-    if player and player.has_method("molt") and not player.molt_from.is_empty():
-        player.molt.call_deferred()
 
 func is_grow_up() -> bool:
     return grow_modal != null and grow_modal.visible
@@ -583,10 +579,11 @@ func _create_grow_screen():
     grow_modal.add_child(bg)
     var col = VBoxContainer.new()
     col.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT, Control.PRESET_MODE_MINSIZE, 28)
-    col.add_theme_constant_override("separation", 10)
+    col.add_theme_constant_override("separation", 14)
+    col.alignment = BoxContainer.ALIGNMENT_CENTER
     grow_modal.add_child(col)
     var header = Label.new()
-    header.text = "GROW FROM WHAT YOU HAVE EATEN"
+    header.text = "WHAT YOU HAVE EATEN"
     header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
     header.add_theme_font_size_override("font_size", 32)
     header.add_theme_color_override("font_color", UI.SUN)
@@ -609,20 +606,27 @@ func _create_grow_screen():
         have_row.add_child(chip)
         grow_chips[el] = chip
     grow_grid = GridContainer.new()
-    grow_grid.columns = 5
+    grow_grid.columns = 2
     grow_grid.add_theme_constant_override("h_separation", 12)
     grow_grid.add_theme_constant_override("v_separation", 10)
     grow_grid.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
     col.add_child(grow_grid)
-    for r in BIOMINERALS.RECIPES:
+    for r in BIOMINERALS.run_recipes():
         _make_grow_tile(r)
+    # Lasting parts are grown into the lineage on the main menu now
+    var bank_note = Label.new()
+    bank_note.text = "Everything you eat is banked for your lineage too: grow lasting parts on the main menu GROW page. Healing or laying here banks less."
+    bank_note.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+    bank_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+    bank_note.add_theme_font_size_override("font_size", 19)
+    bank_note.add_theme_color_override("font_color", UI.MUTED)
+    col.add_child(bank_note)
 
     # The info panel: your creature (with the part, if it shows on the body),
     # what the part is, what it changes, and the buttons
     var info = PanelContainer.new()
     info.add_theme_stylebox_override("panel", UI.panel(UI.MEMBRANE, 22, 0.9, 14.0))
     info.custom_minimum_size = Vector2(0, 236)
-    info.size_flags_vertical = Control.SIZE_EXPAND_FILL
     col.add_child(info)
     var irow = HBoxContainer.new()
     irow.add_theme_constant_override("separation", 20)
@@ -696,7 +700,7 @@ func _create_grow_screen():
     var btns = VBoxContainer.new()
     btns.add_theme_constant_override("separation", 10)
     irow.add_child(btns)
-    grow_go = _styled_button("GROW IT", UI.LEAF)
+    grow_go = _styled_button("HEAL", UI.LEAF)
     grow_go.pressed.connect(_on_grow_pressed)
     btns.add_child(grow_go)
     # Leave young behind (data/Reproduction.gd): first press shows how your
@@ -786,7 +790,7 @@ func _fill_grow_screen():
     var hurt: bool = player != null and player.health < player.max_health
     for el in BIOMINERALS.ORDER:
         grow_chips[el].text = "%s %d" % [el, int(_have.get(el, 0.0))]
-    for r in BIOMINERALS.RECIPES:
+    for r in BIOMINERALS.run_recipes():
         var w: Dictionary = grow_tiles[r.id]
         var tile: Button = w.tile
         var n = taken.get(r.id, 0)
@@ -825,15 +829,15 @@ func _fill_grow_screen():
     var eggs_tint = UI.LEAF if (player and player.can_lay_clutch()) else UI.SUN
     for state in ["normal", "hover", "pressed", "disabled"]:
         grow_eggs.add_theme_stylebox_override(state, UI.button_box(state, eggs_tint))
-    grow_go.text = "GROW IT"
+    grow_go.text = "HEAL"
     if grow_selected == CLUTCH_SEL:
         _fill_clutch_info(player, mode, laid)
         return
     var sel_r = BIOMINERALS.get_recipe(grow_selected)
     if sel_r.is_empty():
-        grow_title.text = PadInput.prompt("Move to a part to see what it is made of", "Tap a part to see what it is made of", "Click a part to see what it is made of")
+        grow_title.text = PadInput.prompt("Move to a tile to see what it does", "Tap a tile to see what it does", "Click a tile to see what it does")
         grow_change.text = ""
-        grow_body.text = "Prey leaves behind the elements its body was built from. Hunt different animals to gather different elements. Parts lit green can be grown now; the bar under each part shows how close you are."
+        grow_body.text = "Prey leaves behind the elements its body was built from. Here you can patch your membrane when hurt, or leave young behind on this floor. The rest goes to your lineage."
         grow_go.disabled = true
         return
     var ok_sel = _can_grow(sel_r)

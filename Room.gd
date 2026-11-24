@@ -1157,6 +1157,9 @@ func clear_room():
         return
     room_data.cleared = true
     SoundManager.play_sfx("room_clear")
+    var mb = get_parent()
+    if mb and mb.has_method("flush_bank"):
+        mb.flush_bank()
     if special_node and is_instance_valid(special_node):
         special_node.on_cleared()
     var m = get_parent()

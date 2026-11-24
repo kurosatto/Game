@@ -1,7 +1,6 @@
 # molttest.gd
-# Checks molting (Player.molt, rooms/Exuvia.gd): an arthropod that grows parts
-# molts once when the GROW screen closes, leaving its old skin (without the
-# new part) in the room, healing half a heart if hurt; the skin survives
+# Checks molting (Player.molt, rooms/Exuvia.gd): an arthropod molts once at
+# the start of each era (Player.molt_into_era), leaving its old skin in the room, healing half a heart if hurt; the skin survives
 # leaving and coming back, gives calcium once when touched after stepping
 # away; a non-arthropod never molts. Screenshots with SHOT_DIR (xvfb).
 #   godot --headless --path . -s res://tools/molttest.gd
@@ -38,9 +37,8 @@ func _initialize():
 	# Not an arthropod: no molt
 	form(p, "pikaia_chordate")
 	p.elements = {"Ca": 30.0, "P": 30.0, "Fe": 30.0, "Zn": 30.0, "Cu": 30.0, "S": 30.0}
-	hud.show_grow_screen()
-	p.grow("keratin_claws")
-	hud.hide_grow_screen()
+	p.grant_adaptation("keratin_claws")
+	p.molt_into_era()
 	for i in 10: await physics_frame
 	check(room.room_data.exuviae.is_empty(), "a chordate does not molt")
 	check(not p.is_arthropod() and preload("res://data/Reproduction.gd").ancestry("scorpion").has("early_arthropod"), "who is an arthropod")
@@ -49,15 +47,13 @@ func _initialize():
 	p.global_position = Vector2(900, 560)
 	p.health = p.max_health - 2
 	var hp = p.health
-	hud.show_grow_screen()
-	p.grow("calcite_spines")
-	p.grow("keratin_horn")
-	hud.hide_grow_screen()
+	p.grant_adaptation("calcite_spines")
+	p.molt_into_era()
 	for i in 40: await physics_frame
-	check(room.room_data.exuviae.size() == 1, "one molt for one GROW visit (%d)" % room.room_data.exuviae.size())
+	check(room.room_data.exuviae.size() == 1, "one molt for a new era (%d)" % room.room_data.exuviae.size())
 	check(p.health == hp + 1, "molting regrows half a heart")
 	var e = room.room_data.exuviae[0] if not room.room_data.exuviae.is_empty() else {}
-	check(not e.is_empty() and not e.parts.has("keratin_horn"), "the old skin does not have the new parts")
+	check(not e.is_empty() and e.parts.has("calcite_spines"), "the old skin keeps the parts it had")
 	await snap("1_molted")
 	for i in 5:
 		p.global_position = Vector2(1250, 560)
