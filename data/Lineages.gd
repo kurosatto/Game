@@ -8,7 +8,7 @@
 #
 # Stats, attack types and perks use the mechanics in Player.gd and Tear.gd.
 # "weapon" picks a style from WEAPONS below: a real feeding or defence tool
-# of the animal, so a cell engulfs its prey and a shark bites. Only animals
+# of the animal, so a cell throws lysosomes and a shark bites. Only animals
 # that really launch something at prey or attackers (archerfish, spitting
 # reptiles, cone snails, bombardier beetles...) have ranged weapons.
 # Speed follows the real animal: sea cucumbers and buried clams crawl (270-300),
@@ -36,8 +36,8 @@ const TREE = {
         "shot_speed": 720.0,
         "max_health_add": 0,
         "attack_type": "single",
-        "weapon": "engulf",
-        "weapon_name": "Engulf (phagocytosis)",
+        "weapon": "vesicle",
+        "weapon_name": "Lysosome vesicles",
         "tear_perks": {},
         "dash_perks": {},
         "passive": "none",
@@ -2090,7 +2090,8 @@ static func describe_sense_kind(kind: String, rating: int) -> String:
 # knockback pulls the target in. A melee swing also swats enemy shots it covers.
 const WEAPONS = {
     # Ranged
-    "vesicle": {"melee": false, "label": "ranged", "speed": 0.85, "life": 1.0},
+    # The cell's lysosomes: little bags of digestive enzyme thrown a short way
+    "vesicle": {"melee": false, "label": "short-range throw", "speed": 0.85, "life": 0.5, "shot_damage": 1.3},
     "jet": {"melee": false, "label": "ranged", "speed": 1.3, "life": 0.65, "special": "Pressure: shots shove enemies back"},
     "spit": {"melee": false, "label": "ranged", "speed": 1.0, "life": 1.0, "special": "Blinding venom: hit enemies can't aim for 2.5 s"},
     "harpoon": {"melee": false, "label": "ranged", "speed": 1.35, "life": 1.0, "special": "Conotoxin: harpoons pass through and paralyse"},
