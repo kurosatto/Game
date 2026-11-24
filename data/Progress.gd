@@ -67,8 +67,21 @@ static func set_start_trait(id: String):
 # Each finished run (death or victory): counts runs and wins and keeps the
 # furthest era reached with the form that got there, for the main menu.
 # Returns true when this run went further than any before.
-static func record_run(era: int, form_name: String, won: bool) -> bool:
+# extra: what the past-runs page shows (form ids along the lineage, killer...)
+const HISTORY_MAX := 40
+
+static func record_run(era: int, form_name: String, won: bool, extra: Dictionary = {}) -> bool:
 	var config = _load()
+	var history: Array = config.get_value("runs", "history", [])
+	var entry = extra.duplicate()
+	entry["era"] = era
+	entry["form"] = form_name
+	entry["won"] = won
+	entry["date"] = Time.get_date_string_from_system()
+	history.append(entry)
+	while history.size() > HISTORY_MAX:
+		history.pop_front()
+	config.set_value("runs", "history", history)
 	config.set_value("runs", "count", int(config.get_value("runs", "count", 0)) + 1)
 	if won:
 		config.set_value("runs", "wins", int(config.get_value("runs", "wins", 0)) + 1)
@@ -79,6 +92,10 @@ static func record_run(era: int, form_name: String, won: bool) -> bool:
 		config.set_value("runs", "best_form", form_name)
 	config.save(SAVE_PATH)
 	return record
+
+# Past runs, oldest first
+static func history() -> Array:
+	return _load().get_value("runs", "history", [])
 
 static func run_stats() -> Dictionary:
 	var config = _load()

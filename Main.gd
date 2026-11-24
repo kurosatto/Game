@@ -546,7 +546,19 @@ func record_run(won: bool) -> bool:
     if get_tree().get_script() != null or run_recorded:
         return false
     run_recorded = true
-    return progress.record_run(floor_number, player.current_character_name, won)
+    # The lineage you walked, as form ids, for the past-runs page
+    var ids: Array = []
+    var L = player.lineages
+    for n in range(player.evolution_choices.size() + 1):
+        var key = L.path_key(player.evolution_choices.slice(0, n))
+        if L.has_form(key) and (ids.is_empty() or ids[-1] != L.get_form(key).id):
+            ids.append(L.get_form(key).id)
+    return progress.record_run(floor_number, player.current_character_name, won, {
+        "path": ids,
+        "killer": "" if won else player.last_hurt_by,
+        "kills": player.kills,
+        "parts": player.adaptations_taken.size(),
+    })
 
 # ---- Your clutch (GROW screen, data/Reproduction.gd) ----
 # One clutch at a time, left in a cleared room of this floor. Dying on this

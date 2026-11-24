@@ -230,9 +230,14 @@ func build_menu():
 		var tally = "%d run%s" % [runs.count, "" if runs.count == 1 else "s"]
 		if runs.wins > 0:
 			tally += ", %d survived to the end" % runs.wins
-		var run_line = label(best + "  ·  " + tally, 20, UI.MUTED)
+		# Tap it for the past runs, each with the lineage it walked
+		var run_line = button(best + "  ·  " + tally + "  ›", show_past_runs)
+		run_line.flat = true
+		run_line.custom_minimum_size = Vector2(0, 44)
+		run_line.add_theme_font_size_override("font_size", 20)
 		run_line.add_theme_constant_override("outline_size", 6)
-		run_line.add_theme_color_override("font_color", TITLE_INK.lerp(PAPER, 0.15))
+		for c in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]:
+			run_line.add_theme_color_override(c, TITLE_INK.lerp(PAPER, 0.15) if c == "font_color" else TITLE_INK)
 		run_line.add_theme_color_override("font_outline_color", PAPER)
 		menu_box.add_child(run_line)
 
@@ -607,6 +612,73 @@ func food_web_line(species: String) -> String:
 		var names = by.map(func(h): return h if seen.has(web.link(h, species)) else "?")
 		parts.append("Hunted by: " + ", ".join(names))
 	return "   ·   ".join(parts)
+
+# Past runs, newest first: the lineage each one walked, in pictures, and
+# where and how it ended (Progress.record_run)
+func show_past_runs():
+	var runs: Array = progress.history().duplicate()
+	runs.reverse()
+	var list = open_overlay("PAST RUNS  %d" % progress.run_stats().count)
+	if runs.is_empty():
+		list.add_child(label("Your runs will be kept here from now on.", 20, UI.MUTED))
+		return
+	for r in runs:
+		list.add_child(past_run_row(r))
+
+func past_run_row(r: Dictionary) -> Control:
+	var card = PanelContainer.new()
+	card.add_theme_stylebox_override("panel", UI.panel(UI.SUN if r.get("won", false) else UI.MEMBRANE, 18, 0.7, 12.0))
+	var col = VBoxContainer.new()
+	col.add_theme_constant_override("separation", 6)
+	card.add_child(col)
+	var era = int(r.get("era", 1))
+	var head: String
+	if r.get("won", false):
+		head = "Survived to the end as %s" % String(r.get("form", "")).to_lower().capitalize()
+	else:
+		head = "%s, era %d: %s" % [ERA_NAMES[clampi(era, 1, 5) - 1], era, String(r.get("form", "")).to_lower().capitalize()]
+		if String(r.get("killer", "")) != "":
+			head += "  ·  killed by %s" % r.killer
+	var h = label(head, 22, UI.SUN if r.get("won", false) else UI.CREAM)
+	h.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	col.add_child(h)
+	var strip = HFlowContainer.new()
+	strip.add_theme_constant_override("h_separation", 6)
+	strip.add_theme_constant_override("v_separation", 6)
+	col.add_child(strip)
+	var path: Array = r.get("path", [])
+	for i in path.size():
+		if i > 0:
+			var arrow = label("›", 26, UI.MUTED)
+			arrow.custom_minimum_size = Vector2(0, 72)
+			arrow.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+			strip.add_child(arrow)
+		var pic = TextureRect.new()
+		pic.custom_minimum_size = Vector2(72, 72)
+		pic.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		pic.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		pic.tooltip_text = String(path[i]).replace("_", " ").capitalize()
+		var sheet_path = "res://assets/lineages/%s_sheet.png" % path[i]
+		if ResourceLoader.exists(sheet_path):
+			var sheet: Texture2D = load(sheet_path)
+			var frame = AtlasTexture.new()
+			frame.atlas = sheet
+			frame.region = Rect2(0, 0, sheet.get_height(), sheet.get_height())
+			pic.texture = frame
+			pic.material = UI.sepia_material()
+		strip.add_child(pic)
+	var bits: Array = []
+	if r.has("kills"):
+		bits.append("%d eaten" % int(r.kills))
+	if r.has("parts"):
+		bits.append("%d parts grown" % int(r.parts))
+	if r.has("date"):
+		bits.append(String(r.date))
+	if not bits.is_empty():
+		var foot = label("  ·  ".join(bits), 17, UI.MUTED)
+		foot.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+		col.add_child(foot)
+	return card
 
 # Puts an extra button next to BACK in the overlay's top bar
 func add_overlay_button(area: Control, text: String, on_press: Callable):
