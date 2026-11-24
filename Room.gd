@@ -43,6 +43,7 @@ const Obstacle = preload("res://Obstacle.gd")
 const Enemy = preload("res://Enemy.gd")
 var era_look = preload("res://data/EraLook.gd")
 const HitFX = preload("res://HitFX.gd")
+const Difficulty = preload("res://data/Difficulty.gd")
 
 func setup_room(data, floor_number: int):
     room_data = data
@@ -204,7 +205,7 @@ func setup_room(data, floor_number: int):
             spawn_tactical_enemies(clean_layout, floor_number)
             spawn_fronds(floor_number)
             # From era 2, some rooms draw a second group in once the first falls
-            if floor_number >= 2 and randf() < 0.22:
+            if randf() < Difficulty.wave_chance(floor_number):
                 room_data.waves_left = 1
 
     # A fight room with nobody to fight would keep its doors shut forever
@@ -791,7 +792,7 @@ func add_rubble(from: Vector2, to: Vector2, thickness: float = 40.0):
 
 func spawn_tactical_enemies(layout: Dictionary, floor_number: int):
     var spawns = layout.get("enemy_spawns", []).duplicate()
-    var target_count = randi_range(3, 3 + floor_number)
+    var target_count = randi_range(3, 3 + floor_number) + Difficulty.room_extra_animals(floor_number)
     
     var player_node = get_tree().get_first_node_in_group("player")
     var player_pos = player_node.global_position if player_node else Vector2(960, 540)
@@ -1097,7 +1098,7 @@ func _process(delta: float):
 func _on_enemy_died(enemy):
     active_enemies.erase(enemy)
 
-    if randf() < 0.35 or enemy.get("elder"):
+    if randf() < Difficulty.KILL_DROP_CHANCE or enemy.get("elder"):
         spawn_random_pickup(enemy.global_position)
 
     if active_enemies.size() == 0 and not room_data.cleared:
@@ -1109,10 +1110,10 @@ func spawn_random_pickup(pos: Vector2):
     
     var roll = randf()
     # No keys here: each locked floor hides exactly one (LevelGenerator)
-    if roll < 0.7:
+    if roll >= Difficulty.DROP_HEART_SHARE:
         p.pickup_type = "coin"
     else:
-        p.pickup_type = "heart" if randf() < 0.7 else "heart_half"
+        p.pickup_type = "heart" if randf() < Difficulty.DROP_FULL_HEART_SHARE else "heart_half"
         
     add_child(p)
 
@@ -1161,6 +1162,9 @@ func clear_room():
         return
     room_data.cleared = true
     SoundManager.play_sfx("room_clear")
+    var mb = get_parent()
+    if mb and mb.has_method("flush_bank"):
+        mb.flush_bank()
     if special_node and is_instance_valid(special_node):
         special_node.on_cleared()
     var m = get_parent()
@@ -1177,7 +1181,7 @@ func clear_room():
         door_nodes[d_dir].open_door()
         
     if room_data.type == 1:
-        if randf() < 0.65 or had_wave:
+        if randf() < Difficulty.CLEAR_DROP_CHANCE or had_wave:
             spawn_random_pickup(Vector2(960, 540))
             
     if room_data.type == 3:

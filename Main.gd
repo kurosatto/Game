@@ -107,6 +107,7 @@ func _notification(what: int):
         hud.back_pressed()
     elif what == NOTIFICATION_APPLICATION_PAUSED or what == NOTIFICATION_APPLICATION_FOCUS_OUT:
         # Switching apps or tabs mid-fight shouldn't cost the run
+        flush_bank()
         if get_tree().get_script() == null and player.health > 0:
             hud.auto_pause()
 
@@ -202,6 +203,38 @@ func start_new_game():
     var start_trait = progress.start_trait()
     if start_trait != "" and get_tree().get_script() == null:
         player.grant_adaptation(start_trait)
+    # Parts grown into the lineage on the main menu GROW page
+    if get_tree().get_script() == null:
+        apply_lineage(progress.lineage_ranks())
+
+func apply_lineage(ranks: Dictionary):
+    for id in ranks:
+        for i in int(ranks[id]):
+            player.grant_adaptation(id)
+    player.health = player.max_health
+
+# ---- The bank: everything eaten goes to the lineage (data/Progress.gd) ----
+# Elements in hand are what you can still spend in this run (healing, the
+# clutch); the bank follows them, so spending in the run banks less. Written
+# on each cleared room, new floor, run end, quitting and app switch.
+var bank_synced: Dictionary = {}
+
+func _exit_tree():
+    flush_bank() # quitting to the menu or restarting keeps what you ate
+
+func flush_bank(force: bool = false):
+    if (get_tree().get_script() != null and not force) or player == null:
+        return
+    var delta := {}
+    for el in player.elements:
+        var d = float(player.elements[el]) - float(bank_synced.get(el, 0.0))
+        if absf(d) > 0.001:
+            delta[el] = d
+    for el in bank_synced:
+        if not player.elements.has(el):
+            delta[el] = -float(bank_synced[el])
+    progress.add_to_bank(delta)
+    bank_synced = player.elements.duplicate()
 
 # Saves a challenge and announces it the first time it is completed
 func complete_challenge(id: String):
@@ -220,7 +253,7 @@ func check_challenges():
         complete_challenge("codex_10")
     if found >= 25:
         complete_challenge("codex_25")
-    if player.adapt_level >= 10:
+    if player.elements_eaten >= 60.0:
         complete_challenge("well_fed")
     var form = current_form()
     if form.get("clade_path", "").contains("Arthropoda"):
@@ -450,6 +483,9 @@ func advance_floor(pick: String = ""):
         transition_rect.visible = false
         advancing = false
         player.set_physics_process(true)
+        flush_bank()
+        # Arthropods shed their skin for each new era
+        player.molt_into_era()
         if get_tree().get_script() == null:
             hud.show_era_card(floor_number, current_form())
     )
@@ -561,6 +597,7 @@ func update_ambient_lighting(target_type: int = -1):
 var run_recorded: bool = false
 
 func record_run(won: bool) -> bool:
+    flush_bank()
     if get_tree().get_script() != null or run_recorded:
         return false
     run_recorded = true

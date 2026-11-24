@@ -162,6 +162,45 @@ static func cost_text(cost: Dictionary) -> String:
 			parts.append("%d %s" % [cost[el], el])
 	return "  ".join(parts)
 
+# ---- Lineage growth (main menu, kuro 2026-11-24) ----
+# Parts are no longer grown during a run. What you eat is banked across runs
+# (data/Progress.gd) and spent on the main menu's GROW page, where each part
+# is grown into the lineage itself: every run starts with it. Healing parts
+# ("heal") are for the moment you are hurt, so they stay in the run (the
+# in-run BODY screen, HUD.gd), with the clutch.
+const MAX_RANK := 3
+static func lineage_recipes() -> Array:
+	return RECIPES.filter(func(r): return not r.has("heal"))
+static func run_recipes() -> Array:
+	return RECIPES.filter(func(r): return r.has("heal"))
+static func max_rank(r: Dictionary) -> int:
+	return 1 if r.get("once", false) else MAX_RANK
+# Rank 1 costs what the part used to cost in a run, rank 2 twice that, rank
+# 3 three times: ~10 runs to grow everything
+static func lineage_cost(r: Dictionary, rank: int) -> Dictionary:
+	var c := {}
+	for el in r.cost:
+		c[el] = int(ceil(r.cost[el] * COST_SCALE * (1.0 + rank)))
+	return c
+static func can_grow_lineage(r: Dictionary, bank: Dictionary, ranks: Dictionary) -> bool:
+	var n = int(ranks.get(r.id, 0))
+	if n >= max_rank(r):
+		return false
+	var c = lineage_cost(r, n)
+	for el in c:
+		if int(bank.get(el, 0.0)) < c[el]:
+			return false
+	return true
+static func lineage_progress(r: Dictionary, bank: Dictionary, ranks: Dictionary) -> float:
+	var n = int(ranks.get(r.id, 0))
+	if n >= max_rank(r):
+		return 1.0
+	var c = lineage_cost(r, n)
+	var f := 1.0
+	for el in c:
+		f = min(f, float(bank.get(el, 0.0)) / max(1.0, c[el]))
+	return clampf(f, 0.0, 1.0)
+
 # How close you are to affording a part, 0..1 (the slowest element decides)
 static func progress(r: Dictionary, have: Dictionary, taken: Dictionary) -> float:
 	var c = cost_of(r, times_for_cost(r, taken))

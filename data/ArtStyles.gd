@@ -270,28 +270,32 @@ const INK_CEL = """
 void fragment() {
 	vec2 px = SCREEN_PIXEL_SIZE;
 	vec2 uv = SCREEN_UV;
-	vec3 c = (tex(uv) * 2.0 + tex(uv + vec2(2.0, 0.0) * px) + tex(uv - vec2(2.0, 0.0) * px)
-		+ tex(uv + vec2(0.0, 2.0) * px) + tex(uv - vec2(0.0, 2.0) * px)) / 6.0;
-	c = expose(c);
+	vec3 c = (tex(uv) * 2.0 + tex(uv + vec2(1.5, 0.0) * px) + tex(uv - vec2(1.5, 0.0) * px)
+		+ tex(uv + vec2(0.0, 1.5) * px) + tex(uv - vec2(0.0, 1.5) * px)) / 6.0;
+	c = tame_magenta(expose(c), 0.5);
 	float l = luma(c);
-	float o = 2.5;
-	vec3 gx = tex(uv + vec2(o, 0.0) * px) - tex(uv - vec2(o, 0.0) * px);
-	vec3 gy = tex(uv + vec2(0.0, o) * px) - tex(uv - vec2(0.0, o) * px);
-	float edge = sqrt(dot(gx, gx) + dot(gy, gy)) / max(light_lum, 0.25) * 0.5;
-	float line = smoothstep(0.16, 0.24, edge);
-	vec3 hue = c / max(l, 0.2);
-	float lit = smoothstep(0.47, 0.51, l);
-	vec3 flat_col = clamp(hue * mix(0.40, 0.70, lit), 0.0, 1.0);
-	flat_col = mix(vec3(luma(flat_col)), flat_col, 0.8);
-	// Shine spot on the brightest parts
-	flat_col = mix(flat_col, vec3(1.0, 0.97, 0.88), step(0.88, l) * 0.6);
-	flat_col = mix(flat_col, flat_col * vec3(1.08, 0.98, 0.80), 0.6);
-	flat_col = mix(flat_col, vec3(0.06, 0.04, 0.03), line);
-	// The floor: the sample's warm sand card, with a faint flat shadow band
+	// Outer outline: where a thing meets the floor (exact, from the floor key)
 	float thing = thing_mask(uv, px);
+	float o = 2.0;
+	float around = min(min(thing_mask(uv + vec2(o, 0.0) * px, px), thing_mask(uv - vec2(o, 0.0) * px, px)),
+		min(thing_mask(uv + vec2(0.0, o) * px, px), thing_mask(uv - vec2(0.0, o) * px, px)));
+	float outer = thing * (1.0 - around);
+	// Inner lines: only strong colour edges, thin
+	vec3 gx = tex(uv + vec2(1.0, 0.0) * px) - tex(uv - vec2(1.0, 0.0) * px);
+	vec3 gy = tex(uv + vec2(0.0, 1.0) * px) - tex(uv - vec2(0.0, 1.0) * px);
+	float edge = sqrt(dot(gx, gx) + dot(gy, gy)) / max(light_lum, 0.25) * 0.5;
+	float inner = smoothstep(0.30, 0.45, edge) * 0.75;
+	// Flat colour in three tones: shadow, base and light, keeping each hue
+	vec3 hue = c / max(l, 0.08);
+	float tone = l < 0.22 ? 0.42 : (l < 0.5 ? 0.62 : 0.82);
+	vec3 flat_col = clamp(hue * tone, 0.0, 1.0);
+	flat_col = mix(vec3(luma(flat_col)), flat_col, 0.85);
+	flat_col = mix(flat_col, flat_col * vec3(1.05, 0.99, 0.88), 0.5);
+	vec3 ink_col = vec3(0.10, 0.07, 0.05);
+	flat_col = mix(flat_col, ink_col, max(outer, inner * thing));
+	// The floor: the sample's warm sand card
 	vec3 bg = mix(vec3(0.93, 0.83, 0.64), vec3(0.86, 0.73, 0.53), SCREEN_UV.y);
-	vec3 floor_col = bg;
-	COLOR = vec4(mix(floor_col, flat_col, smoothstep(0.35, 0.6, max(thing, line * smoothstep(0.15, 0.3, thing)))), 1.0);
+	COLOR = vec4(mix(bg, flat_col, thing), 1.0);
 }
 """
 
@@ -390,37 +394,25 @@ void fragment() {
 # black shapes against a teal sea lit by slanting shafts, with warm rims
 # on the side facing the light ----
 const SILHOUETTE = """
-float shape_at(vec2 uv, vec2 px) {
-	float l = luma(tex(uv));
-	float far = 0.0;
-	for (int i = 0; i < 8; i++) {
-		float a = float(i) * 0.785398;
-		far += luma(tex(uv + vec2(cos(a), sin(a)) * 36.0 * px));
-	}
-	far /= 8.0;
-	// Standing out from its surroundings, lighter or darker: a shape
-	float k = abs(far - l) / max(light_lum, 0.25);
-	return smoothstep(0.10, 0.22, k);
-}
 void fragment() {
 	vec2 px = SCREEN_PIXEL_SIZE;
 	vec2 fc = FRAGCOORD.xy;
 	vec2 uv = SCREEN_UV;
-	float shape = shape_at(uv, px);
+	// Shapes are everything that is not the open floor (exact, from the floor key)
+	float shape = thing_mask(uv, px);
+	// Rim: the shape's edge that faces the light, up and to the right
 	float o = 3.0;
-	float sx = shape_at(uv + vec2(o, 0.0) * px, px) - shape;
-	float sy = shape_at(uv + vec2(0.0, o) * px, px) - shape;
-	vec2 g = vec2(sx, sy);
-	// The light is up and to the right of the screen; rims face it
-	float rim = clamp(dot(-g, normalize(vec2(0.8, -1.0))) * 1.6, 0.0, 1.0);
+	float lit_side = 1.0 - thing_mask(uv + vec2(o, -o) * px, px);
+	float rim = shape * lit_side;
 	float ray = smoothstep(0.55, 1.0, sin((fc.x * 0.9 + fc.y * 0.45) / 70.0 + TIME * 0.25) * 0.5 + 0.5);
-	ray *= 0.6 + 0.4 * vnoise(vec2(fc.x * 0.01 - fc.y * 0.005, TIME * 0.3));
-	vec3 sea = mix(vec3(0.10, 0.28, 0.32), vec3(0.20, 0.45, 0.48), SCREEN_UV.y);
-	sea += vec3(0.35, 0.55, 0.50) * ray * 0.25;
-	// The floor's own pattern shows faintly in the water
-	sea *= 0.9 + 0.15 * clamp(luma(tex(uv)) / max(light_lum, 0.25), 0.0, 1.0);
-	vec3 col = mix(sea, vec3(0.03, 0.04, 0.05), smoothstep(0.3, 0.7, shape));
-	col += vec3(1.0, 0.72, 0.32) * rim * 1.4;
+	vec3 sea = mix(vec3(0.12, 0.30, 0.34), vec3(0.20, 0.44, 0.47), SCREEN_UV.y);
+	sea += vec3(0.30, 0.50, 0.45) * ray * 0.18;
+	// Inside a shape: a dark body that still shows a hint of its own
+	// colours and markings, so animals stay readable
+	vec3 c = expose(tex(uv));
+	vec3 body = mix(vec3(0.04, 0.05, 0.06), c * 0.42 + vec3(0.02, 0.03, 0.04), 0.55);
+	vec3 col = mix(sea, body, shape);
+	col = mix(col, vec3(1.0, 0.78, 0.42), rim * 0.85);
 	COLOR = vec4(col, 1.0);
 }
 """
@@ -512,11 +504,33 @@ void fragment() {
 	COLOR.rgb = mix(COLOR.rgb, floor_col, m);
 }
 """
+# The ink styles keep the painted floor, but its light and dark patches are
+# evened out: the sketch shader hatches anything dark, and the Carboniferous
+# swamp floor in particular (dark mud next to pale water) came out as big
+# diagonal hatched blotches. Things on the floor keep their full contrast.
+const INK_FLOOR_SHADER = """
+shader_type canvas_item;
+uniform sampler2D mask_tex : filter_linear;
+uniform vec3 floor_avg = vec3(0.5);
+uniform float keep = 0.7;
+varying vec4 tint;
+void vertex() { tint = COLOR; }
+void fragment() {
+	float m = texture(mask_tex, UV).r;
+	vec3 t = texture(TEXTURE, UV).rgb;
+	vec3 even = (floor_avg + (t - floor_avg) * keep) * tint.rgb;
+	COLOR.rgb = mix(COLOR.rgb, even, m);
+}
+"""
 static var _floor_shader: Shader = null
+static var _ink_floor_shader: Shader = null
+static var _floor_avgs := {}
 static func floor_material(id: String, era_dir: String) -> ShaderMaterial:
 	var st: Dictionary = get_style(id)
-	if not st.has("floor") or not ResourceLoader.exists(era_dir + "floor_mask.png"):
+	if not ResourceLoader.exists(era_dir + "floor_mask.png"):
 		return null
+	if not st.has("floor"):
+		return ink_floor_material(era_dir)
 	if _floor_shader == null:
 		_floor_shader = Shader.new()
 		_floor_shader.code = FLOOR_SHADER
@@ -525,6 +539,37 @@ static func floor_material(id: String, era_dir: String) -> ShaderMaterial:
 	m.set_shader_parameter("mask_tex", load(era_dir + "floor_mask.png"))
 	var c: Color = st.floor
 	m.set_shader_parameter("floor_col", Vector3(c.r, c.g, c.b))
+	return m
+
+static func ink_floor_material(era_dir: String) -> ShaderMaterial:
+	if _ink_floor_shader == null:
+		_ink_floor_shader = Shader.new()
+		_ink_floor_shader.code = INK_FLOOR_SHADER
+	var mask: Texture2D = load(era_dir + "floor_mask.png")
+	if not _floor_avgs.has(era_dir):
+		# The floor's average colour, from the painted room under its mask
+		var room: Image = load(era_dir + "room.png").get_image()
+		var mi: Image = mask.get_image()
+		if room.is_compressed():
+			room.decompress()
+		if mi.is_compressed():
+			mi.decompress()
+		var sum := Vector3.ZERO
+		var n := 0
+		for y in range(0, room.get_height(), 16):
+			for x in range(0, room.get_width(), 16):
+				var mv := mi.get_pixel(x * mi.get_width() / room.get_width(), y * mi.get_height() / room.get_height()).r
+				if mv > 0.8:
+					var c := room.get_pixel(x, y)
+					sum += Vector3(c.r, c.g, c.b)
+					n += 1
+		_floor_avgs[era_dir] = sum / max(n, 1)
+	var m = ShaderMaterial.new()
+	m.shader = _ink_floor_shader
+	m.set_shader_parameter("mask_tex", mask)
+	m.set_shader_parameter("floor_avg", _floor_avgs[era_dir])
+	# The swamp floor is the darkest and most blotchy: even it out most
+	m.set_shader_parameter("keep", 0.3 if era_dir.contains("carboniferous") else 0.7)
 	return m
 
 # The run's WorldEnvironment (Main.tscn) adds bloom and boosts contrast and

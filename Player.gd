@@ -90,6 +90,7 @@ var adaptations = preload("res://data/Adaptations.gd")
 var biominerals = preload("res://data/Biominerals.gd")
 var elements: Dictionary = {} # "Ca" -> amount eaten and not yet spent
 var growable_count: int = 0
+var elements_eaten: float = 0.0 # everything eaten this run (Well Fed challenge)
 var biomass: float = 0.0
 var adapt_level: int = 0
 var adapt_pending: bool = false
@@ -1273,7 +1274,7 @@ func melee_blast(pos: Vector2, amount: float):
 
 func emit_biomass():
     var n := 0
-    for r in biominerals.RECIPES:
+    for r in biominerals.run_recipes():
         if can_grow_part(r):
             n += 1
     if n > growable_count:
@@ -1283,7 +1284,9 @@ func emit_biomass():
 
 # BiomassOrb.gd calls this when an orb from a kill reaches the player
 func add_element(el: String, amount: float):
-    elements[el] = elements.get(el, 0.0) + amount * biomass_mult * biominerals.yield_of(el)
+    var got = amount * biomass_mult * biominerals.yield_of(el)
+    elements[el] = elements.get(el, 0.0) + got
+    elements_eaten += got
     add_biomass(amount / biominerals.YIELD)
 
 # Spend elements on a part from data/Biominerals.gd (the GROW screen)
@@ -1293,9 +1296,11 @@ func can_grow_part(r: Dictionary) -> bool:
         return false
     return biominerals.can_grow(r, elements, adaptations_taken)
 
+# Only healing parts are grown in a run now: the others are grown into the
+# lineage on the main menu (data/Progress.gd), and granted at the start
 func grow(id: String) -> bool:
     var r = biominerals.get_recipe(id)
-    if r.is_empty() or not can_grow_part(r):
+    if r.is_empty() or not r.has("heal") or not can_grow_part(r):
         return false
     var cost = biominerals.cost_of(r, biominerals.times_for_cost(r, adaptations_taken))
     for el in cost:
@@ -1314,11 +1319,18 @@ func grow(id: String) -> bool:
     return true
 
 # ---- Molting (arthropods) ----
-# An arthropod can only grow by shedding its stiff skin. Parts grown on the
-# GROW screen come in with one molt when the screen closes (HUD): the old
-# skin stays behind (rooms/Exuvia.gd), and lost limbs grow back, as they do
-# in crabs and spiders, so a hurt arthropod heals half a heart.
+# An arthropod can only grow by shedding its stiff skin. It molts once at the
+# start of each new era (Main.advance_floor): the old skin stays behind
+# (rooms/Exuvia.gd), and lost limbs grow back, as they do in crabs and
+# spiders, so a hurt arthropod heals half a heart.
 var molt_from: Dictionary = {}
+
+func molt_into_era():
+    if not is_arthropod() or health <= 0:
+        return
+    molt_from = adaptations_taken.duplicate()
+    molt_from["_"] = true
+    molt()
 
 func is_arthropod() -> bool:
     return preload("res://data/Reproduction.gd").ancestry(current_character_id).has("early_arthropod")

@@ -42,11 +42,11 @@ const ERAS = [
 		"door_light": Color(0.75, 0.8, 1.0),
 	},
 	{ # 4 Carboniferous: peat swamp under tree ferns, golden light
-		"tint": Color(0.92, 0.94, 0.86), "ink_light": 0.3, "boss_tint": Color(0.80, 0.88, 0.70),
-		"light": Color(1.0, 0.88, 0.6), "light_mode": 1, "light_power": 0.08,
+		"tint": Color(0.92, 0.94, 0.86), "ink_light": 0.22, "boss_tint": Color(0.80, 0.88, 0.70),
+		"light": Color(1.0, 0.88, 0.6), "light_mode": 1, "light_power": 0.035,
 		"motes": Color(0.85, 1.0, 0.6, 0.26), "mote_kind": "spores",
 		"shafts": Color(1.0, 0.9, 0.6, 0.06), "bubbles": false,
-		"shadow_time": 9.0, "shadow_alpha": 0.24, "shadow_scale": 2.6, "shadow_facing": PI / 2, "shadow_turns": true,
+		"shadow_time": 14.0, "shadow_alpha": 0.14, "shadow_scale": 2.6, "shadow_facing": PI / 2, "shadow_turns": true,
 		"door_light": Color(1.0, 0.9, 0.55),
 	},
 	{ # 5 End-Permian: red beds, ash and distant volcanic glow

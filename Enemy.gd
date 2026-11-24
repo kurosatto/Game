@@ -28,6 +28,7 @@ var boss_phase: int = 1  # Phase 2 triggers at 50% HP
 # Hit flash & stun/knockback
 var hit_flash_timer: float = 0.0
 const HitFX = preload("res://HitFX.gd")
+const Difficulty = preload("res://data/Difficulty.gd")
 const FieldSketch = preload("res://rooms/FieldSketch.gd")
 var knockback_velocity: Vector2 = Vector2.ZERO
 var stun_timer: float = 0.0
@@ -464,6 +465,9 @@ func setup_enemy(floor_number: int):
 			light.color = Color(0.9, 0.75, 0.4)
 			light.scale = Vector2(1.3, 1.3)
 
+	# Later eras: tougher and a little quicker (data/Difficulty.gd)
+	max_health *= Difficulty.enemy_health_mult(floor_number)
+	speed *= Difficulty.enemy_speed_mult(floor_number)
 	health = max_health
 
 	if not is_boss():
@@ -493,6 +497,7 @@ func make_elder():
 	$Sprite2D.scale = Vector2(base_scale, base_scale)
 	$CollisionShape2D.shape.radius *= ELDER_SIZE
 	speed *= 0.88
+	damage = Difficulty.elder_damage(floor_num, damage)
 	elder_ring = Node2D.new()
 	elder_ring.draw.connect(draw_elder_ring)
 	add_child(elder_ring)
@@ -530,7 +535,7 @@ func apply_fauna(floor_number: int):
 	$CollisionShape2D.shape.radius *= base_scale
 	behavior = f.get("behavior", "")
 	setup_motion()
-	shoot_delay_mult = f.get("shoot_delay", 1.0)
+	shoot_delay_mult = f.get("shoot_delay", 1.0) * Difficulty.enemy_fire_delay_mult(floor_number)
 	weave_phase = randf() * TAU
 	lunge_cooldown = randf_range(1.0, 2.5)
 	temper = f.get("temper", "")

@@ -184,6 +184,12 @@ func build_menu():
 	play.add_theme_font_size_override("font_size", 40)
 	play.add_theme_font_override("font", UI.font(650))
 	col.add_child(play)
+	# Parts grown into the lineage for good, from elements banked in runs
+	grow_btn = button("", show_lineage_grow, UI.LEAF)
+	grow_btn.add_theme_font_size_override("font_size", 26)
+	grow_btn.custom_minimum_size = Vector2(600, 70)
+	col.add_child(grow_btn)
+	_update_grow_text()
 	trait_btn = button("", cycle_trait)
 	trait_btn.add_theme_font_size_override("font_size", 24)
 	col.add_child(trait_btn)
@@ -420,6 +426,7 @@ func close_overlay():
 			dark_btn.visible = true
 		update_trait_text()
 		update_style_text()
+		_update_grow_text()
 		_refocus_menu.call_deferred()
 
 # The menu button that opened a page, so the gamepad highlight goes back to it
@@ -459,6 +466,25 @@ func toggle_dark_rooms():
 	SoundManager.play_sfx("dna_pickup", 0.8 if SettingsManager.dark_rooms_all else 1.2)
 	update_dark_text()
 const POOL_NAMES = {"menu": "Menu", "explore": "Floors", "boss": "Bosses"}
+
+var grow_btn: Button = null
+
+func _update_grow_text():
+	if grow_btn == null:
+		return
+	var B = preload("res://data/Biominerals.gd")
+	var bank = progress.bank()
+	var ranks = progress.lineage_ranks()
+	var can = 0
+	for r in B.lineage_recipes():
+		if B.can_grow_lineage(r, bank, ranks):
+			can += 1
+	grow_btn.text = "🌱  GROW YOUR LINEAGE" + ("  (%d ready)" % can if can > 0 else "")
+
+func show_lineage_grow():
+	SoundManager.play_sfx("dna_pickup", 1.1)
+	var area = open_overlay("GROW YOUR LINEAGE", false)
+	area.add_child(preload("res://LineageGrow.gd").new())
 
 func show_music_credits():
 	var list = open_overlay("MUSIC CREDITS")
