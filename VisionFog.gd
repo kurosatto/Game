@@ -100,11 +100,11 @@ func set_sense(rating: int, kind: String, profile: Dictionary = {}):
 
 # rating: 1 (blind) to 10 (best eyes alive)
 func set_vision(rating: int, instant: bool = false):
-	var r = clamp(rating, 1, 10)
+	var r = clamp(rating, 0, 10)
 	# Kept tight so sight matters: a cell sees a little past its own body and
 	# relies on its other senses (SenseHints.gd), while even the best eyes
 	# leave the far corners of the room in shadow.
-	target_radius = 180.0 + r * 40.0       # 220 px for a cell, 580 px for a dragonfly
+	target_radius = 180.0 + r * 40.0       # 180 px eyeless, 220 px for a cell, 580 px for a dragonfly
 	# Past the soft edge it is solid black, whatever the eyes
 	target_darkness = 1.0
 	if instant:
