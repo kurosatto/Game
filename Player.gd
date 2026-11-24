@@ -1301,6 +1301,52 @@ func grow(id: String) -> bool:
     emit_biomass()
     return true
 
+# ---- Laying a clutch (data/Reproduction.gd) ----
+const REPRO = preload("res://data/Reproduction.gd")
+
+func clutch_cost() -> Dictionary:
+    return REPRO.mode_for(current_character_id).cost
+
+func can_lay_clutch() -> bool:
+    var main = get_tree().get_first_node_in_group("main")
+    if main == null or not main.has_method("can_lay_clutch") or not main.can_lay_clutch():
+        return false
+    var cost = clutch_cost()
+    for el in cost:
+        if elements.get(el, 0.0) + 0.001 < cost[el]:
+            return false
+    return true
+
+func lay_clutch() -> bool:
+    if not can_lay_clutch():
+        return false
+    var cost = clutch_cost()
+    for el in cost:
+        elements[el] = elements.get(el, 0.0) - cost[el]
+    get_tree().get_first_node_in_group("main").lay_clutch(global_position)
+    SoundManager.play_sfx("evolve", 0.8)
+    emit_biomass()
+    return true
+
+# A young one of your lineage hatches from the clutch: the run goes on
+func hatch(at: Vector2, hp: int):
+    global_position = at
+    velocity = Vector2.ZERO
+    reset_physics_interpolation()
+    health = clampi(hp, 1, max_health)
+    invincibility_time = 2.5
+    slow_timer = 0.0
+    $Sprite2D.modulate = Color(1, 1, 1, 1)
+    set_physics_process(true)
+    set_process(true)
+    health_changed.emit(health, max_health)
+    # It grows up out of the egg
+    if body_art:
+        body_art.scale = Vector2.ONE * BODY_ART_SCALE * 0.45
+        var tw = create_tween()
+        tw.tween_property(body_art, "scale", Vector2.ONE * BODY_ART_SCALE, 0.9).set_trans(Tween.TRANS_ELASTIC).set_ease(Tween.EASE_OUT)
+    popup_text(global_position + Vector2(0, -60), "HATCHED", Color(0.98, 0.76, 0.38))
+
 # What has been eaten, counted for gut symbionts (no longer offers picks)
 func add_biomass(amount: float):
     biomass += amount * biomass_mult
@@ -1562,7 +1608,7 @@ func nearest_attacker() -> String:
     return best
 
 func take_damage(amount: int, source: String = ""):
-    if invincibility_time > 0 or is_dashing:
+    if invincibility_time > 0 or is_dashing or health <= 0:
         return
     # Autotomy: drop a limb or tail tip instead of taking the hit
     if autotomy_ready:

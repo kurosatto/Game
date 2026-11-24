@@ -196,6 +196,22 @@ func setup_room(data, floor_number: int):
     # A fight room with nobody to fight would keep its doors shut forever
     if room_data.type == 1 and not room_data.cleared and active_enemies.is_empty():
         clear_room.call_deferred()
+    if room_data.clutch_pos != Vector2.INF:
+        add_clutch()
+
+# Your own clutch (Main.lay_clutch): eggs while it waits, broken shells once
+# it has hatched
+func add_clutch():
+    var old = get_node_or_null("YourClutch")
+    if old:
+        old.free()
+    var c = preload("res://rooms/Clutch.gd").new()
+    c.name = "YourClutch"
+    c.own = true
+    c.floor_num = current_floor
+    c.taken = room_data.clutch_hatched
+    c.position = room_data.clutch_pos
+    add_child(c)
 
 # ---- Special rooms (data/SpecialRooms.gd, rooms/SpecialRoom.gd) ----
 const OPEN_SPECIALS = ["vent", "dig", "extinction", "nest", "symbiont"]

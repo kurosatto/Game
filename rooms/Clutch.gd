@@ -9,6 +9,7 @@ const INK = Color(0.24, 0.15, 0.08)
 
 var floor_num: int = 2
 var taken: bool = false
+var own: bool = false # your own clutch (Room.add_clutch): yours, not food
 var on_taken: Callable = Callable()
 var player: Node2D = null
 var time: float = 0.0
@@ -20,16 +21,19 @@ func _ready():
 	var rng = RandomNumberGenerator.new()
 	rng.seed = floor_num * 811
 	var n = 14 if floor_num != 5 else 4
+	if own:
+		rng.seed = int(position.x * 7.0 + position.y * 13.0)
+		n = 9
 	for i in n:
 		var a = rng.randf() * TAU
 		var d = sqrt(rng.randf()) * 52.0
-		eggs.append([Vector2.from_angle(a) * Vector2(d, d * 0.75), rng.randf_range(9.0, 13.0) * (1.8 if floor_num == 5 else 1.0)])
+		eggs.append([Vector2.from_angle(a) * Vector2(d, d * 0.75), rng.randf_range(9.0, 13.0) * (1.8 if floor_num == 5 and not own else 1.0)])
 	eggs.sort_custom(func(a, b): return a[0].y < b[0].y)
 
 func _process(delta: float):
 	time += delta
 	queue_redraw()
-	if taken or not player or not is_instance_valid(player) or player.health <= 0:
+	if own or taken or not player or not is_instance_valid(player) or player.health <= 0:
 		return
 	if player.global_position.distance_to(global_position) < 95.0:
 		taken = true
@@ -44,12 +48,16 @@ func _draw():
 	for i in 24:
 		var a = TAU * i / 24.0
 		hollow.append(Vector2.from_angle(a) * Vector2(95, 70) * (1.0 + 0.06 * sin(a * 5.0)))
+	if own:
+		for i in hollow.size():
+			hollow[i] *= 0.62
 	draw_colored_polygon(hollow, Color(0.55, 0.45, 0.34, 0.45) if floor_num == 5 else Color(0.7, 0.64, 0.52, 0.4))
 	hollow.append(hollow[0])
 	draw_polyline(hollow, Color(INK, 0.7), 2.2, true)
+	var rim = 0.62 if own else 1.0
 	for i in 10:
 		var a = TAU * i / 10.0 + 0.3
-		draw_line(Vector2.from_angle(a) * Vector2(98, 73), Vector2.from_angle(a) * Vector2(112, 84), Color(INK, 0.45), 1.6, true)
+		draw_line(Vector2.from_angle(a) * Vector2(98, 73) * rim, Vector2.from_angle(a) * Vector2(112, 84) * rim, Color(INK, 0.45), 1.6, true)
 	if taken:
 		# Broken shells left behind
 		for e in eggs.slice(0, 5):
@@ -61,7 +69,7 @@ func _draw():
 		var p: Vector2 = e[0]
 		var s: float = e[1]
 		var wob = sin(time * 2.0 + i) * 0.8
-		match floor_num:
+		match (0 if own else floor_num):
 			4:
 				# Scorplings: pale little scorpions, tails curled
 				draw_circle(p, s * 0.6, Color(0.96, 0.93, 0.85))
@@ -82,4 +90,5 @@ func _draw():
 				pts.append(pts[0])
 				draw_polyline(pts, Color(INK, 0.8), 1.3, true)
 				draw_circle(p + Vector2(s * 0.2, -s * 0.15), 1.8, Color(INK, 0.7))
-	SR.draw_label(self, Vector2(0, -105), "TAKE THE " + label, 24)
+	if not own:
+		SR.draw_label(self, Vector2(0, -105), "TAKE THE " + label, 24)

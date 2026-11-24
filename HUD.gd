@@ -364,6 +364,9 @@ var grow_have: RichTextLabel = null
 var grow_title: Label = null
 var grow_body: Label = null
 var grow_go: Button = null
+var grow_eggs: Button = null
+const CLUTCH_SEL := "__clutch"
+const REPRO = preload("res://data/Reproduction.gd")
 var grow_selected: String = ""
 var _have: Dictionary = {}
 var _growable: int = 0
@@ -411,13 +414,25 @@ func update_elements(have: Dictionary, growable: int):
     _growable = growable
     if growable > 0 and not _grow_hinted and not in_combat():
         _grow_hinted = true
-        var how = PadInput.prompt("Press Y", "Tap GROW", "Press G or click GROW")
-        show_item_banner("READY TO GROW", "You have eaten enough elements to grow a new part. %s to choose one." % how)
+        # No banner over the room: the GROW button itself bounces a few times
+        _pulse_grow_btn.call_deferred()
     if element_label:
         element_label.text = _element_text(have)
     _refresh_grow_btn()
     if grow_modal and grow_modal.visible:
         _fill_grow_screen()
+
+func _pulse_grow_btn():
+    if not grow_btn:
+        return
+    grow_btn.pivot_offset = grow_btn.size / 2.0
+    var tw = grow_btn.create_tween()
+    for i in 3:
+        tw.tween_property(grow_btn, "scale", Vector2.ONE * 1.25, 0.16).set_trans(Tween.TRANS_SINE)
+        tw.parallel().tween_property(grow_btn, "self_modulate", Color(1.6, 1.5, 1.1), 0.16)
+        tw.tween_property(grow_btn, "scale", Vector2.ONE, 0.3).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+        tw.parallel().tween_property(grow_btn, "self_modulate", Color.WHITE, 0.3)
+        tw.tween_interval(0.25)
 
 # No growing mid-fight (kuro, 2026-11-23): the GROW screen pauses the game,
 # so it was a free time-out with animals all around. It opens again once the
@@ -680,6 +695,11 @@ func _create_grow_screen():
     grow_go = _styled_button("GROW IT", UI.LEAF)
     grow_go.pressed.connect(_on_grow_pressed)
     btns.add_child(grow_go)
+    # Leave young behind (data/Reproduction.gd): first press shows how your
+    # lineage does it, the second lays them
+    grow_eggs = _styled_button("LAY EGGS", UI.SUN)
+    grow_eggs.pressed.connect(_on_eggs_pressed)
+    btns.add_child(grow_eggs)
     var done = _styled_button("DONE", UI.MEMBRANE)
     done.pressed.connect(hide_grow_screen)
     btns.add_child(done)
@@ -794,6 +814,17 @@ func _fill_grow_screen():
             tile.grab_focus.call_deferred()
 
     _update_grow_portrait(player, taken)
+    var main = get_tree().get_first_node_in_group("main")
+    var laid: bool = main != null and main.has_method("has_clutch") and main.has_clutch()
+    var mode: Dictionary = REPRO.mode_for(player.current_character_id if player else "")
+    grow_eggs.text = "EGGS LAID" if laid else mode.verb
+    var eggs_tint = UI.LEAF if (player and player.can_lay_clutch()) else UI.SUN
+    for state in ["normal", "hover", "pressed", "disabled"]:
+        grow_eggs.add_theme_stylebox_override(state, UI.button_box(state, eggs_tint))
+    grow_go.text = "GROW IT"
+    if grow_selected == CLUTCH_SEL:
+        _fill_clutch_info(player, mode, laid)
+        return
     var sel_r = BIOMINERALS.get_recipe(grow_selected)
     if sel_r.is_empty():
         grow_title.text = PadInput.prompt("Move to a part to see what it is made of", "Tap a part to see what it is made of", "Click a part to see what it is made of")
@@ -899,8 +930,59 @@ func _cost_bbcode(cost: Dictionary) -> String:
             parts.append("[color=#%s]%d %s[/color]" % [("ff7766" if short else c.to_html(false)), cost[el], el])
     return "Needs " + "  ".join(parts)
 
+# How your lineage leaves young, what it costs and what you hatch with
+func _fill_clutch_info(player, mode: Dictionary, laid: bool):
+    var ok = player != null and player.can_lay_clutch()
+    grow_go.text = "LAY"
+    grow_go.disabled = not ok
+    grow_title.text = mode.name.to_upper() + ("  ·  LAID!" if _just_grown == CLUTCH_SEL else "")
+    var hp = REPRO.hatch_health(player.current_character_id, player.max_health) if player else 2
+    var hearts = ("%d" % (hp / 2)) + ("½" if hp % 2 == 1 else "")
+    var young = "a daughter cell carries on" if mode.verb == "SPLIT OFF A CELL" else "a young one hatches"
+    var line = "If you die on this floor, %s here with %s ♥" % [young, hearts]
+    var how = ""
+    if laid:
+        how = "   [color=#%s]Your clutch is waiting on this floor[/color]" % UI.MUTED.to_html(false)
+    elif ok:
+        how = "   [color=#%s]%s[/color]" % [UI.MUTED.to_html(false), PadInput.prompt("Press A to lay them", "Tap again to lay them", "Click again to lay them")]
+    else:
+        var m = get_tree().get_first_node_in_group("main")
+        if m and m.current_room_node and m.current_room_node.room_data and not m.current_room_node.room_data.cleared:
+            how = "   [color=#%s]Only in a cleared room[/color]" % UI.MUTED.to_html(false)
+        else:
+            how = "   " + _cost_bbcode(mode.cost)
+    grow_change.text = "[color=#%s][b]%s[/b][/color]%s" % [UI.LEAF.to_html(false), line, how]
+    grow_body.text = mode.fact + "\n" + _cost_text_plain(mode.cost) + ". One clutch at a time; it stays in this room, and going down to the next era leaves it behind."
+
+func _cost_text_plain(cost: Dictionary) -> String:
+    var parts: Array = []
+    for el in BIOMINERALS.ORDER:
+        if cost.has(el):
+            parts.append("%d %s" % [cost[el], BIOMINERALS.ELEMENTS[el].name])
+    return "Costs " + ", ".join(parts)
+
+func _on_eggs_pressed():
+    var player = get_tree().get_first_node_in_group("player")
+    if grow_selected == CLUTCH_SEL and player and player.can_lay_clutch():
+        _lay_clutch(player)
+        return
+    grow_selected = CLUTCH_SEL
+    _just_grown = ""
+    _fill_grow_screen()
+
+func _lay_clutch(player):
+    var cost = player.clutch_cost()
+    if player.lay_clutch():
+        _just_grown = CLUTCH_SEL
+        _fill_grow_screen()
+        _grow_feedback({"id": "clutch", "name": "Clutch"}, cost, ["Clutch laid"])
+
 func _on_grow_pressed():
     var player = get_tree().get_first_node_in_group("player")
+    if grow_selected == CLUTCH_SEL:
+        if player and player.can_lay_clutch():
+            _lay_clutch(player)
+        return
     var r = BIOMINERALS.get_recipe(grow_selected)
     if r.is_empty() or player == null:
         return
@@ -989,6 +1071,8 @@ func _grow_feedback(r: Dictionary, cost: Dictionary, changes: Array):
     ltw.tween_property(pop, "modulate:a", 0.0, 0.35)
     ltw.tween_callback(pop.queue_free)
     # The tile glows
+    if not grow_tiles.has(r.id):
+        return
     var tile: Button = grow_tiles[r.id].tile
     var ttw = tile.create_tween()
     ttw.tween_interval(arrive)
