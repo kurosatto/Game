@@ -1476,6 +1476,8 @@ func take_damage(amount: float):
 	# Sketched from life this run (rooms/FieldSketch.gd): you know where it is soft
 	if player and is_instance_valid(player) and fauna_name != "" and player.get("sketched") and player.sketched.has(fauna_name):
 		amount *= FieldSketch.BONUS
+	# Hard or soft shell while molting (rooms/MoltGathering.gd)
+	amount *= float(get_meta("hit_mult", 1.0))
 	# Serrated Edges adaptation: some hits do double
 	if player and is_instance_valid(player) and player.get("crit_chance") and randf() < player.crit_chance:
 		amount *= 2.0
