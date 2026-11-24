@@ -35,6 +35,21 @@ class RoomData:
     var special_state: Dictionary = {} # what happened there, kept for revisits
     var shop_inventory: Array = [] # [{ "item_id": String, "price": int, "pos": Vector2, "bought": bool }]
 
+# FOSSIL GAUNTLET (data/Endgame.gd): a start room and the boss room above it
+static func generate_gauntlet_level() -> Dictionary:
+    var rooms: Dictionary = {}
+    var start = RoomData.new()
+    start.grid_pos = Vector2i(4, 4)
+    start.type = RoomType.START
+    var boss = RoomData.new()
+    boss.grid_pos = Vector2i(4, 3)
+    boss.type = RoomType.BOSS
+    start.connections[Vector2i.UP] = boss.grid_pos
+    boss.connections[Vector2i.DOWN] = start.grid_pos
+    rooms[start.grid_pos] = start
+    rooms[boss.grid_pos] = boss
+    return rooms
+
 # avoid: special room kinds already met this run, dealt last
 static func generate_level(floor_number: int = 1, avoid: Array = []) -> Dictionary:
     # Returns a dictionary of Vector2i -> RoomData

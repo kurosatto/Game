@@ -13,6 +13,7 @@ var room_scene = preload("res://Room.tscn")
 var fauna = preload("res://data/Fauna.gd")
 var era_look = preload("res://data/EraLook.gd")
 const Worlds = preload("res://data/Worlds.gd")
+const Endgame = preload("res://data/Endgame.gd")
 
 var floor_number: int = 1
 var dungeon_rooms: Dictionary = {}
@@ -292,7 +293,14 @@ func generate_floor():
     
     if floor_number == 1:
         specials_seen = []
-    dungeon_rooms = level_gen.generate_level(floor_number, specials_seen)
+    if Endgame.gauntlet():
+        # FOSSIL GAUNTLET: each era is its boss and nothing else; healed
+        # for every fight (data/Endgame.gd)
+        dungeon_rooms = level_gen.generate_gauntlet_level()
+        player.health = player.max_health
+        player.health_changed.emit(player.health, player.max_health)
+    else:
+        dungeon_rooms = level_gen.generate_level(floor_number, specials_seen)
     for pos in dungeon_rooms:
         if dungeon_rooms[pos].special != "":
             specials_seen.append(dungeon_rooms[pos].special)
@@ -514,7 +522,7 @@ func advance_floor(pick: String = ""):
 # the run as before, the other goes on into the end-Permian extinction, a
 # second floor 5 in the same world with its own last boss
 func finale_open() -> bool:
-    return preload("res://data/Endgame.gd").is_unlocked("great_dying")
+    return Endgame.gauntlet() or Endgame.is_unlocked("great_dying")
 
 func enter_finale():
     advancing = true
@@ -602,7 +610,9 @@ func on_boss_defeated(f_num: int):
     if f_num >= 5 and Worlds.finale:
         # The last giant of the Great Dying is down: the lineage made it
         # through into the Triassic
-        tally("finale_won")
+        tally("gauntlet_won" if Endgame.gauntlet() else "finale_won")
+        if Endgame.deep_time() and not Endgame.gauntlet():
+            tally("deep_won")
         record_run(true)
         hud.show_victory(player.get_evolution_summary())
         player.set_physics_process(false)
@@ -685,8 +695,8 @@ var run_recorded: bool = false
 
 func record_run(won: bool) -> bool:
     flush_bank()
-    if get_tree().get_script() != null or run_recorded:
-        return false
+    if get_tree().get_script() != null or run_recorded or Endgame.gauntlet():
+        return false # a boss rush isn't a run on the record
     run_recorded = true
     # How far each branch of the tree you belong to has got
     var reach := {}
@@ -703,6 +713,7 @@ func record_run(won: bool) -> bool:
     return progress.record_run(floor_number, player.current_character_name, won, {
         "path": ids,
         "world_era": Worlds.era(floor_number),
+        "deep": Endgame.deep_time(),
         # A death in the Great Dying still counts the Permian win
         "finale": ("won" if player.health > 0 else "died") if Worlds.finale else "",
         "killer": player.last_hurt_by if (not won or (Worlds.finale and player.health <= 0)) else "",

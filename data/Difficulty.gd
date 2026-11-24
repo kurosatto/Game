@@ -60,6 +60,8 @@ static func enemy_health_mult(floor_number: int) -> float:
 	var m = 1.0 + ENEMY_HEALTH_PER_ERA * (era(floor_number) - 1)
 	if preload("res://data/Worlds.gd").finale and floor_number >= 5:
 		m *= FINALE_ENEMY_HEALTH
+	if preload("res://data/Endgame.gd").deep_time():
+		m *= preload("res://data/Endgame.gd").DEEP_ENEMY_HEALTH
 	return m
 
 static func enemy_speed_mult(floor_number: int) -> float:
@@ -69,7 +71,8 @@ static func enemy_fire_delay_mult(floor_number: int) -> float:
 	return max(ENEMY_FIRE_MIN, 1.0 - ENEMY_FIRE_PER_ERA * (era(floor_number) - 1))
 
 static func room_extra_animals(floor_number: int) -> int:
-	return ROOM_EXTRA_ANIMALS[era(floor_number) - 1]
+	var E = preload("res://data/Endgame.gd")
+	return ROOM_EXTRA_ANIMALS[era(floor_number) - 1] + (E.DEEP_EXTRA_ANIMALS if E.deep_time() else 0)
 
 static func wave_chance(floor_number: int) -> float:
 	return WAVE_CHANCE[era(floor_number) - 1]
@@ -80,7 +83,11 @@ static func elder_damage(floor_number: int, base_damage: int) -> int:
 	return max(base_damage, ELDER_HEAVY_DAMAGE)
 
 static func boss_health_mult(floor_number: int) -> float:
-	return BOSS_HEALTH_BASE + BOSS_HEALTH_PER_ERA * (era(floor_number) - 1)
+	var E = preload("res://data/Endgame.gd")
+	return (BOSS_HEALTH_BASE + BOSS_HEALTH_PER_ERA * (era(floor_number) - 1)) * (E.DEEP_BOSS_HEALTH if E.deep_time() else 1.0)
 
 static func boss_clock(state: String) -> float:
-	return BOSS_REST_SPEED if state in BOSS_REST_STATES else 1.0
+	if not state in BOSS_REST_STATES:
+		return 1.0
+	var E = preload("res://data/Endgame.gd")
+	return BOSS_REST_SPEED * (E.DEEP_BOSS_REST if E.deep_time() else 1.0)

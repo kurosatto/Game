@@ -1148,6 +1148,11 @@ func update_floor(floor_num: int):
     var era_str = ERA_NAMES.get(Worlds.era(floor_num), "ERA %d" % floor_num)
     if Worlds.finale and floor_num >= 5:
         era_str = FINALE_INFO.label
+    var E = preload("res://data/Endgame.gd")
+    if E.gauntlet():
+        era_str = "GAUNTLET · " + era_str
+    elif E.deep_time():
+        era_str = "DEEP TIME · " + era_str
     floor_label.text = "%s | %s" % [era_str, current_creature_name]
 
 func update_minimap(rooms: Dictionary, current_pos: Vector2i):

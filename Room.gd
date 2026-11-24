@@ -1217,8 +1217,11 @@ func spawn_trapdoor():
     elif current_floor >= 5 and not Worlds.finale and main and main.has_method("finale_open") and main.finale_open():
         # After a won run: end it here (the sun), or go on down into the
         # end-Permian extinction (the eruption) (data/Endgame.gd)
-        _make_trapdoor(Vector2(720, 540), "end")
-        _make_trapdoor(Vector2(1200, 540), "finale")
+        if preload("res://data/Endgame.gd").gauntlet():
+            _make_trapdoor(Vector2(960, 540), "finale") # the rush goes on to the end
+        else:
+            _make_trapdoor(Vector2(720, 540), "end")
+            _make_trapdoor(Vector2(1200, 540), "finale")
     else:
         _make_trapdoor(Vector2(960, 540), "")
 
