@@ -12,8 +12,8 @@ uniform vec2 center = vec2(960.0, 540.0);
 uniform float radius = 400.0;
 uniform float softness = 300.0;
 uniform float darkness = 0.85;
-// Unseen parts of the room are blank sketchbook paper (see InkFilter.gd)
-uniform vec3 fog_color : source_color = vec3(0.93, 0.87, 0.74);
+// Unseen parts of the screen are black, in every art style
+uniform vec3 fog_color : source_color = vec3(0.0, 0.0, 0.0);
 uniform vec3 rim_color : source_color = vec3(0.55, 0.42, 0.3);
 float hash(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
 // Doorways stay visible even to a nearly blind form, so exits can be found
@@ -37,11 +37,10 @@ void fragment() {
 	for (int i = 0; i < light_count; i++) {
 		a = min(a, smoothstep(lights[i].z * 0.35, lights[i].z, distance(p, lights[i].xy)));
 	}
-	vec3 col = fog_color + (hash(FRAGCOORD.xy) - 0.5) * 0.05;
-	// A faint brown edge where the sketch stops, like a vignette of ink
+	vec3 col = fog_color;
+	// A faint tint of the art style's rim colour where sight fades out
 	float rim = smoothstep(0.0, 0.5, a) * (1.0 - smoothstep(0.5, 1.0, a));
-	col = mix(col, rim_color, rim * 0.35);
-	col = mix(col, vec3(0.07, 0.05, 0.035) + (hash(FRAGCOORD.xy) - 0.5) * 0.02, cave);
+	col = mix(col, rim_color, rim * 0.18 * (1.0 - cave));
 	COLOR = vec4(col, a * mix(darkness, cave_alpha, cave));
 }
 """
@@ -88,11 +87,11 @@ func _ready():
 	add_child(hints)
 	set_vision(1, true)
 
-# Fog and its rim follow the art style: paper for the ink styles, the dark
-# sea for pixel, neon and the rest (data/ArtStyles.gd)
+# The fog is black in every style (kuro asked for unseen parts to be black);
+# only the faint rim where sight fades follows the style (data/ArtStyles.gd)
 func apply_style(id: String):
 	var st: Dictionary = preload("res://data/ArtStyles.gd").get_style(id)
-	mat.set_shader_parameter("fog_color", st.fog)
+	mat.set_shader_parameter("fog_color", Color(0, 0, 0))
 	mat.set_shader_parameter("rim_color", st.rim)
 
 # rating: 1-10 and the sense's name from Lineages.SENSES
@@ -106,7 +105,8 @@ func set_vision(rating: int, instant: bool = false):
 	# relies on its other senses (SenseHints.gd), while even the best eyes
 	# leave the far corners of the room in shadow.
 	target_radius = 180.0 + r * 40.0       # 220 px for a cell, 580 px for a dragonfly
-	target_darkness = 0.95 - r * 0.025     # 0.93 for a cell, 0.70 for a dragonfly
+	# Past the soft edge it is solid black, whatever the eyes
+	target_darkness = 1.0
 	if instant:
 		radius = target_radius
 		darkness = target_darkness
@@ -125,7 +125,7 @@ func _process(delta: float):
 	cave = move_toward(cave, 1.0 if in_cave else 0.0, delta * 1.5)
 	pitch = move_toward(pitch, 1.0 if special == "dark" else 0.0, delta * 1.5)
 	mat.set_shader_parameter("cave", cave)
-	mat.set_shader_parameter("cave_alpha", 0.97 + 0.025 * pitch)
+	mat.set_shader_parameter("cave_alpha", 1.0)
 	var lights: Array = []
 	if cave > 0.0:
 		for g in get_tree().get_nodes_in_group("fog_lights"):
