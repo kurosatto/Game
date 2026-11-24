@@ -584,7 +584,29 @@ func fossil_row(f: Dictionary, known: bool, era_name: String) -> Control:
 	var body = label(f.fact if known else "Not yet eaten. It lived in the %s." % era_name, 18, UI.CREAM if known else UI.MUTED)
 	body.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	col.add_child(body)
+	if known:
+		var web = food_web_line(f.name)
+		if web != "":
+			var w = label(web, 17, UI.MUTED)
+			w.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+			col.add_child(w)
 	return card
+
+# What it was seen eating and being eaten by (data/FoodWeb.gd); links not
+# yet watched in a run show as "?"
+func food_web_line(species: String) -> String:
+	var web = preload("res://data/FoodWeb.gd")
+	var seen: Array = codex.load_hunts()
+	var parts: Array = []
+	var eats: Array = web.EATS.get(species, [])
+	if not eats.is_empty():
+		var names = eats.map(func(p): return p if seen.has(web.link(species, p)) else "?")
+		parts.append("Hunts: " + ", ".join(names))
+	var by: Array = web.eaten_by(species)
+	if not by.is_empty():
+		var names = by.map(func(h): return h if seen.has(web.link(h, species)) else "?")
+		parts.append("Hunted by: " + ", ".join(names))
+	return "   ·   ".join(parts)
 
 # Puts an extra button next to BACK in the overlay's top bar
 func add_overlay_button(area: Control, text: String, on_press: Callable):

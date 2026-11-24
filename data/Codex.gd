@@ -53,3 +53,31 @@ static func note_eaten(species: String) -> bool:
     config.set_value("fossils", "eaten", _eaten)
     config.save(SAVE_PATH)
     return true
+
+# ---- Food web ----
+# Every hunt the player has watched ("Pred>Prey", data/FoodWeb.gd), across
+# runs. The fossil record lists them under each animal.
+static var _hunts: Array = []
+static var _hunts_loaded: bool = false
+
+static func load_hunts() -> Array:
+    if not _hunts_loaded:
+        var config = ConfigFile.new()
+        if config.load(SAVE_PATH) == OK:
+            _hunts = config.get_value("fossils", "hunts", [])
+        _hunts_loaded = true
+    return _hunts
+
+# True the first time this hunter is seen eating this prey
+static func note_hunt(link: String) -> bool:
+    if load_hunts().has(link):
+        return false
+    _hunts.append(link)
+    var tree = Engine.get_main_loop()
+    if tree and tree.get_script() != null:
+        return true # tools/*.gd runs: remember for this run only
+    var config = ConfigFile.new()
+    config.load(SAVE_PATH)
+    config.set_value("fossils", "hunts", _hunts)
+    config.save(SAVE_PATH)
+    return true

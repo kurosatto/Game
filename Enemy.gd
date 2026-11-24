@@ -629,6 +629,10 @@ func _physics_process(delta: float):
 		stun_timer -= delta
 		return
 
+	if feed_timer > 0.0:
+		process_feeding(delta)
+		return
+
 	if mood != "hostile":
 		process_mood(delta)
 		return
@@ -690,6 +694,7 @@ func _physics_process(delta: float):
 			"orbiter": process_orbiter(delta)
 
 	check_contact_damage()
+	try_snap()
 	check_lose_interest(delta)
 
 # ═══════════════════════════════════════════════════════════
@@ -710,7 +715,7 @@ func process_mood(delta: float):
 		if alert_timer <= 0:
 			become_hostile()
 		return
-	var reach = aggro_radius * player_notice()
+	var reach = aggro_radius * player_notice() * hunt_focus()
 	if d < reach:
 		if temper == "timid":
 			# Backs off rather than fights, until it is hurt or cornered
@@ -721,6 +726,8 @@ func process_mood(delta: float):
 			$Sprite2D.frame = int(fmod(anim_timer * 8.0, 4.0))
 			return
 		notice()
+		return
+	if flee_hunter(delta) or process_hunt(delta):
 		return
 	process_idle(delta, to_p)
 	# Bumping into a calm animal is rude
@@ -1202,11 +1209,17 @@ func process_frond(delta: float):
 # Marrella: harmless and quick; it flees, and slips sideways when cornered
 func process_skittish(delta: float):
 	var away = global_position - player.global_position
+	var h = chasing_hunter(300.0)
+	if h and flee_timer <= 0:
+		# A hunter is closer to worry about than you
+		var from_h = global_position - h.global_position
+		if from_h.length() < away.length() or away.length() > 420.0:
+			away = from_h
 	if flee_timer > 0:
 		flee_timer -= delta
 		velocity = wander_dir * speed
 	elif away.length() < 420.0:
-		velocity = away.normalized().rotated(sin(anim_timer * 5.0 + weave_phase) * 0.6) * speed
+		velocity = away.normalized().rotated(sin(anim_timer * 5.0 + weave_phase) * 0.6) * speed * flee_pace(delta, h != null)
 	else:
 		wander_timer -= delta
 		if wander_timer <= 0:
@@ -1475,6 +1488,13 @@ func take_damage(amount: float):
 		SoundManager.play_sfx("hit_glance", randf_range(0.8, 0.95))
 	if enemy_type == "swarm":
 		scatter_swarm()
+	# Caught with its head down in a meal: the first blow lands hard
+	if feed_timer > 0.0:
+		if mood != "hostile":
+			amount *= FEED_SURPRISE
+			if player and is_instance_valid(player):
+				player.popup_text(global_position, "×1.5", Color(1.0, 0.8, 0.4))
+		feed_timer = 0.0
 	# Hurt, any animal fights back
 	if mood != "hostile":
 		become_hostile()
@@ -1601,15 +1621,22 @@ func kill_effects():
 
 # Eaten prey leaves the elements its body was made of (data/Biominerals.gd):
 # chasers are worth 1, shooters 2
-func drop_biomass():
+func kill_worth() -> float:
 	var worth = 2.0 if enemy_type == "pacer" else 1.0
 	if enemy_type in SPECIAL_STATS:
 		worth = SPECIAL_STATS[enemy_type].worth
 	if worth_override > 0.0:
 		worth = worth_override
-	var els: Array = preload("res://data/Biominerals.gd").fauna_elements(fauna_name)
 	if elder:
 		worth *= 3.0
+	return worth
+
+# mult: what is left of it (scraps from a hunter's meal are less)
+func drop_biomass(mult: float = 1.0):
+	var worth = kill_worth() * mult + eaten_worth
+	if worth <= 0.0:
+		return
+	var els: Array = preload("res://data/Biominerals.gd").fauna_elements(fauna_name)
 	var units = worth * preload("res://data/Biominerals.gd").YIELD
 	var count = clampi(int(ceil(units * 2.0)), 1, 6 if elder else 4)
 	var first = randi() % els.size()
@@ -1728,3 +1755,200 @@ func spawn_death_particles():
 	get_parent().add_child(p)
 	var timer = get_tree().create_timer(p.lifetime + 0.1)
 	timer.timeout.connect(p.queue_free)
+
+# ═══════════════════════════════════════════════════════════
+# FOOD WEB: hunters stalk their real prey (data/FoodWeb.gd)
+# ═══════════════════════════════════════════════════════════
+# Left alone, a hunter picks out a prey animal it knows and goes after it;
+# the prey runs once it sees it coming, until it tires. A caught animal is
+# eaten on the spot: the hunter stops to feed, heals and grows a little, and
+# is so busy it barely notices you. Hit it then and the first blow lands
+# hard. A fed hunter carries its meal: it drops more when you eat it.
+const FoodWeb = preload("res://data/FoodWeb.gd")
+const HUNT_RANGE := 640.0
+const HUNT_GIVE_UP := 9.0
+const HUNT_REST := 5.0
+const FEED_TIME := 3.2
+const FEED_TIME_FIGHTING := 0.9
+const FEED_SURPRISE := 1.5
+const MAX_MEALS := 2
+var hunt_target: Node2D = null
+var hunt_timer: float = 0.0
+var hunt_scan: float = 0.0
+var hunger_cd: float = 0.0
+var feed_timer: float = 0.0
+var meals: int = 0
+var eaten_worth: float = 0.0
+var flee_stamina: float = 2.4
+
+func is_hunter() -> bool:
+	return FoodWeb.is_hunter(fauna_name) and not is_boss()
+
+func can_be_caught() -> bool:
+	return not dead and not elder and not is_burrowed() and not is_enrolled() and is_in_group("enemies")
+
+# Too busy with a meal (or the chase) to look round for you
+func hunt_focus() -> float:
+	if feed_timer > 0.0:
+		return 0.45
+	if is_instance_valid(hunt_target):
+		return 0.65
+	return 1.0
+
+# The nearest prey this hunter eats, in its own room
+func find_prey(radius: float) -> Node2D:
+	var best: Node2D = null
+	var best_d := radius
+	for e in get_tree().get_nodes_in_group("enemies"):
+		if e == self or not is_instance_valid(e) or e.get_parent() != get_parent():
+			continue
+		if not FoodWeb.eats(fauna_name, e.get("fauna_name")) or not e.can_be_caught():
+			continue
+		var d = e.global_position.distance_to(global_position)
+		if d < best_d:
+			best_d = d
+			best = e
+	return best
+
+func catch_reach(prey: Node2D) -> float:
+	return $CollisionShape2D.shape.radius + prey.get_node("CollisionShape2D").shape.radius + 10.0
+
+# Calm hunters: pick prey, chase, pounce at the end. True while hunting.
+func process_hunt(delta: float) -> bool:
+	if not is_hunter() or meals >= MAX_MEALS:
+		return false
+	hunger_cd -= delta
+	if not is_instance_valid(hunt_target) or not hunt_target.can_be_caught():
+		hunt_target = null
+		if hunger_cd > 0.0:
+			return false
+		hunt_scan -= delta
+		if hunt_scan > 0.0:
+			return false
+		hunt_scan = 0.5
+		hunt_target = find_prey(HUNT_RANGE)
+		hunt_timer = 0.0
+		if hunt_target == null:
+			return false
+	hunt_timer += delta
+	if hunt_timer > HUNT_GIVE_UP:
+		# It got away: rest a while before trying again
+		hunt_target = null
+		hunger_cd = HUNT_REST
+		home_pos = global_position
+		return false
+	var to = hunt_target.global_position - global_position
+	var d = to.length()
+	if d < catch_reach(hunt_target):
+		eat(hunt_target, FEED_TIME)
+		return true
+	# Creeps in, then the pounce
+	var pace = 1.9 if d < 150.0 else 1.05
+	velocity = to.normalized() * speed * pace
+	move_and_slide()
+	face_sprite(velocity, delta, 10.0, idle_face_offset())
+	$Sprite2D.scale = Vector2.ONE * base_scale
+	$Sprite2D.frame = int(fmod(anim_timer * 12.0, 4.0))
+	if body_art == null and idle_style == "ambush":
+		$Sprite2D.modulate = base_tint
+	return true
+
+# Fighting you, a hunter still snaps up its prey if it strays into reach
+func try_snap():
+	if not is_hunter() or meals >= MAX_MEALS or charge_state != "" or spray_state != "" or is_burrowed():
+		return
+	hunt_scan -= get_physics_process_delta_time()
+	if hunt_scan > 0.0:
+		return
+	hunt_scan = 0.25
+	var prey = find_prey(140.0)
+	if prey and global_position.distance_to(prey.global_position) < catch_reach(prey):
+		eat(prey, FEED_TIME_FIGHTING)
+
+func eat(prey: Node2D, feed_for: float):
+	hunt_target = null
+	hunt_timer = 0.0
+	hunger_cd = HUNT_REST
+	velocity = Vector2.ZERO
+	lunge_state = ""
+	face_sprite(prey.global_position - global_position, 1.0, 1.0, idle_face_offset())
+	drawn_strike()
+	eaten_worth += prey.kill_worth() * 0.5
+	prey.eaten_by(self)
+	feed_timer = feed_for
+	meals += 1
+	# A meal makes it bigger and harder to kill
+	var grow_by := 1.08
+	max_health *= 1.2
+	health = min(max_health, health + max_health * 0.4)
+	base_scale *= grow_by
+	$CollisionShape2D.shape.radius *= grow_by
+	var tw = create_tween()
+	tw.tween_property($Sprite2D, "scale", Vector2.ONE * base_scale * 1.18, 0.12).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tw.tween_property($Sprite2D, "scale", Vector2.ONE * base_scale, 0.25)
+	var link = FoodWeb.link(fauna_name, prey.fauna_name)
+	var main = get_tree().get_first_node_in_group("main")
+	if preload("res://data/Codex.gd").note_hunt(link) and main and main.has_method("note_new_hunt"):
+		main.note_new_hunt(fauna_name, prey.fauna_name, global_position)
+
+# Head down in its meal: it tugs and gulps, scraps of ink drift off
+func process_feeding(delta: float):
+	feed_timer -= delta
+	velocity = Vector2.ZERO
+	$Sprite2D.rotation += sin(anim_timer * 11.0 + weave_phase) * 0.9 * delta
+	$Sprite2D.scale = Vector2.ONE * base_scale * (1.0 + 0.05 * sin(anim_timer * 11.0))
+	$Sprite2D.frame = int(fmod(anim_timer * 4.0, 4.0))
+	if fmod(anim_timer + weave_phase, 0.7) < delta and get_parent():
+		var bit = global_position + Vector2.RIGHT.rotated(randf() * TAU) * $CollisionShape2D.shape.radius * 0.8
+		HitFX.pop(get_parent(), bit, species_burst_color().lerp(Color(0.4, 0.28, 0.18), 0.5), 6.0, 34.0, 0.3)
+	if feed_timer <= 0.0 and mood == "calm":
+		home_pos = global_position
+		idle_timer = 0.0
+
+# Who is chasing me, if they are this close
+func chasing_hunter(radius: float) -> Node2D:
+	for e in get_tree().get_nodes_in_group("enemies"):
+		if is_instance_valid(e) and e.get("hunt_target") == self and e.global_position.distance_to(global_position) < radius:
+			return e
+	return null
+
+# Running drains it; it gets its wind back while it isn't
+func flee_pace(delta: float, fleeing: bool) -> float:
+	if not fleeing:
+		flee_stamina = min(2.4, flee_stamina + delta * 0.5)
+		return 1.0
+	flee_stamina -= delta
+	return 1.0 if flee_stamina > 0.0 else 0.45
+
+# Calm prey: a hunter coming for it sends it running. True while it runs.
+func flee_hunter(delta: float) -> bool:
+	var h = chasing_hunter(300.0)
+	if h == null or is_enrolled():
+		flee_pace(delta, false)
+		return false
+	var away = (global_position - h.global_position).normalized()
+	away = away.rotated(sin(anim_timer * 5.0 + weave_phase) * 0.5)
+	velocity = away * speed * 0.95 * flee_pace(delta, true)
+	if move_and_slide():
+		# Pinned on a wall: slide along it
+		var n = get_last_slide_collision().get_normal() if get_last_slide_collision() else away
+		velocity = n.rotated(PI / 2 * orbit_sign) * speed * 0.8
+		move_and_slide()
+	face_sprite(velocity, delta, 12.0, idle_face_offset())
+	$Sprite2D.scale = Vector2.ONE * base_scale
+	$Sprite2D.frame = int(fmod(anim_timer * 12.0, 4.0))
+	return true
+
+# Caught by another animal: gone, with only scraps for you
+func eaten_by(hunter: Node2D):
+	if dead:
+		return
+	dead = true
+	SoundManager.play_kill(body_material(), false)
+	drop_biomass(0.4)
+	spawn_death_particles()
+	HitFX.kill_marks(get_parent(), global_position, species_burst_color(), body_material(), $CollisionShape2D.shape.radius * absf(scale.x))
+	# Dragged into the hunter's jaws as it goes limp
+	spawn_corpse()
+	enemy_died.emit()
+	queue_free()

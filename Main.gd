@@ -448,6 +448,17 @@ func advance_floor():
 func note_new_fossil(species: String):
     player.popup_text(player.global_position + Vector2(0, -60), "NEW FOSSIL: " + species.to_upper(), Color(0.98, 0.76, 0.38))
 
+# First time a hunt is watched: a short tag over the hunter; the fossil
+# record lists it from now on (data/FoodWeb.gd, MainMenu.fossil_row)
+func note_new_hunt(hunter: String, prey: String, pos: Vector2):
+    var text = "%s EATS %s" % [hunter.to_upper(), prey.to_upper()]
+    # Keep the whole tag inside the room, even when the catch is by a wall
+    var o = current_room_node.global_position if current_room_node else Vector2.ZERO
+    var w = text.length() * 21.0
+    pos.x = clamp(pos.x, o.x + 110.0, o.x + 1860.0 - w)
+    pos.y = clamp(pos.y, o.y + 220.0, o.y + 1000.0)
+    player.popup_text(pos + Vector2(0, -40), text, Color(0.98, 0.76, 0.38))
+
 func display_item_banner(title: String, desc: String, hold: float = -1.0):
     hud.show_item_banner(title, desc, false, hold)
 
