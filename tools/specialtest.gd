@@ -102,7 +102,7 @@ func _initialize():
 	for i in 20:
 		await process_frame
 	p = main.player
-	var tests = ["vent", "tar", "dig", "frenzy", "extinction", "nest", "tide", "symbiont", "ambush", "glow", "dark", "fire", "molt", "procession", "meadow", "mat", "drought", "treefall", "deal", "run"]
+	var tests = ["vent", "tar", "dig", "frenzy", "extinction", "nest", "tide", "symbiont", "ambush", "glow", "dark", "fire", "molt", "procession", "meadow", "mat", "drought", "treefall", "brachiopods", "deal", "run"]
 	for t in tests:
 		if only != "" and t != only:
 			continue
@@ -350,6 +350,46 @@ func t_treefall():
 	await frames(10, Vector2(250, 250))
 	var g2 = feature("TreeFall.gd")
 	check(g2 != null and g2.phase == "down", "the trunk still lies there on a revisit")
+
+func t_brachiopods():
+	preload("res://data/Worlds.gd").sea = true
+	var d = await setup("brachiopods", 5)
+	var g = feature("BrachiopodBed.gd")
+	check(g != null, "the lamp-shell bed is there")
+	check(not main.in_combat(), "lamp-shell bed has open doors")
+	check(g.shells.size() >= 10, "a bed of shells (%d)" % g.shells.size())
+	await frames(30, Vector2(250, 250))
+	check(g.open_count() == g.shells.size(), "left alone they gape")
+	# Rushing in: they feel it and snap shut
+	var s0 = g.shells[0]
+	var base = room().global_position + s0.pos
+	for i in 30:
+		p.global_position = base + Vector2(230 - i * 4.0, 0)
+		p.velocity = Vector2(-400, 0)
+		await physics_frame
+	check(s0.shut > 0.0 and s0.gape < 0.3, "rushing in, they snap shut")
+	check(not s0.eaten, "a shut shell can't be taken")
+	if out != "":
+		await snap("19_brachiopods_shut", true)
+	# Waiting close by, still: they open again
+	await frames(int(60 * (g.SHUT + 2.5)), base + Vector2(110, 0))
+	check(s0.gape > 0.9, "waiting still, it opens again (%.2f)" % s0.gape)
+	if out != "":
+		await snap("19_brachiopods_open", true)
+	# A quick lunge from close by takes it before it reacts
+	var els = total(p.elements)
+	for i in 8:
+		p.global_position = base + Vector2(110 - i * 14.0, 0)
+		p.velocity = Vector2(-400, 0)
+		await physics_frame
+	check(s0.eaten, "a lunge from close takes it open")
+	await frames(30, base)
+	check(total(p.elements) > els, "it gives elements (%.2f)" % (total(p.elements) - els))
+	main.load_room(main.current_room_pos)
+	await frames(10, Vector2(250, 250))
+	var g2 = feature("BrachiopodBed.gd")
+	check(g2 != null and g2.shells[0].eaten, "eaten shells stay eaten on a revisit")
+	preload("res://data/Worlds.gd").sea = false
 
 func t_procession():
 	var d = await setup("procession", 3)
@@ -614,7 +654,10 @@ func t_fire():
 func t_deal():
 	var SR = preload("res://data/SpecialRooms.gd")
 	var seen := {}
+	var W = preload("res://data/Worlds.gd")
 	for run in 20:
+		# Half the runs take the sea world on floors 4 and 5
+		W.sea = run % 2 == 1
 		for f in range(1, 6):
 			var rooms = preload("res://LevelGenerator.gd").generate_level(f, [])
 			var n = 0
@@ -623,14 +666,15 @@ func t_deal():
 				if r.special != "":
 					n += 1
 					seen[r.special] = true
-					if not f in SR.ERAS[r.special]:
-						check(false, "%s dealt in era %d" % [r.special, f])
+					if not W.era(f) in SR.ERAS[r.special]:
+						check(false, "%s dealt in era %d" % [r.special, W.era(f)])
 					if r.type != 1:
 						check(false, "special on a non-fight room")
 			if n < 1:
 				check(false, "floor %d got no special rooms" % f)
 			if not rooms.values().any(func(r): return r.special == "dark"):
 				check(false, "floor %d got no dark room" % f)
+	W.sea = false
 	check(seen.size() == SR.KINDS.size(), "all %d kinds turn up (%d)" % [SR.KINDS.size(), seen.size()])
 
 func t_run():

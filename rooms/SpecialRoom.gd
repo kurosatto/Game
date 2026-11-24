@@ -44,6 +44,7 @@ func begin(first: bool):
 		"mat": _mat()
 		"drought": _drought()
 		"treefall": _treefall(first)
+		"brachiopods": _brachiopods()
 	if first and kind != "ambush":
 		introduce()
 
@@ -388,3 +389,8 @@ func _drought():
 func _treefall(first: bool):
 	fight(first)
 	add_feature("TreeFall.gd", {"room": room, "state": state, "first": first})
+
+# ---- Lamp-shell bed: shells that snap shut when they feel you coming ----
+func _brachiopods():
+	peaceful()
+	add_feature("BrachiopodBed.gd", {"room": room, "state": state})
