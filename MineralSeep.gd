@@ -29,7 +29,7 @@ var stones: Array = []
 var gives: Array = [] # the two elements this seep is rich in
 
 static func is_land(f: int) -> bool:
-	return f >= 4
+	return preload("res://data/Worlds.gd").is_land(f)
 
 static func title_for(f: int) -> String:
 	return "MINERAL LICK" if is_land(f) else "COLD SEEP"

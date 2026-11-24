@@ -14,7 +14,8 @@ var entry_dir: Vector2i = Vector2i.ZERO
 
 const TraceLayerScript = preload("res://rooms/TraceLayer.gd")
 const FieldSketchScript = preload("res://rooms/FieldSketch.gd")
-const ERA_ART = ["ediacaran", "cambrian", "ordovician", "carboniferous", "permian"]
+const ERA_ART = ["ediacaran", "cambrian", "ordovician", "carboniferous", "permian", "carboniferous_sea", "permian_sea"]
+const Worlds = preload("res://data/Worlds.gd")
 
 # Tests can force a margin (headless runs always report a 1920px viewport)
 static var margin_override: float = -1.0
@@ -26,7 +27,7 @@ static func margin_for(viewport: Viewport) -> float:
     return clampf((w - 1920.0) / 2.0, 0.0, 400.0)
 
 func era_dir() -> String:
-    return "res://assets/eras/%s/" % ERA_ART[clampi(current_floor - 1, 0, ERA_ART.size() - 1)]
+    return "res://assets/eras/%s/" % ERA_ART[Worlds.era(current_floor) - 1]
 var active_enemies: Array = []
 var door_nodes: Dictionary = {}
 
@@ -887,6 +888,9 @@ const BOSSES = {
     3: "res://bosses/Cameroceras.gd",
     4: "res://bosses/Arthropleura.gd",
     5: "res://bosses/Dimetrodon.gd",
+    # The sea worlds of floors 4 and 5 (data/Worlds.gd)
+    6: "res://bosses/Edestus.gd",
+    7: "res://bosses/Helicoprion.gd",
 }
 
 # Or, half the time, a giant drawn with the playable forms' drawings
@@ -895,14 +899,15 @@ const ALT_BOSS := "res://bosses/DrawnBoss.gd"
 
 func pick_boss_script(floor_number: int) -> String:
     var main = get_parent()
-    var key = "boss_pick_%d" % floor_number
+    var era = Worlds.era(floor_number)
+    var key = "boss_pick_%d" % era
     var forced = OS.get_environment("BOSS_ALT")
     if forced != "":
-        return ALT_BOSS if forced == "1" else BOSSES.get(clampi(floor_number, 1, 5))
+        return ALT_BOSS if forced == "1" else BOSSES.get(era)
     if main and not main.has_meta(key):
         main.set_meta(key, randf() < 0.5)
     var alt = main.get_meta(key) if main else false
-    return ALT_BOSS if alt else BOSSES.get(clampi(floor_number, 1, 5))
+    return ALT_BOSS if alt else BOSSES.get(era)
 
 func spawn_boss(floor_number: int):
     var boss = load(pick_boss_script(floor_number)).new()
@@ -979,7 +984,7 @@ func roll_covers() -> Array:
 
 func roll_hazards(floor_number: int) -> Array:
     var out: Array = []
-    var vent = floor_number >= 5
+    var vent = Worlds.era(floor_number) == 5
     var doors = [Vector2(960, 68), Vector2(960, 1012), Vector2(128 - side_margin, 540), Vector2(1792 + side_margin, 540)]
     var area = interior_rect(110.0)
     for attempt in 60:
@@ -1183,10 +1188,23 @@ func clear_room():
             spawn_trapdoor()
 
 func spawn_trapdoor():
+    # An amphibious form going down into the Carboniferous or Permian picks
+    # its world: one way down to the sea, one up onto land (data/Worlds.gd)
+    var main = get_parent()
+    var form_id = String(main.current_form().get("id", "")) if main and main.has_method("current_form") else ""
+    if Worlds.splits(current_floor + 1) and Worlds.habitat(form_id) == "shore" and current_floor < 5:
+        _make_trapdoor(Vector2(720, 540), "sea")
+        _make_trapdoor(Vector2(1200, 540), "land")
+    else:
+        _make_trapdoor(Vector2(960, 540), "")
+
+func _make_trapdoor(pos: Vector2, world: String):
     var td = Area2D.new()
-    td.position = Vector2(960, 540)
+    td.name = "Trapdoor" + world.capitalize()
+    td.position = pos
     td.collision_layer = 0
     td.collision_mask = 1
+    td.set_meta("world", world)
     
     var sprite = Sprite2D.new()
     sprite.texture = load("res://assets/trapdoor.png")
@@ -1194,10 +1212,15 @@ func spawn_trapdoor():
     
     var td_light = PointLight2D.new()
     td_light.texture = load("res://assets/light.png")
-    td_light.color = Color(0.0, 0.95, 1.0)
+    td_light.color = Color(0.0, 0.95, 1.0) if world != "land" else Color(1.0, 0.85, 0.35)
     td_light.energy = 1.4
     td_light.scale = Vector2(1.8, 1.8)
     td.add_child(td_light)
+    if world != "":
+        var sign = preload("res://WorldSign.gd").new()
+        sign.world = world
+        sign.position = Vector2(0, -118)
+        td.add_child(sign)
     
     var col = CollisionShape2D.new()
     var shape = CircleShape2D.new()
@@ -1209,7 +1232,7 @@ func spawn_trapdoor():
     
     td.body_entered.connect(func(body):
         if is_instance_valid(body) and body.is_in_group("player"):
-            get_parent().advance_floor()
+            get_parent().advance_floor(world)
     , CONNECT_DEFERRED)
 
 func _on_door_entered(direction):

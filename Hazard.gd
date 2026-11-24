@@ -37,6 +37,8 @@ var marks: Array = []
 var told: bool = false
 
 static func kind_for_floor(f: int) -> String:
+	if not preload("res://data/Worlds.gd").is_land(f):
+		return "brine"
 	if f >= 5:
 		return "fumarole"
 	if f == 4:

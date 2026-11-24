@@ -675,20 +675,273 @@ def perm_fossil(c, rng):
     c.detail(fn)
 
 
+# ════════════════════════════ CARBONIFEROUS SEAS ════════════════════════════
+# The Bear Gulch bay and the crinoid meadows: the Age of Crinoids, with
+# brachiopod banks, screw-shaped Archimedes bryozoans and Keokuk geodes
+
+def crinoid(c, rng, stalk_col, arm_col, pin_col, cup_col, height=10):
+    c.shadow(14, 5)
+    c.ellipse(BX, BY - 2, 9, 4, shade_rgb(stalk_col, 0.8))
+    lean = rng.uniform(-9, 9)
+    stalk = [(BX + lean * (k / height) ** 1.5, BY - 2 - k * 6.2) for k in range(height + 1)]
+    c.lines([(*stalk[k], *stalk[k + 1]) for k in range(height)], stalk_col, 4.2)
+
+    def disks(d):
+        for x, y in stalk[1:]:
+            d.line(pts_k([(x - 2.2, y), (x + 2.2, y)]), fill=shade_rgb(stalk_col, 0.65) + (255,), width=int(0.7 * K))
+    c.detail(disks)
+    cx, cy = stalk[-1]
+    arms = []
+    n = 10
+    for k in range(n):
+        a = -math.pi / 2 + (k - (n - 1) / 2) * 0.32
+        mx, my = cx + math.cos(a) * 15, cy - 7 + math.sin(a) * 15
+        ex, ey = cx + math.cos(a) * 25, cy + 3 + math.sin(a) * 15
+        arms.append(((cx, cy), (mx, my), (ex, ey)))
+    c.lines([(*a[0], *a[1]) for a in arms] + [(*a[1], *a[2]) for a in arms], arm_col, 3.0)
+
+    def pinnules(d):
+        for (x0, y0), (x1, y1), (x2, y2) in arms:
+            for (a0, b0), (a1, b1) in (((x0, y0), (x1, y1)), ((x1, y1), (x2, y2))):
+                for t in np.linspace(0.15, 0.95, 5):
+                    px, py = a0 + (a1 - a0) * t, b0 + (b1 - b0) * t
+                    ang = math.atan2(b1 - b0, a1 - a0)
+                    for sg in (-1, 1):
+                        d.line(pts_k([(px, py), (px + math.cos(ang + sg * 1.2) * 3, py + math.sin(ang + sg * 1.2) * 3)]),
+                               fill=pin_col + (255,), width=int(0.6 * K))
+    c.detail(pinnules)
+    c.ellipse(cx, cy, 6, 5, cup_col, light=1.3)
+
+
+def brachiopods(c, rng, n, cx, cy, sx, sy, col):
+    """Productid brachiopods: ribbed, rounded shells lying in a bank."""
+    for _ in range(n):
+        x, y = cx + rng.uniform(-sx, sx), cy + rng.uniform(-sy, sy)
+        r = rng.uniform(4.5, 6.5)
+        c.ellipse(x, y, r, r * 0.8, col, light=1.25)
+
+        def fn(d, x=x, y=y, r=r):
+            for k in range(-2, 3):
+                d.line(pts_k([(x + k * r * 0.18, y + r * 0.75), (x + k * r * 0.32, y - r * 0.6)]), fill=shade_rgb(col, 0.6) + (255,), width=int(0.5 * K))
+            d.arc((*P(x - r * 0.9, y - r * 0.9), *P(x + r * 0.9, y + r * 0.4)), 200, 340, fill=shade_rgb(col, 0.55) + (255,), width=int(0.5 * K))
+        c.detail(fn)
+
+
+def cs_rock(c, rng):
+    boulder(c, rng, (176, 172, 150))
+    # A bank of productid brachiopods settled on the limestone
+    brachiopods(c, rng, 6, BX, BY - 18, 22, 7, (228, 214, 176))
+
+
+def cs_rock2(c, rng):
+    boulder(c, rng, (150, 160, 150), rx=40, ry=28)
+    # Loose crinoid stem pieces lying across it
+    for _ in range(3):
+        a = rng.uniform(-0.6, 0.6)
+        x, y = BX + rng.uniform(-18, 14), BY - 14 + rng.uniform(-8, 6)
+        ln = rng.uniform(12, 20)
+        c.lines([(x, y, x + math.cos(a) * ln, y + math.sin(a) * ln)], (218, 200, 214), 3.2)
+        c.detail(lambda d, x=x, y=y, a=a, ln=ln: [d.line(pts_k([(x + math.cos(a) * t - math.sin(a) * 1.6, y + math.sin(a) * t + math.cos(a) * 1.6),
+                                                                      (x + math.cos(a) * t + math.sin(a) * 1.6, y + math.sin(a) * t - math.cos(a) * 1.6)]),
+                                                               fill=(140, 120, 140, 255), width=int(0.5 * K)) for t in np.arange(2, ln, 2.4)])
+
+
+def cs_tall(c, rng):
+    # A crinoid, cream stalk and plum arms: the Carboniferous was their heyday
+    crinoid(c, rng, (226, 214, 196), (156, 96, 150), (226, 170, 214), (130, 80, 130))
+
+
+def cs_tall2(c, rng):
+    # A second kind, ochre-armed and shorter
+    crinoid(c, rng, (212, 196, 170), (214, 150, 80), (250, 206, 140), (180, 110, 60), height=8)
+
+
+def cs_mound(c, rng):
+    # Archimedes: a bryozoan colony with a corkscrew axis and lacy whorls
+    c.shadow(26, 8)
+    turns = 7
+    for k in range(turns):
+        y = BY - 6 - k * 9
+        w = 22 - k * 1.6
+        ph = k * 0.9
+        # Each whorl seen edge-on: a tilted lacy disc
+        c.ellipse(BX + math.sin(ph) * 2, y, w, 4.2, (176, 206, 186), light=1.25)
+
+        def fn(d, y=y, w=w, ph=ph):
+            for i in range(-6, 7):
+                x = BX + math.sin(ph) * 2 + i * w / 7
+                d.line(pts_k([(x, y - 3), (x + 1, y + 3)]), fill=(100, 140, 120, 255), width=int(0.5 * K))
+        c.detail(fn)
+    c.lines([(BX, BY, BX + 1, BY - 6 - (turns - 1) * 9 - 4)], (210, 200, 170), 3.6)
+
+
+def cs_glow(c, rng):
+    # A Keokuk geode cracked open: quartz crystals in a limestone nodule
+    c.shadow(36, 9)
+    c.glow(BX, BY - 18, 36, (190, 255, 230), 140)
+    c.ellipse(BX, BY - 12, 34, 22, (160, 150, 130), tex=noise_tex(rng, 6, 0.15))
+    c.ellipse(BX, BY - 16, 26, 15, (70, 90, 84), outline=False, rim=False, light=0.8, dark=1.2)
+    for _ in range(14):
+        x, y = BX + rng.uniform(-20, 20), BY - 16 + rng.uniform(-9, 9)
+        h, w = rng.uniform(8, 16), rng.uniform(3, 5)
+        c.poly([(x - w, y + 3), (x - w, y - h + w), (x, y - h), (x + w, y - h + w), (x + w, y + 3)], (190, 250, 226), light=1.5, dark=0.85)
+        c.detail(lambda d, x=x, y=y, h=h: d.line(pts_k([(x, y - h + 1), (x, y + 2)]), fill=(240, 255, 250, 255), width=int(0.6 * K)))
+
+
+def cs_fossil(c, rng):
+    # The armoured head of a Devonian placoderm (Dunkleosteus) in an old slab
+    slab(c, rng, (120, 128, 128))
+    col = (226, 218, 196)
+    cx, cy = BX, BY - 6
+    shield = [(cx - 20, cy + 6), (cx - 22, cy - 6), (cx - 10, cy - 14), (cx + 8, cy - 14), (cx + 22, cy - 6), (cx + 18, cy + 4), (cx + 4, cy + 10)]
+    c.poly(shield, shade_rgb(col, 0.88), light=1.15)
+
+    def fn(d):
+        ink = (120, 112, 100, 255)
+        d.ellipse((*P(cx + 6, cy - 9), *P(cx + 12, cy - 4)), outline=ink, width=int(0.8 * K))   # orbit
+        d.line(pts_k([(cx - 14, cy - 2), (cx + 2, cy - 10), (cx + 18, cy - 4)]), fill=ink, width=int(0.6 * K))
+        d.line(pts_k([(cx - 4, cy + 8), (cx - 6, cy - 12)]), fill=ink, width=int(0.6 * K))
+        # Bony jaw blades with their fang tips
+        d.line(pts_k([(cx + 4, cy + 10), (cx + 24, cy + 8), (cx + 27, cy + 3)]), fill=(236, 230, 214, 255), width=int(1.6 * K))
+        d.line(pts_k([(cx + 4, cy + 10), (cx + 24, cy + 8), (cx + 27, cy + 3)]), fill=ink, width=int(0.5 * K))
+    c.detail(fn)
+
+
+# ════════════════════════════ PERMIAN SEAS ════════════════════════════
+# Sponge and algae reefs like the Capitan Reef of Texas, fusulinid sand
+
+def fusulinids(c, rng, n, cx, cy, sx, sy):
+    def fn(d):
+        for _ in range(n):
+            x, y = cx + rng.uniform(-sx, sx), cy + rng.uniform(-sy, sy)
+            a = rng.uniform(0, math.pi)
+            dx, dy = math.cos(a) * 2.4, math.sin(a) * 2.4
+            d.line(pts_k([(x - dx, y - dy), (x + dx, y + dy)]), fill=(236, 220, 180, 255), width=int(1.4 * K))
+            d.line(pts_k([(x - dx * 0.4, y - dy * 0.4), (x + dx * 0.4, y + dy * 0.4)]), fill=(150, 120, 90, 255), width=int(0.4 * K))
+    c.detail(fn)
+
+
+def ps_rock(c, rng):
+    # Pale reef limestone studded with rice-grain fusulinids
+    boulder(c, rng, (206, 190, 156))
+    fusulinids(c, rng, 22, BX, BY - 12, 28, 12)
+
+
+def ps_rock2(c, rng):
+    boulder(c, rng, (190, 160, 130), rx=40, ry=27)
+    brachiopods(c, rng, 4, BX - 2, BY - 16, 18, 6, (232, 206, 170))
+    fusulinids(c, rng, 10, BX, BY - 8, 26, 8)
+
+
+def ps_tall(c, rng):
+    # A sphinctozoan sponge: a column of hollow, bead-like chambers
+    c.shadow(16, 6)
+    x, y = BX, BY - 2
+    lean = rng.uniform(-0.18, 0.18)
+    for k in range(6):
+        r = 10 - k * 0.5 + rng.uniform(-0.6, 0.6)
+        cx, cy = x + math.sin(lean) * k * 10, y - 6 - k * 11
+        c.ellipse(cx, cy, r, 7.5, (218, 150, 96), light=1.25, tex=noise_tex(rng, 3, 0.1))
+
+        def fn(d, cx=cx, cy=cy, r=r):
+            for i in range(-2, 3):
+                d.ellipse((*P(cx + i * r * 0.32 - 0.9, cy - 1.4), *P(cx + i * r * 0.32 + 0.9, cy + 0.4)), fill=(130, 70, 50, 255))
+        c.detail(fn)
+    top = (x + math.sin(lean) * 50, y - 6 - 5 * 11 - 6)
+    c.ellipse(top[0], top[1], 5, 2.2, (110, 56, 40), outline=False, rim=False)
+
+
+def ps_tall2(c, rng):
+    # A tall vase sponge with a wide mouth
+    c.shadow(18, 6)
+    h = rng.uniform(56, 66)
+    pts = [(BX - 7, BY), (BX - 14, BY - h * 0.5), (BX - 16, BY - h), (BX + 16, BY - h), (BX + 14, BY - h * 0.5), (BX + 7, BY)]
+    c.poly(pts, (226, 176, 110), tex=noise_tex(rng, 4, 0.1))
+    c.ellipse(BX, BY - h, 16, 5, (236, 196, 130), light=1.3)
+    c.ellipse(BX, BY - h + 0.5, 11, 3, (110, 60, 40), outline=False, rim=False)
+    stipple(c, rng, BX, BY - h * 0.5, 11, h * 0.4, (150, 96, 60, 255), 36, 0.9)
+
+
+def ps_mound(c, rng):
+    # A thicket of red calcareous algae and Tubiphytes crusts
+    c.shadow(30, 9)
+    segs = []
+
+    def branch(x, y, a, ln, depth):
+        ex, ey = x + math.cos(a) * ln, y + math.sin(a) * ln
+        segs.append((x, y, ex, ey, depth))
+        if depth < 3:
+            branch(ex, ey, a - rng.uniform(0.35, 0.6), ln * 0.72, depth + 1)
+            branch(ex, ey, a + rng.uniform(0.35, 0.6), ln * 0.72, depth + 1)
+    branch(BX - 8, BY, -math.pi / 2 - 0.2, 22, 0)
+    branch(BX + 10, BY, -math.pi / 2 + 0.25, 18, 1)
+    for depth, w in ((0, 8), (1, 6.5), (2, 5.5), (3, 4.5)):
+        c.lines([sg[:4] for sg in segs if sg[4] == depth], (190, 86, 78), w)
+    for sg in segs:
+        if sg[4] == 3:
+            c.ellipse(sg[2], sg[3], 3.0, 2.4, (226, 130, 120), light=1.3)
+
+
+def ps_glow(c, rng):
+    # A glass sponge vase, its silica lattice catching the light
+    c.shadow(20, 7)
+    c.glow(BX, BY - 40, 34, (255, 236, 190), 120)
+    pts = [(BX - 8, BY), (BX - 20, BY - 40), (BX - 18, BY - 66), (BX + 18, BY - 66), (BX + 20, BY - 40), (BX + 8, BY)]
+    c.poly(pts, (240, 226, 190), light=1.35, dark=0.8)
+    c.ellipse(BX, BY - 66, 18, 5, (200, 180, 140), light=1.4)
+
+    def fn(d):
+        for k in range(-5, 6):
+            d.line(pts_k([(BX + k * 3.6, BY - 66), (BX + k * 1.4, BY - 2)]), fill=(255, 250, 235, 200), width=int(0.6 * K))
+        for j in range(1, 10):
+            y = BY - 66 + j * 6.6
+            w = 18 + 2 * math.sin(j / 10 * math.pi) - j * 0.9
+            d.line(pts_k([(BX - w, y), (BX + w, y)]), fill=(255, 250, 235, 170), width=int(0.6 * K))
+    c.detail(fn)
+
+
+def ps_fossil(c, rng):
+    # A Carboniferous goniatite: an ammonoid with zig-zag chamber seams
+    slab(c, rng, (176, 160, 132))
+    cx, cy = BX + rng.uniform(-4, 4), BY - 6
+    c.ellipse(cx, cy, 17, 14, (230, 216, 184), light=1.2)
+
+    def fn(d):
+        ink = (140, 116, 90, 255)
+        pts = [(cx + math.cos(a) * (15 - a * 1.1), cy + math.sin(a) * (12 - a * 0.9)) for a in np.linspace(0, 11.5, 60)]
+        d.line(pts_k(pts), fill=ink, width=int(0.8 * K))
+        for k in range(10):
+            a = k / 10 * math.tau
+            r0, r1 = 7, 15
+            mx, my = cx + math.cos(a + 0.15) * 11, cy + math.sin(a + 0.15) * 9
+            d.line(pts_k([(cx + math.cos(a) * r0, cy + math.sin(a) * r0 * 0.8), (mx, my),
+                          (cx + math.cos(a) * r1, cy + math.sin(a) * r1 * 0.8)]), fill=ink, width=int(0.5 * K))
+    c.detail(fn)
+
+
 SLOTS = {
     "ediacaran": {"rock": ed_rock, "tall": ed_tall, "mound": ed_mound, "glow": ed_glow, "fossil": ed_fossil},
     "cambrian": {"rock": cam_rock, "tall": cam_tall, "mound": cam_mound, "glow": cam_glow, "fossil": cam_fossil},
     "ordovician": {"rock": ord_rock, "tall": ord_tall, "mound": ord_mound, "glow": ord_glow, "fossil": ord_fossil},
     "carboniferous": {"rock": carb_rock, "tall": carb_tall, "mound": carb_mound, "glow": carb_glow, "fossil": carb_fossil},
     "permian": {"rock": perm_rock, "tall": perm_tall, "mound": perm_mound, "glow": perm_glow, "fossil": perm_fossil},
+    "carboniferous_sea": {"rock": cs_rock, "tall": cs_tall, "mound": cs_mound, "glow": cs_glow, "fossil": cs_fossil},
+    "permian_sea": {"rock": ps_rock, "tall": ps_tall, "mound": ps_mound, "glow": ps_glow, "fossil": ps_fossil},
 }
 # Second variants that are a different plant, not just a reshuffle
-VARIANT_2 = {("carboniferous", "tall"): carb_tall2}
+VARIANT_2 = {("carboniferous", "tall"): carb_tall2,
+             ("carboniferous_sea", "tall"): cs_tall2, ("carboniferous_sea", "rock"): cs_rock2,
+             ("permian_sea", "tall"): ps_tall2, ("permian_sea", "rock"): ps_rock2}
 
 
 def main():
+    # ONLY=carboniferous_sea,permian_sea redraws just those eras
+    only = [e for e in os.environ.get("ONLY", "").split(",") if e]
     for i, era in enumerate(ERAS):
+        if only and era not in only:
+            continue
         out = os.path.join("assets", "eras", era)
+        os.makedirs(out, exist_ok=True)
         for slot, fn in SLOTS[era].items():
             for v in (1, 2):
                 rng = np.random.default_rng(1000 + i * 50 + list(SLOTS[era]).index(slot) * 5 + v)
@@ -697,7 +950,8 @@ def main():
                 name = slot + ("" if v == 1 else "_2") + ".png"
                 c.done().save(os.path.join(out, name))
         print("  wrote", out)
-    charnia_sheet()
+    if not only or "ediacaran" in only:
+        charnia_sheet()
 
 
 def charnia_sheet():

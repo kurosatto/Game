@@ -12,6 +12,7 @@ var level_gen = preload("res://LevelGenerator.gd")
 var room_scene = preload("res://Room.tscn")
 var fauna = preload("res://data/Fauna.gd")
 var era_look = preload("res://data/EraLook.gd")
+const Worlds = preload("res://data/Worlds.gd")
 
 var floor_number: int = 1
 var dungeon_rooms: Dictionary = {}
@@ -195,6 +196,7 @@ func _update_quest_mark(pop: bool = false):
 
 func start_new_game():
     floor_number = 1
+    Worlds.sea = true
     generate_floor()
     # Starting trait chosen on the main menu (unlocked by a challenge)
     var start_trait = progress.start_trait()
@@ -226,6 +228,9 @@ func check_challenges():
 
 func generate_floor():
     hit_this_floor = false
+    # Tests and screenshots can force the world (WORLD=sea / land)
+    if Worlds.forced() != "" and Worlds.splits(floor_number):
+        Worlds.sea = Worlds.forced() == "sea"
     # A key belongs to its own floor: a spare one never opens the next
     if player.keys > 0:
         player.keys = 0
@@ -408,7 +413,8 @@ func _on_room_transition_requested(direction: Vector2i):
 var advancing: bool = false
 var room_entered_at: int = 0 # when the last room change finished (Door.gd hints)
 
-func advance_floor():
+# pick: the world an amphibious form chose at the trapdoor ("sea"/"land")
+func advance_floor(pick: String = ""):
     # The trapdoor can report the player more than once during the fade
     if advancing:
         return
@@ -420,6 +426,9 @@ func advance_floor():
         
     floor_number += 1
     advancing = true
+    # From the Carboniferous on, sea animals and land animals go to
+    # different worlds (data/Worlds.gd)
+    Worlds.sea = Worlds.sea_for(floor_number, current_form().get("id", ""), pick)
     
     transition_rect.visible = true
     transition_rect.color.a = 0.0
@@ -564,6 +573,7 @@ func record_run(won: bool) -> bool:
             ids.append(L.get_form(key).id)
     return progress.record_run(floor_number, player.current_character_name, won, {
         "path": ids,
+        "world_era": Worlds.era(floor_number),
         "killer": "" if won else player.last_hurt_by,
         "kills": player.kills,
         "parts": player.adaptations_taken.size(),
@@ -641,6 +651,7 @@ func _on_player_died():
     hud.show_game_over({
         "record": record,
         "floor": floor_number,
+        "era": Worlds.era(floor_number),
         "form": player.current_character_name,
         "kills": player.kills,
         "killed_by": player.last_hurt_by,

@@ -118,6 +118,13 @@ const BY_NAME = {
 	"Cacops": "batrachichnus", "Eryops": "limnopus", "Edaphosaurus": "dimetropus", "Dimetrodon": "dimetropus",
 	"Lystrosaurus": "dicynodontipus", "Diictodon": "dicynodontipus", "Captorhinus": "hyloidichnus",
 	"Inostrancevia": "", "Euchambersia": "", "Permocupes": "", "Stentor": "", "Salpingoeca": "", "Charnia": "", "Fractofusus": "",
+	# Sea worlds (eras 6, 7): fish leave fin trails, the last trilobites
+	# their resting hollows, sea scorpions their sweeping tracks
+	"Falcatus": "undichna", "Stethacanthus": "undichna", "Belantsea": "undichna", "Echinochimaera": "undichna",
+	"Palaeoniscum": "undichna", "Janassa": "undichna", "Coelacanthus": "undichna", "Xenacanthus": "undichna",
+	"Phillipsia": "rusophycus", "Ditomopyge": "rusophycus", "Hibbertopterus": "palmichnium", "Campylocephalus": "palmichnium",
+	"Goniatites": "", "Waagenoceras": "", "Syllipsimopodi": "", "Tyrannophontes": "", "Archaeocidaris": "", "Miocidaris": "",
+	"Edestus": "", "Helicoprion": "", "Ophiacodon": "dimetropus", "Mesosaurus": "",
 }
 
 static func for_form(form_id: String) -> String:

@@ -32,7 +32,7 @@ func _ready():
 	add_to_group("companions")
 	z_index = 1
 	player = get_tree().get_first_node_in_group("player")
-	var info = SR.SYMBIONTS[clampi(floor_num, 2, 5)]
+	var info = SR.SYMBIONTS[preload("res://data/Worlds.gd").era(floor_num)]
 	species = info.species
 	puppet = preload("res://rooms/SpecialRoom.gd").make_puppet(self, floor_num, species, info.type, Vector2.ZERO)
 

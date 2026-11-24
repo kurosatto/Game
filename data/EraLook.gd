@@ -57,10 +57,27 @@ const ERAS = [
 		"shadow_time": 50.0, "shadow_alpha": 0.16, "shadow_scale": 6.0, "shadow_facing": 0.0, "shadow_turns": false,
 		"door_light": Color(1.0, 0.65, 0.4),
 	},
+	{ # 6 Carboniferous seas: warm, clear lagoon over crinoid meadows
+		"tint": Color(0.88, 0.97, 0.98), "ink_light": 0.6, "boss_tint": Color(0.70, 0.86, 0.92),
+		"light": Color(0.7, 1.0, 0.9), "light_mode": 0, "light_power": 0.13,
+		"motes": Color(0.85, 1.0, 0.92, 0.26), "mote_kind": "plankton",
+		"shafts": Color(0.85, 1.0, 0.95, 0.08), "bubbles": true,
+		"shadow_time": 22.0, "shadow_alpha": 0.2, "shadow_scale": 4.6, "shadow_facing": PI / 2, "shadow_turns": true,
+		"door_light": Color(0.7, 1.0, 0.9),
+	},
+	{ # 7 Permian seas: sponge reefs under a hot sun, fading toward the Great Dying
+		"tint": Color(0.94, 0.95, 0.9), "ink_light": 0.55, "boss_tint": Color(0.86, 0.80, 0.72),
+		"light": Color(1.0, 0.9, 0.7), "light_mode": 0, "light_power": 0.12,
+		"motes": Color(0.95, 0.92, 0.8, 0.26), "mote_kind": "plankton",
+		"shafts": Color(1.0, 0.92, 0.75, 0.07), "bubbles": true,
+		"shadow_time": 30.0, "shadow_alpha": 0.2, "shadow_scale": 5.0, "shadow_facing": PI / 2, "shadow_turns": true,
+		"door_light": Color(1.0, 0.9, 0.7),
+	},
 ]
 
+# A floor (in the world being played) or an era 6/7 (data/Worlds.gd)
 static func get_look(floor_num: int) -> Dictionary:
-	return ERAS[clampi(floor_num - 1, 0, ERAS.size() - 1)]
+	return ERAS[preload("res://data/Worlds.gd").era(floor_num) - 1]
 
 # Light moving over the floor: water caustics, leaf-dappled sun or heat haze.
 # Additive, a few sines per pixel, so it stays cheap on phones.

@@ -20,6 +20,8 @@ const GLOW_COLORS = {
     "ediacaran": Color(0.6, 1.0, 0.85), "cambrian": Color(0.65, 0.9, 1.0),
     "ordovician": Color(0.6, 0.75, 1.0), "carboniferous": Color(0.7, 1.0, 0.45),
     "permian": Color(1.0, 0.5, 0.2),
+    # The sea worlds of floors 4 and 5: a quartz geode and a glass sponge
+    "carboniferous_sea": Color(0.6, 1.0, 0.85), "permian_sea": Color(1.0, 0.9, 0.65),
 }
 # Which scenery sways in the current (fronds, sea lilies, ferns, trees):
 # [era, slot] -> sway strength. Rocks, cups and stumps stay put.
@@ -27,6 +29,8 @@ const SWAY = {
     "ediacaran/tall": 0.09, "cambrian/mound": 0.04, "ordovician/tall": 0.12,
     "carboniferous/mound": 0.05, "carboniferous/tall_2": 0.06,
     "permian/tall": 0.05, "permian/mound": 0.04,
+    "carboniferous_sea/tall": 0.11, "carboniferous_sea/tall_2": 0.1, "carboniferous_sea/mound": 0.03,
+    "permian_sea/mound": 0.04, "permian_sea/tall": 0.03,
 }
 const SWAY_SHADER = """
 shader_type canvas_item;
@@ -108,6 +112,26 @@ const FOOTPRINT = {
     "permian/rock_2": [0, -13, 45, 27],
     "permian/tall": [-1, -14, 31, 25],
     "permian/tall_2": [-1, -14, 31, 25],
+    "carboniferous_sea/fossil": [-1, -6, 48, 29],
+    "carboniferous_sea/fossil_2": [-1, -4, 48, 28],
+    "carboniferous_sea/glow": [-1, -21, 37, 36],
+    "carboniferous_sea/glow_2": [-1, -21, 37, 36],
+    "carboniferous_sea/mound": [-1, -12, 24, 21],
+    "carboniferous_sea/mound_2": [-1, -12, 24, 21],
+    "carboniferous_sea/rock": [1, -13, 46, 28],
+    "carboniferous_sea/rock_2": [0, -13, 43, 27],
+    "carboniferous_sea/tall": [-1, -18, 12, 25],
+    "carboniferous_sea/tall_2": [-1, -18, 12, 25],
+    "permian_sea/fossil": [-2, -6, 48, 29],
+    "permian_sea/fossil_2": [0, -4, 49, 28],
+    "permian_sea/glow": [-1, -12, 26, 21],
+    "permian_sea/glow_2": [-1, -12, 26, 21],
+    "permian_sea/mound": [-5, -29, 41, 37],
+    "permian_sea/mound_2": [-3, -29, 40, 37],
+    "permian_sea/rock": [-1, -14, 46, 29],
+    "permian_sea/rock_2": [-1, -11, 43, 25],
+    "permian_sea/tall": [-1, -17, 15, 25],
+    "permian_sea/tall_2": [-1, -17, 18, 25],
 }
 # Fallback for the old generic art: the original 44 px circle
 var foot_c := Vector2.ZERO
@@ -299,7 +323,7 @@ func add_glow_particles():
     var fade = Gradient.new()
     var col: Color = GLOW_COLORS.get(era_name, Color(0.7, 1.0, 0.9))
     match era_name:
-        "ediacaran", "cambrian", "ordovician":
+        "ediacaran", "cambrian", "ordovician", "carboniferous_sea", "permian_sea":
             # Bubbles rising through the water
             col = Color(0.85, 1.0, 1.0)
         "carboniferous":

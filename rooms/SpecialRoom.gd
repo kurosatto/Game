@@ -143,7 +143,7 @@ func _tar(first: bool):
 	for i in state.pools.size():
 		var props = {"position": state.pools[i].pos, "size": state.pools[i].size, "seed_val": i * 97 + floor_num}
 		if i == 0 and not state.get("freed", false):
-			props["trapped_species"] = SR.TRAPPED[clampi(floor_num, 1, 5)]
+			props["trapped_species"] = SR.TRAPPED[preload("res://data/Worlds.gd").era(floor_num)]
 			props["on_freed"] = func(): state["freed"] = true
 		add_feature("MudPool.gd", props)
 
@@ -157,7 +157,7 @@ func _dig():
 func _frenzy(first: bool):
 	if not fight(first, false):
 		return
-	var info = SR.FRENZY[clampi(floor_num, 1, 5)]
+	var info = SR.FRENZY[preload("res://data/Worlds.gd").era(floor_num)]
 	var sp = SR.species(floor_num, info.species)
 	var ppos = player.global_position if player else Vector2(960, 540)
 	var area = room.interior_rect(90.0)
@@ -198,7 +198,7 @@ func _nest():
 
 func _on_clutch_taken():
 	state["taken"] = true
-	var info = SR.NESTS[clampi(floor_num, 2, 5)]
+	var info = SR.NESTS[preload("res://data/Worlds.gd").era(floor_num)]
 	SR.spill(room, Vector2(960, 540), preload("res://data/Biominerals.gd").fauna_elements(info.parent), 6.0, 8)
 	if player and player.has_method("heal"):
 		player.heal(2)
@@ -265,7 +265,7 @@ func _ambush_watch(delta: float):
 	_spring_ambush()
 
 func _spring_ambush():
-	var info = SR.AMBUSHERS[clampi(floor_num, 2, 5)]
+	var info = SR.AMBUSHERS[preload("res://data/Worlds.gd").era(floor_num)]
 	# It was hiding by the scenery farthest from you, or in a far corner
 	var ppos = player.global_position
 	var spot = Vector2.ZERO
@@ -333,7 +333,7 @@ func _fire(first: bool):
 func _molt(first: bool):
 	if not fight(first, false):
 		return
-	var info = SR.MOLTERS[clampi(floor_num, 2, 3)]
+	var info = SR.MOLTERS[preload("res://data/Worlds.gd").era(floor_num) if preload("res://data/Worlds.gd").era(floor_num) in SR.MOLTERS else 3]
 	var ppos = player.global_position - room.global_position if player else Vector2(300, 540)
 	var centre = Vector2(1180.0 if ppos.x < 960.0 else 740.0, 540.0)
 	var crowd: Array = []

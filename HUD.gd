@@ -9,8 +9,12 @@ const ERA_NAMES = {
     2: "ERA 2: CAMBRIAN RADIANCE (540 MYA)",
     3: "ERA 3: ORDOVICIAN SEAS (460 MYA)",
     4: "ERA 4: CARBONIFEROUS SWAMPS (350 MYA)",
-    5: "ERA 5: APEX EXTINCTION BOUNDARY (250 MYA)"
+    5: "ERA 5: APEX EXTINCTION BOUNDARY (250 MYA)",
+    # The sea worlds of floors 4 and 5 (data/Worlds.gd)
+    6: "ERA 4: CARBONIFEROUS SEAS (330 MYA)",
+    7: "ERA 5: PERMIAN REEF SEAS (260 MYA)",
 }
+const Worlds = preload("res://data/Worlds.gd")
 
 # Shown on the card at the start of each floor: period, its dates and one
 # thing that happened then (dates from the ICS chronostratigraphic chart)
@@ -25,6 +29,10 @@ const ERA_INFO = {
         "fact": "Vast coal-swamp forests push oxygen far above today's level, so insects like the dragonfly Meganeura grow huge."},
     5: {"name": "PERMIAN PERIOD", "dates": "299 to 252 million years ago",
         "fact": "Synapsids, our own distant relatives, rule the land until the end-Permian extinction wipes out most life on Earth."},
+    6: {"name": "CARBONIFEROUS SEAS", "dates": "359 to 299 million years ago",
+        "fact": "Warm shallow seas full of crinoid meadows and the strangest sharks that ever lived, with spines, brushes and tooth-shears."},
+    7: {"name": "PERMIAN SEAS", "dates": "299 to 252 million years ago",
+        "fact": "Sponge reefs, ammonoids and the last trilobites and sea scorpions, until the Great Dying kills nearly all sea life."},
 }
 
 # Evolution choices come from data/Lineages.gd (the accurate tree of life)
@@ -1125,7 +1133,7 @@ var current_floor: int = 1
 
 func update_floor(floor_num: int):
     current_floor = floor_num
-    var era_str = ERA_NAMES.get(floor_num, "ERA %d" % floor_num)
+    var era_str = ERA_NAMES.get(Worlds.era(floor_num), "ERA %d" % floor_num)
     floor_label.text = "%s | %s" % [era_str, current_creature_name]
 
 func update_minimap(rooms: Dictionary, current_pos: Vector2i):
@@ -1310,7 +1318,7 @@ func show_game_over(run: Dictionary = {}):
         sub.text = "Your genetic lineage was severed.\n" + how
         return
     add_lineage_strip($GameOverScreen/Center)
-    var era: Dictionary = ERA_INFO.get(clampi(run.get("floor", 1), 1, 5), {})
+    var era: Dictionary = ERA_INFO.get(int(run.get("era", clampi(run.get("floor", 1), 1, 5))), {})
     var lines = "Your %s lineage died out in the %s, era %d of 5." % [
         str(run.get("form", "")).to_lower().capitalize(), era.get("name", "").to_lower().capitalize(), run.get("floor", 1)]
     if str(run.get("killed_by", "")) != "":
@@ -1402,7 +1410,7 @@ func show_evolution_modal(floor_num: int, current_path: Array = []):
 
     var header = evolution_modal.get_node("CenterBox/Header") as Label
     var subheader = evolution_modal.get_node("CenterBox/SubHeader") as Label
-    header.text = "" + ERA_NAMES.get(floor_num, "ERA %d" % floor_num) + " COMPLETE"
+    header.text = "" + ERA_NAMES.get(Worlds.era(floor_num), "ERA %d" % floor_num) + " COMPLETE"
 
     var cards_row = evolution_modal.get_node("CenterBox/CardsRow") as HBoxContainer
     for c in cards_row.get_children():
@@ -1842,7 +1850,7 @@ func show_pause_info():
 
     var main = get_tree().get_first_node_in_group("main")
     var player = get_tree().get_first_node_in_group("player")
-    var era = ERA_INFO.get(current_floor, {})
+    var era = ERA_INFO.get(Worlds.era(current_floor), {})
     pause_era.text = era.get("name", "ERA %d" % current_floor)
     pause_dates.text = era.get("dates", "")
     # Which music is playing, so favourite tracks can be named
@@ -2071,7 +2079,7 @@ func show_era_card(floor_num: int, form: Dictionary):
     elif lineages.escape_label(form) != "DASH":
         rows = [dash_row(form, touch, pad)]
     var color: Color = form.get("color", Color(0.0, 0.95, 1.0))
-    var era: Dictionary = ERA_INFO.get(clampi(floor_num, 1, 5), {})
+    var era: Dictionary = ERA_INFO.get(Worlds.era(floor_num), {})
     item_banner.visible = false # an old note would sit on top of the page
     var vbox = _open_card(color, 1500, 0.95)
     vbox.add_theme_constant_override("separation", 10)

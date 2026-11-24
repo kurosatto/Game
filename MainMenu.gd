@@ -523,19 +523,22 @@ func show_codex():
 # The fossil record: every era animal and boss, grouped by era. Eaten ones
 # show their picture and the real biology; the rest are dark silhouettes.
 const FAUNA = preload("res://data/Fauna.gd")
-const ERA_NAMES = ["Ediacaran", "Cambrian", "Ordovician", "Carboniferous", "Permian"]
+const ERA_NAMES = ["Ediacaran", "Cambrian", "Ordovician", "Carboniferous", "Permian", "Carboniferous seas", "Permian seas"]
+const Worlds = preload("res://data/Worlds.gd")
 
 func show_fossils():
 	var eaten: Array = codex.load_eaten()
 	var total := 0
-	for era in range(1, 6):
+	# Era lists start from the land worlds; the sea worlds are eras 6 and 7
+	Worlds.sea = false
+	for era in Worlds.ERA_ORDER:
 		total += FAUNA.era_species(era).size() + 2
 	var list = open_overlay("FOSSIL RECORD  %d / %d" % [eaten.size(), total])
 	add_overlay_button(list.get_parent(), "CODEX", show_codex)
 	add_overlay_button(list.get_parent(), "TRACES", show_traces)
 	list.add_child(label("Every animal you eat, or sketch from life by holding still near it, is added here, with what is known about it.", 19, UI.MUTED))
-	for era in range(1, 6):
-		var head = label(ERA_NAMES[era - 1].to_upper() + " PERIOD", 26, UI.SUN)
+	for era in Worlds.ERA_ORDER:
+		var head = label(ERA_NAMES[era - 1].to_upper() + ("" if era > 5 else " PERIOD") + ("  ·  ON LAND" if era in [4, 5] else ""), 26, UI.SUN)
 		head.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 		list.add_child(head)
 		var species: Array = FAUNA.era_species(era).duplicate()
@@ -688,7 +691,8 @@ func past_run_row(r: Dictionary) -> Control:
 	if r.get("won", false):
 		head = "Survived to the end as %s" % String(r.get("form", "")).to_lower().capitalize()
 	else:
-		head = "%s, era %d: %s" % [ERA_NAMES[clampi(era, 1, 5) - 1], era, String(r.get("form", "")).to_lower().capitalize()]
+		var where = int(r.get("world_era", era))
+		head = "%s, era %d: %s" % [ERA_NAMES[clampi(where, 1, 7) - 1], era, String(r.get("form", "")).to_lower().capitalize()]
 		if String(r.get("killer", "")) != "":
 			head += "  ·  killed by %s" % r.killer
 	var h = label(head, 22, UI.SUN if r.get("won", false) else UI.CREAM)
