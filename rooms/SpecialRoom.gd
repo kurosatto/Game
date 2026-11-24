@@ -39,6 +39,7 @@ func begin(first: bool):
 		"dark": fight(first)
 		"fire": _fire(first)
 		"molt": _molt(first)
+		"procession": _procession()
 	if first and kind != "ambush":
 		introduce()
 
@@ -342,3 +343,10 @@ func _molt(first: bool):
 		room.spawn_enemy(at, "skittish@" + info.species, floor_num)
 		crowd.append(room.active_enemies.back())
 	add_feature("MoltGathering.gd", {"room": room, "crowd": crowd})
+
+# ---- Trilobite procession: blind Ampyx walking in single file ----
+func _procession():
+	peaceful()
+	if state.get("broken", false) and state.get("left", 0) <= 0:
+		return
+	add_feature("Procession.gd", {"room": room, "state": state})
