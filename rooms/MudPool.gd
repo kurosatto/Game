@@ -62,7 +62,7 @@ func _spawn_trapped():
 	trapped.z_index = -1
 
 func tar() -> bool:
-	return floor_num >= 5
+	return preload("res://data/Worlds.gd").era(floor_num) == 5
 
 func covers(pos: Vector2, pad: float = 0.0) -> bool:
 	var d = pos - global_position

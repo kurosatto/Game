@@ -40,9 +40,15 @@ const FAUNA = {
 	"Maclurites": ["Ca", "Fe"], "Arthrolycosa": ["Zn", "Cu"], "Euphoberia": ["Ca", "Cu"], "Latzelia": ["Zn", "Cu"],
 	"Hylonomus": ["P", "Ca"], "Orthacanthus": ["P", "Fe"], "Captorhinus": ["P", "Ca"], "Cacops": ["P", "Ca"],
 	"Permocupes": ["S", "Cu"], "Edaphosaurus": ["P", "Ca"],
+	# The sea worlds of floors 4 and 5 (eras 6 and 7)
+	"Falcatus": ["P", "Fe"], "Tyrannophontes": ["Ca", "Cu"], "Goniatites": ["Ca", "Cu"], "Phillipsia": ["Ca"],
+	"Hibbertopterus": ["Zn", "Cu"], "Belantsea": ["P", "Ca"], "Stethacanthus": ["P", "Fe"], "Syllipsimopodi": ["Cu", "S"],
+	"Echinochimaera": ["P", "Ca"], "Archaeocidaris": ["Ca", "Fe"],
+	"Palaeoniscum": ["P", "Ca"], "Campylocephalus": ["Zn", "Cu"], "Waagenoceras": ["Ca", "Cu"], "Ditomopyge": ["Ca"],
+	"Janassa": ["P", "Ca"], "Coelacanthus": ["P", "Fe"], "Xenacanthus": ["P", "Fe"], "Miocidaris": ["Ca", "Fe"],
 }
 # A boss is a feast of everything it was made of
-const BOSSES = {1: ["P", "S"], 2: ["Cu", "S", "Zn"], 3: ["Ca", "Cu", "Fe"], 4: ["Ca", "Cu", "Zn"], 5: ["P", "Fe", "Ca"]}
+const BOSSES = {1: ["P", "S"], 2: ["Cu", "S", "Zn"], 3: ["Ca", "Cu", "Fe"], 4: ["Ca", "Cu", "Zn"], 5: ["P", "Fe", "Ca"], 6: ["P", "Ca", "Zn"], 7: ["P", "Fe", "S"]}
 # Elements eaten per point of a kill's worth
 const YIELD := 0.1
 const BOSS_YIELD := 2.5

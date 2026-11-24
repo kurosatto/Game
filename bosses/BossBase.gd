@@ -317,7 +317,7 @@ func die():
 func drop_elements(floor_num: int):
 	var bm = preload("res://data/Biominerals.gd")
 	var orb_script = preload("res://BiomassOrb.gd")
-	for el in bm.BOSSES.get(floor_num, ["P"]):
+	for el in bm.BOSSES.get(preload("res://data/Worlds.gd").era(floor_num), ["P"]):
 		for i in 3:
 			var orb = orb_script.new()
 			orb.value = bm.BOSS_YIELD / 3.0

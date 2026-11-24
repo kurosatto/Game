@@ -54,8 +54,9 @@ func check(ok: bool, what: String):
 		fails += 1
 		print("  FAIL ", what)
 
+# Eras 6 and 7 are the sea worlds of floors 4 and 5 (data/Worlds.gd)
 func find_type(species: String) -> String:
-	for f in range(1, 6):
+	for f in range(1, 8):
 		for t in fauna.FLOORS[f]:
 			if fauna.FLOORS[f][t].name == species:
 				return "%d:%s" % [f, t]

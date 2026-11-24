@@ -56,6 +56,24 @@ const FLOORS = {
 		"burrower": {"name": "Diictodon", "temper": "wary", "idle": "dig", "fact": "A small Permian dicynodont that dug corkscrew burrows; some were fossilised curled up inside them.", "tip": "It digs under where it can't be hit, then bursts up beside you. Watch for the dust.", "tint": Color(1.0, 1.0, 1.0), "scale": 1.0, "speed": 1.0},
 		"orbiter": {"name": "Euchambersia", "temper": "predator", "idle": "stalk", "fact": "A Late Permian therocephalian with a pit beside each canine that may have held a venom gland, which would make it the oldest venomous relative of mammals.", "tip": "It circles you, then darts in to bite. The venom slows you.", "tint": Color(1.0, 1.0, 1.0), "scale": 1.0, "speed": 1.0},
 	},
+	# The sea worlds of the last two eras (data/Worlds.gd): floor 4 or 5
+	# played as a sea animal. Drawn with the playable forms' drawings
+	# ("form"), or a trilobite sheet ("sheet") for the last trilobites.
+	6: { # Carboniferous seas: the Bear Gulch bay of Montana, crinoid meadows
+		"fly": {"name": "Falcatus", "form": "early_shark", "temper": "territorial", "idle": "patrol", "fact": "A small shark of the Bear Gulch bay, about 30 cm long. Males carried a long spine bent forward over the head, and one fossil pair seems to have died mid-courtship.", "tint": Color(0.92, 0.95, 1.0), "scale": 0.85, "speed": 1.15, "behavior": "weave"},
+		"pacer": {"name": "Tyrannophontes", "form": "mantis_shrimp_line", "temper": "predator", "idle": "ambush", "fact": "An early relative of mantis shrimps from the Carboniferous. It already had folding, spiked claws for snatching prey, like its living kin.", "tint": Color(1.0, 0.9, 0.82), "scale": 1.05, "speed": 1.0, "behavior": "lunge", "shoot_delay": 1.6},
+		"charger": {"name": "Goniatites", "form": "nautilus", "temper": "territorial", "idle": "drift", "fact": "A Carboniferous ammonoid with a tightly coiled shell and zig-zag seams between its chambers. It changed so fast through time that geologists date Carboniferous rocks by it.", "tip": "It jets at you in a straight line and is dazed when it hits a wall.", "tint": Color(1.0, 0.9, 0.75), "scale": 0.9, "speed": 1.0},
+		"enroll": {"name": "Phillipsia", "sheet": "isotelus", "temper": "docile", "idle": "graze", "fact": "One of the last trilobites. By the Carboniferous only one order of them, the proetids, was left, and it lasted until the end-Permian extinction.", "tip": "Hit it and it rolls up, untouchable for a moment; strike again once it uncurls.", "tint": Color(0.95, 0.85, 0.7), "scale": 0.7, "speed": 1.0},
+		"tank": {"name": "Hibbertopterus", "form": "chelicerate", "temper": "docile", "idle": "rest", "fact": "A sea scorpion about 1.8 m long that raked the mud with bristly limbs to sieve out small prey. A fossil trackway in Scotland shows that one also crawled out over land.", "tip": "Slow and huge, it barely flinches.", "tint": Color(0.88, 0.8, 0.7), "scale": 1.5, "speed": 1.0},
+		"skittish": {"name": "Belantsea", "form": "chimaera", "fact": "A deep-bodied petalodont of the Bear Gulch bay, a cousin of living chimaeras. It nibbled sponges with comb-like teeth and fluttered over the reef like a butterflyfish.", "tip": "Harmless and quick. It flees, but one caught is a big meal.", "tint": Color(1.0, 0.92, 0.8), "scale": 0.95, "speed": 1.0},
+	},
+	7: { # Permian seas: sponge reefs, ammonoids and the last trilobites
+		"fly": {"name": "Palaeoniscum", "form": "ray_finned_fish", "temper": "timid", "idle": "school", "fact": "A ray-finned fish of the Late Permian Zechstein Sea, often found whole in the Kupferschiefer, a copper-rich black shale of Germany and England.", "tint": Color(0.95, 0.95, 1.0), "scale": 0.9, "speed": 1.05, "behavior": "weave"},
+		"pacer": {"name": "Campylocephalus", "form": "chelicerate", "temper": "wary", "idle": "graze", "fact": "One of the very last sea scorpions, from the Permian of Russia. Sea scorpions had lived for 200 million years, and died out in the end-Permian extinction.", "tint": Color(0.85, 0.78, 0.7), "scale": 1.2, "speed": 0.9, "shoot_delay": 1.5},
+		"charger": {"name": "Waagenoceras", "form": "palau_nautilus", "temper": "territorial", "idle": "drift", "fact": "A Permian ammonoid of the reefs of Texas, the seams between its chambers folded into fine, fern-like frills.", "tip": "It jets at you in a straight line and is dazed when it hits a wall.", "tint": Color(1.0, 0.88, 0.78), "scale": 0.9, "speed": 1.05},
+		"enroll": {"name": "Ditomopyge", "sheet": "isotelus", "temper": "docile", "idle": "graze", "fact": "One of the very last trilobites. After 270 million years in the sea, trilobites died out with it in the end-Permian extinction.", "tip": "Hit it and it rolls up, untouchable for a moment; strike again once it uncurls.", "tint": Color(0.85, 0.8, 0.72), "scale": 0.6, "speed": 1.0},
+		"skittish": {"name": "Janassa", "form": "chimaera", "fact": "A flat, ray-like petalodont of the Zechstein Sea that crushed shellfish on the sea floor with a pavement of teeth.", "tip": "Harmless and quick. It flees, but one caught is a big meal.", "tint": Color(0.85, 0.82, 0.75), "scale": 1.0, "speed": 1.0},
+	},
 }
 
 # More animals of each era, drawn and animated in code with the same
@@ -85,7 +103,6 @@ const EXTRAS = {
 		{"type": "enroll", "form": "millipede", "name": "Euphoberia", "temper": "docile", "idle": "forage", "fact": "A spiny Carboniferous millipede from the coal swamps. Millipedes curl up to guard their soft underside.", "tip": "Hit it and it coils up, untouchable for a moment.", "tint": Color(1.0, 0.92, 0.85), "scale": 1.0, "speed": 1.0},
 		{"type": "fly", "form": "centipede", "name": "Latzelia", "temper": "predator", "idle": "stalk", "fact": "A Carboniferous centipede from Mazon Creek. Its first pair of legs were already venom fangs, as in every centipede today.", "tip": "Sprints in bursts.", "tint": Color(1.0, 0.92, 0.85), "scale": 0.95, "speed": 1.05, "behavior": "burst"},
 		{"type": "skittish", "form": "sauropsid", "name": "Hylonomus", "fact": "The oldest known reptile, about 312 million years old. Its bones were found inside the stumps of fossil trees, where it hunted insects.", "tip": "Harmless and quick. It flees, but one caught is a big meal.", "tint": Color(1.0, 0.95, 0.85), "scale": 0.85, "speed": 1.0},
-		{"type": "charger", "form": "early_shark", "name": "Orthacanthus", "temper": "territorial", "idle": "patrol", "fact": "A freshwater shark of the coal swamps, up to 3 m long, with a long spine behind its head.", "tip": "It rushes you in a straight line and is dazed when it hits a wall.", "tint": Color(0.92, 0.95, 1.0), "scale": 1.05, "speed": 1.0},
 	],
 	5: [
 		{"type": "fly", "form": "sauropsid", "name": "Captorhinus", "temper": "wary", "idle": "forage", "fact": "A small Early Permian reptile with several rows of teeth, good for crushing tough food.", "tip": "Sprints in bursts.", "tint": Color(0.95, 0.85, 0.75), "scale": 1.0, "speed": 1.0, "behavior": "burst"},
@@ -93,10 +110,25 @@ const EXTRAS = {
 		{"type": "swarm", "form": "beetle", "name": "Permocupes", "temper": "timid", "idle": "forage", "fact": "A Late Permian beetle, one of the earliest. Its living relatives, the reticulated beetles, still bore into rotting wood.", "tip": "They come in packs and scatter when one is hit.", "tint": Color(0.9, 0.85, 0.75), "scale": 0.55, "speed": 1.0},
 		{"type": "tank", "form": "synapsid", "name": "Edaphosaurus", "temper": "docile", "idle": "graze", "fact": "A 3 m sail-backed plant-eater of the Early Permian, living beside Dimetrodon. Its sail spines carried little knobby crossbars.", "tip": "Slow and massive, it barely flinches.", "tint": Color(0.88, 0.85, 0.72), "scale": 1.5, "speed": 1.0},
 	],
+	6: [
+		{"type": "fly", "form": "early_shark", "name": "Stethacanthus", "temper": "territorial", "idle": "patrol", "fact": "A Carboniferous shark whose males wore an anvil-shaped fin on the back, its flat top covered in tooth-like scales like a scrubbing brush.", "tip": "Darts in short bursts.", "tint": Color(0.8, 0.82, 0.9), "scale": 1.0, "speed": 1.0, "behavior": "burst"},
+		{"type": "fly", "form": "coleoid", "name": "Syllipsimopodi", "temper": "timid", "idle": "school", "fact": "A 328-million-year-old cephalopod from Bear Gulch with ten sucker-lined arms: the oldest known relative of octopuses and vampire squid.", "tip": "Quick and wriggly; it weaves as it swims.", "tint": Color(1.0, 0.9, 0.85), "scale": 0.85, "speed": 1.05, "behavior": "weave"},
+		{"type": "pacer", "form": "chimaera", "name": "Echinochimaera", "temper": "wary", "idle": "graze", "fact": "A chimaera of the Bear Gulch bay. Males wore spiny scales over the head; living chimaeras, the ratfish, still carry a venomous spine before the back fin.", "tip": "Grazes the reef and spits grit if bothered.", "tint": Color(0.9, 0.85, 0.8), "scale": 1.0, "speed": 0.95, "shoot_delay": 1.5},
+		{"type": "charger", "form": "early_shark", "name": "Orthacanthus", "temper": "territorial", "idle": "patrol", "fact": "A shark of the Carboniferous rivers and coastal lagoons, up to 3 m long, with a long spine behind its head.", "tip": "It rushes you in a straight line and is dazed when it hits a wall.", "tint": Color(0.92, 0.95, 1.0), "scale": 1.05, "speed": 1.0},
+		{"type": "tank", "form": "sea_urchin", "name": "Archaeocidaris", "temper": "docile", "idle": "rest", "fact": "A Carboniferous sea urchin with big club-shaped spines, which are common fossils in limestones of this age.", "tip": "Slow and spiny, it barely flinches.", "tint": Color(0.95, 0.85, 0.8), "scale": 0.9, "speed": 1.0},
+	],
+	7: [
+		{"type": "fly", "form": "lobe_finned_shorewalker", "name": "Coelacanthus", "temper": "wary", "idle": "drift", "fact": "The Permian fish that gave coelacanths their name, which means hollow spine. Coelacanths were thought to have died out with the dinosaurs until a living one was caught off South Africa in 1938.", "tip": "Weaves as it swims.", "tint": Color(0.75, 0.8, 0.95), "scale": 1.05, "speed": 1.0, "behavior": "weave"},
+		{"type": "charger", "form": "shark_line", "name": "Xenacanthus", "temper": "territorial", "idle": "patrol", "fact": "A Permian shark of rivers and coastal lagoons with a long spine on the back of its head and an eel-like tail fin.", "tip": "It rushes you in a straight line and is dazed when it hits a wall.", "tint": Color(0.88, 0.85, 0.8), "scale": 1.0, "speed": 1.0},
+		{"type": "tank", "form": "sea_urchin", "name": "Miocidaris", "temper": "docile", "idle": "rest", "fact": "A Permian sea urchin. Only a few urchin lines lived through the end-Permian extinction, and every sea urchin alive today descends from them.", "tip": "Slow and spiny, it barely flinches.", "tint": Color(0.85, 0.8, 0.9), "scale": 0.85, "speed": 1.0},
+	],
 }
 
+const Worlds = preload("res://data/Worlds.gd")
+
+# floor_num is a floor (1-5, in the world being played) or an era (6, 7)
 static func extras(floor_num: int) -> Array:
-	return EXTRAS.get(clampi(floor_num, 1, 5), [])
+	return EXTRAS.get(Worlds.era(floor_num), [])
 
 # An era animal by name: a regular one or an extra
 static func get_species(floor_num: int, species_name: String) -> Dictionary:
@@ -110,6 +142,8 @@ static func get_species(floor_num: int, species_name: String) -> Dictionary:
 static func sheet_path(f: Dictionary) -> String:
 	if f.has("form"):
 		return "res://assets/lineages/%s_sheet.png" % f.form
+	if f.has("sheet"):
+		return "res://assets/fauna/%s_sheet.png" % f.sheet
 	return "res://assets/fauna/%s_sheet.png" % String(f.name).to_lower()
 
 # aggro: how close you can get before it notices you. calm: how far you must
@@ -125,7 +159,7 @@ const TEMPERS = {
 }
 
 static func get_fauna(floor_num: int, enemy_type: String) -> Dictionary:
-	var f = FLOORS.get(clampi(floor_num, 1, 5), {})
+	var f = FLOORS.get(Worlds.era(floor_num), {})
 	return f.get(enemy_type, {})
 
 # What a blow lands on, for hit and kill sounds and the bits a kill throws:
@@ -144,6 +178,13 @@ const BODIES = {
 	"Edaphosaurus": "flesh", "Rhizodus": "flesh",
 	"Diictodon": "flesh", "Dimetrodon": "flesh", "Inostrancevia": "flesh",
 	"Lystrosaurus": "flesh", "Euchambersia": "flesh",
+	# Sea worlds (eras 6, 7) and their bosses
+	"Tyrannophontes": "shell", "Goniatites": "shell", "Phillipsia": "shell", "Hibbertopterus": "shell",
+	"Archaeocidaris": "shell", "Campylocephalus": "shell", "Waagenoceras": "shell", "Ditomopyge": "shell",
+	"Miocidaris": "shell",
+	"Falcatus": "flesh", "Belantsea": "flesh", "Stethacanthus": "flesh", "Echinochimaera": "flesh",
+	"Palaeoniscum": "flesh", "Janassa": "flesh", "Coelacanthus": "flesh", "Xenacanthus": "flesh",
+	"Edestus": "flesh", "Helicoprion": "flesh", "Ophiacodon": "flesh", "Mesosaurus": "flesh",
 }
 
 static func body_of(species: String) -> String:
@@ -158,13 +199,13 @@ static func special_type(floor_num: int) -> String:
 
 # Every special animal type of the era, third animal first
 static func special_types(floor_num: int) -> Array:
-	var f = FLOORS.get(clampi(floor_num, 1, 5), {})
+	var f = FLOORS.get(Worlds.era(floor_num), {})
 	return SPECIAL_TYPES.filter(func(t): return f.has(t))
 
 # short: special animals get only their tip (the floor banner); the pause
 # screen shows everything
 static func describe_floor(floor_num: int, short: bool = false) -> String:
-	var f = FLOORS.get(clampi(floor_num, 1, 5), {})
+	var f = FLOORS.get(Worlds.era(floor_num), {})
 	if f.is_empty():
 		return ""
 	var text = "%s: %s\n%s: %s" % [f.fly.name, f.fly.fact, f.pacer.name, f.pacer.fact]
@@ -182,6 +223,8 @@ const BOSSES = {
 	3: {"name": "Cameroceras", "fact": "An Ordovician endocerid nautiloid with a long, straight, chambered shell; the largest may have reached several metres."},
 	4: {"name": "Arthropleura", "fact": "A Carboniferous relative of millipedes up to 2.6 m long, the largest land arthropod known."},
 	5: {"name": "Dimetrodon", "fact": "A Permian sail-backed synapsid: not a dinosaur but closer kin to mammals, with a skull opening like ours."},
+	6: {"name": "Edestus", "fact": "A Carboniferous eugeneodont up to about 6 m long, nearer kin to ratfish than to true sharks. Its teeth grew in curved rows that jutted from both jaws like a pair of shears."},
+	7: {"name": "Helicoprion", "fact": "An Early Permian eugeneodont with a spiral whorl of over 100 teeth in its lower jaw. Scans of a fossil from Idaho showed in 2013 that the whorl filled the jaw and sliced prey like a saw as the mouth shut."},
 }
 
 # The other boss each era can have instead (bosses/DrawnBoss.gd)
@@ -189,13 +232,15 @@ const ALT_BOSSES = {
 	1: {"name": "Salpingoeca", "form": "ancestral_collar_cell", "fact": "A living choanoflagellate, the closest single-celled relative of animals. Its collar cells stick together into a spinning rosette."},
 	2: {"name": "Sidneyia", "form": "early_arthropod", "fact": "One of the biggest arthropods of the Burgess Shale. Its gut is often found packed with crushed shells, cracked by spiny bases on its legs."},
 	3: {"name": "Pentecopterus", "form": "chelicerate", "fact": "The oldest known big sea scorpion, about 1.7 m long, named after a Greek warship. It swept prey up in a basket of spiny limbs."},
-	4: {"name": "Rhizodus", "form": "lobe_finned_shorewalker", "fact": "A 7 m lobe-finned fish of the coal swamps with fangs as long as a hand, the top predator of its rivers."},
+	4: {"name": "Ophiacodon", "form": "synapsid", "fact": "A synapsid up to 3 m long of the Late Carboniferous and Early Permian, one of the first big hunters on land, and closer kin to mammals than to any reptile."},
 	5: {"name": "Eryops", "form": "lissamphibian", "fact": "A 2 m Permian amphibian with a broad, flat skull that probably gulped its prey, living beside Dimetrodon."},
+	6: {"name": "Rhizodus", "form": "lobe_finned_shorewalker", "fact": "A 7 m lobe-finned fish of the Carboniferous rivers and coastal waters, with fangs as long as a hand, the top predator of its world."},
+	7: {"name": "Mesosaurus", "form": "sauropsid", "fact": "One of the first reptiles to return to the water, about 1 m long, with needle teeth for straining small crustaceans. Its fossils in both Brazil and southern Africa helped show that the continents were once joined."},
 }
 
 # Every species of an era in the order the fossil record lists them
 static func era_species(floor_num: int) -> Array:
-	var f = FLOORS.get(clampi(floor_num, 1, 5), {})
+	var f = FLOORS.get(Worlds.era(floor_num), {})
 	var out: Array = [f.fly, f.pacer]
 	for t in special_types(floor_num):
 		out.append(f[t])

@@ -39,14 +39,23 @@ const SPECIES = {
 		"title": "PENTECOPTERUS — ORDOVICIAN SEA SCORPION",
 		"fact": "The oldest known big sea scorpion, about 1.7 m long, named after the penteconter, a Greek warship. It swept prey up in a basket of spiny limbs.",
 		"kit": ["lunge", "sweep", "slam"], "phase2": "multi_lunge", "swim": true, "light": Color(0.7, 1.0, 0.85), "burst": Color(0.7, 0.55, 0.5)},
-	4: {"name": "Rhizodus", "form": "lobe_finned_shorewalker", "scale": 3.6, "hp": 270.0, "speed": 185.0, "tint": Color(0.85, 0.85, 0.8),
-		"title": "RHIZODUS — GIANT LOBE-FINNED FISH",
-		"fact": "A 7 m lobe-finned fish of the coal swamps with fangs as long as a hand, the top predator of its rivers. Lobe-fins like it are our own distant cousins.",
-		"kit": ["lunge", "tail", "ring"], "phase2": "dive", "swim": true, "light": Color(0.8, 0.95, 0.7), "burst": Color(0.6, 0.65, 0.5)},
+	4: {"name": "Ophiacodon", "form": "synapsid", "scale": 3.4, "hp": 270.0, "speed": 200.0, "tint": Color(0.9, 0.82, 0.7),
+		"title": "OPHIACODON — CARBONIFEROUS SYNAPSID",
+		"fact": "A synapsid up to 3 m long, one of the first big hunters on land, with a long, deep skull full of sharp teeth. Like all synapsids it is closer kin to mammals than to any reptile.",
+		"kit": ["lunge", "tail", "slam"], "phase2": "multi_lunge", "light": Color(1.0, 0.9, 0.6), "burst": Color(0.7, 0.55, 0.42)},
 	5: {"name": "Eryops", "form": "lissamphibian", "scale": 3.6, "hp": 420.0, "speed": 170.0, "tint": Color(0.95, 0.85, 0.7),
 		"title": "ERYOPS — PERMIAN GIANT AMPHIBIAN",
 		"fact": "A 2 m amphibian with a broad, flat skull, living beside Dimetrodon. It probably gulped prey by gaping its wide mouth, sucking in water and food together.",
 		"kit": ["lunge", "pull", "slam"], "phase2": "slam_line", "light": Color(1.0, 0.75, 0.45), "burst": Color(0.7, 0.55, 0.4)},
+	# The sea worlds of floors 4 and 5 (data/Worlds.gd)
+	6: {"name": "Rhizodus", "form": "lobe_finned_shorewalker", "scale": 3.6, "hp": 270.0, "speed": 185.0, "tint": Color(0.85, 0.85, 0.8),
+		"title": "RHIZODUS — GIANT LOBE-FINNED FISH",
+		"fact": "A 7 m lobe-finned fish of the coal swamps with fangs as long as a hand, the top predator of its rivers and coasts. Lobe-fins like it are our own distant cousins.",
+		"kit": ["lunge", "tail", "ring"], "phase2": "dive", "swim": true, "light": Color(0.8, 0.95, 0.7), "burst": Color(0.6, 0.65, 0.5)},
+	7: {"name": "Mesosaurus", "form": "sauropsid", "scale": 3.6, "hp": 400.0, "speed": 210.0, "tint": Color(0.85, 0.85, 0.8),
+		"title": "MESOSAURUS — PERMIAN SEA REPTILE",
+		"fact": "One of the first reptiles to go back to the water, with paddle feet, a long tail and needle teeth for straining small crustaceans. Its fossils lie in both Brazil and southern Africa, a clue that the continents were once joined.",
+		"kit": ["lunge", "tail", "pull"], "phase2": "dive", "swim": true, "light": Color(0.8, 0.95, 1.0), "burst": Color(0.65, 0.65, 0.6)},
 }
 
 var spec: Dictionary = {}
@@ -74,7 +83,7 @@ var rooted_time: float = 0.0
 var adaptations_taken: Dictionary = {}
 
 func setup_enemy(floor_number: int):
-	floor_num = clampi(floor_number, 1, 5)
+	floor_num = preload("res://data/Worlds.gd").era(floor_number)
 	super.setup_enemy(floor_number)
 
 func setup():

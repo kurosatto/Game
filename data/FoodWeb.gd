@@ -17,6 +17,9 @@
 # - Permian: gorgonopsians like Inostrancevia were the top hunters of
 #   dicynodonts such as Diictodon and Lystrosaurus; Euchambersia went for
 #   smaller prey; Cacops and Captorhinus ate insects.
+# - Carboniferous and Permian seas: small sharks like Stethacanthus and
+#   Falcatus hunted squid kin and small fish; mantis-shrimp relatives
+#   snatched small swimmers; Xenacanthus and Coelacanthus ate smaller fish.
 extends RefCounted
 
 const EATS = {
@@ -36,6 +39,14 @@ const EATS = {
 	"Euchambersia": ["Diictodon", "Captorhinus"],
 	"Cacops": ["Permocupes"],
 	"Captorhinus": ["Permocupes"],
+	# Carboniferous seas
+	"Stethacanthus": ["Syllipsimopodi", "Belantsea"],
+	"Falcatus": ["Syllipsimopodi"],
+	"Tyrannophontes": ["Syllipsimopodi", "Phillipsia"],
+	"Orthacanthus": ["Belantsea", "Falcatus"],
+	# Permian seas
+	"Xenacanthus": ["Palaeoniscum", "Janassa"],
+	"Coelacanthus": ["Palaeoniscum"],
 }
 
 static func eats(hunter: String, prey: String) -> bool:

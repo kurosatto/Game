@@ -84,10 +84,10 @@ func _draw():
 		var sway = sin(time * 1.3 + s[3]) * 0.12 + sin(time * 9.0 + s[3]) * 0.18 * push
 		var dir = Vector2.UP.rotated(s[2] + sway)
 		var tip = base + dir * h
-		match clampi(floor_num, 1, 5):
+		match preload("res://data/Worlds.gd").era(floor_num):
 			1: _frond(base, tip, dir, a)
-			2: _sponge(base, tip, h, s[4], a)
-			3: _crinoid(base, tip, dir, a)
+			2, 7: _sponge(base, tip, h, s[4], a)
+			3, 6: _crinoid(base, tip, dir, a)
 			4: _fern(base, tip, dir, s[4], a)
 			_: _scrub(base, tip, dir, a)
 

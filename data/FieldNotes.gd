@@ -44,6 +44,19 @@ const NOTES = {
 		{"event": "fumarole", "need": 1, "text": "Lure an animal onto a fumarole",
 			"fact": "Gas from the Siberian Traps warmed the world and acidified the seas, killing most species alive."},
 	],
+	# The sea worlds of floors 4 and 5 (data/Worlds.gd)
+	6: [
+		{"event": "eat:Phillipsia", "need": 2, "text": "Eat 2 Phillipsia",
+			"fact": "Phillipsia was a proetid, the only order of trilobites left by the Carboniferous."},
+		{"event": "eat:Belantsea", "need": 1, "text": "Catch a Belantsea",
+			"fact": "The Bear Gulch limestone is so fine that some of its fish still show their colour patterns."},
+	],
+	7: [
+		{"event": "eat:Ditomopyge", "need": 2, "text": "Eat 2 Ditomopyge",
+			"fact": "Trilobites lasted about 270 million years; none lived through the end of the Permian."},
+		{"event": "elder", "need": 1, "text": "Eat an elder (an animal circled in ink)",
+			"fact": "Permian reefs like the Capitan Reef of Texas were built by sponges and algae, not by corals."},
+	],
 }
 
 const REWARD_UNITS := 4.0 # GROW units handed out, split over two elements
@@ -51,7 +64,7 @@ const REWARD_ORBS := 6
 const REWARD_HEAL := 1
 
 static func for_floor(f: int) -> Array:
-	return NOTES.get(clampi(f, 1, 5), [])
+	return NOTES.get(preload("res://data/Worlds.gd").era(f), [])
 
 # One line per note: "✓ Catch a Marrella", "– Eat 2 Isotelus (1/2)"
 static func describe(f: int, progress: Dictionary, sep: String = "\n") -> String:

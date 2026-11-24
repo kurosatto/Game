@@ -21,7 +21,8 @@ W, H = 960, 540          # half-res room
 WALL = 64                # half-res wall thickness (128px in game)
 PERIOD = W - 2 * WALL    # (old layout; see TILE below)
 
-ERAS = ["ediacaran", "cambrian", "ordovician", "carboniferous", "permian"]
+# The last two are the sea worlds of floors 4 and 5 (data/Worlds.gd)
+ERAS = ["ediacaran", "cambrian", "ordovician", "carboniferous", "permian", "carboniferous_sea", "permian_sea"]
 
 
 # ─────────────────────────────── noise ───────────────────────────────
@@ -128,6 +129,18 @@ ERA_LOOK = {
         "rim": [(172, 92, 62), (110, 92, 90), (214, 150, 96)],
         "accent": (240, 226, 196),
     },
+    "carboniferous_sea": {  # warm clear lagoon, lime mud, crinoid meadows
+        "floor": [(0.0, (46, 92, 100)), (0.5, (92, 136, 130)), (1.0, (172, 186, 158))],
+        "deep": (12, 32, 42), "outline": (14, 28, 36),
+        "rim": [(150, 104, 146), (214, 196, 158), (118, 168, 146)],
+        "accent": (226, 176, 116),
+    },
+    "permian_sea": {  # sponge-algae reef over pale fusulinid sand
+        "floor": [(0.0, (78, 92, 96)), (0.5, (144, 142, 118)), (1.0, (204, 190, 150))],
+        "deep": (28, 30, 40), "outline": (30, 22, 26),
+        "rim": [(212, 146, 88), (176, 88, 80), (224, 208, 168)],
+        "accent": (238, 218, 176),
+    },
 }
 
 
@@ -201,6 +214,21 @@ def paint_floor(era, rng):
         rgb += np.array((60, 40, 26)) * (curl * 0.35)[..., None]
         ash = np.clip((fbm(W, H, rng, 50, 3, TILE) - 0.55) * 4, 0, 1)
         rgb = rgb * (1 - ash[..., None] * 0.35) + np.array((120, 112, 112)) * ash[..., None] * 0.35
+
+    elif era == "carboniferous_sea":
+        # Lime mud with drifts of crinoid hash
+        drift = np.clip((fbm(W, H, rng, 55, 3, TILE) - 0.55) * 5, 0, 1)
+        rgb = rgb * (1 - drift[..., None] * 0.32) + np.array((206, 200, 176)) * drift[..., None] * 0.32
+        warp = fbm(W, H, rng, 70, 2, TILE)
+        k = 2 * np.pi * round(TILE / 22) / TILE
+        rgb *= (1 + 0.03 * np.sin(xx * k + warp * 8 + yy * 0.04))[..., None]
+    elif era == "permian_sea":
+        # Fusulinid sand in soft ripples, a few darker algal patches
+        warp = fbm(W, H, rng, 70, 2, TILE)
+        k = 2 * np.pi * round(TILE / 14) / TILE
+        rgb *= (1 + 0.04 * np.sin(xx * k + warp * 9 + yy * 0.05))[..., None]
+        patch = np.clip((fbm(W, H, rng, 80, 3, TILE) - 0.6) * 5, 0, 1)
+        rgb = rgb * (1 - patch[..., None] * 0.3) + np.array((150, 104, 86)) * patch[..., None] * 0.3
 
     # A little less saturated than the animals, so they stand out
     lum = rgb.mean(axis=2, keepdims=True)
@@ -316,6 +344,46 @@ def floor_marks(era, img, rng):
             wrap_x(bone, x, y)
 
 
+    elif era == "carboniferous_sea":
+        for _ in range(9):
+            # Crinoid stems fallen apart into rows of ossicles
+            x, y = spot()
+            ang = rng.uniform(0, math.tau)
+            n = int(rng.integers(5, 11))
+
+            def stem(x, y, ang=ang, n=n):
+                for k in range(n):
+                    px, py = x + math.cos(ang) * k * 3.0, y + math.sin(ang) * k * 3.0
+                    d.ellipse((px - 1.6, py - 1.6, px + 1.6, py + 1.6), fill=(214, 206, 222, 120), outline=(60, 70, 90, 110))
+            wrap_x(stem, x, y)
+        for _ in range(4):
+            # Goniatite shells
+            x, y = spot()
+            r = rng.uniform(3.5, 5.5)
+
+            def gon(x, y, r=r):
+                d.ellipse((x - r, y - r, x + r, y + r), fill=(220, 206, 176, 110), outline=(70, 70, 60, 130))
+                pts = [(x + math.cos(a) * (r - a * 0.35), y + math.sin(a) * (r - a * 0.35)) for a in np.linspace(0, 9, 24)]
+                d.line(pts, fill=(70, 70, 60, 110))
+            wrap_x(gon, x, y)
+    elif era == "permian_sea":
+        for _ in range(60):
+            # Fusulinids: rice-grain shells of giant single cells
+            x, y = spot()
+            ang = rng.uniform(0, math.pi)
+            dx, dy = math.cos(ang) * 2.0, math.sin(ang) * 2.0
+            wrap_x(lambda x, y, dx=dx, dy=dy: d.line((x - dx, y - dy, x + dx, y + dy), fill=(236, 222, 186, 130), width=2), x, y)
+        for _ in range(6):
+            x, y = spot()
+            r = rng.uniform(3, 5)
+            ang = rng.uniform(0, math.tau)
+
+            def brach(x, y, r=r, ang=ang):
+                d.pieslice((x - r, y - r, x + r, y + r), math.degrees(ang), math.degrees(ang) + 180,
+                           fill=(226, 208, 176, 110), outline=(90, 70, 60, 120))
+            wrap_x(brach, x, y)
+
+
 # ───────────────────────────── room rim ─────────────────────────────
 # The walls are no longer bricks: each era is ringed by what grew or lay
 # there, drawn like the animals (dark outline, flat colours, lit top-left).
@@ -352,7 +420,9 @@ def rim_piece(era, d, cx, cy, r, rng, row):
         return shade_rgb(col, dim)
 
     roll = rng.random()
-    if era == "ediacaran":
+    if era in ("carboniferous_sea", "permian_sea"):
+        _rim_sea(era, d, cx, cy, r, rng, roll, c, main, second, accent, ol)
+    elif era == "ediacaran":
         # Stromatolite domes: layered, some with a pink mat on top
         pts = irregular(cx, cy, r, rng, 0.82, 12, 0.08)
         toon_blob(d, pts, cx, cy, r, c(main if roll < 0.6 else second), ol)
@@ -430,6 +500,62 @@ def rim_piece(era, d, cx, cy, r, rng, row):
             d.line((cx - r * 0.6, cy + r * k, cx + r * 0.5, cy + r * k + r * 0.08), fill=shade_rgb(c(col), 0.75) + (255,))
         if roll > 0.9:
             d.line((cx - r * 0.3, cy - r * 0.2, cx + r * 0.1, cy + r * 0.25), fill=(255, 140, 60, 255), width=1)
+
+
+def _rim_sea(era, d, cx, cy, r, rng, roll, c, main, second, accent, ol):
+    if era == "carboniferous_sea":
+        if roll < 0.4:
+            # Crinoid crowns seen from above: a star of feathery arms
+            n = int(rng.integers(8, 11))
+            col = main if roll < 0.25 else accent
+            for k in range(n):
+                a = k / n * math.tau + rng.uniform(-0.15, 0.15)
+                ex, ey = cx + math.cos(a) * r * 1.1, cy + math.sin(a) * r * 0.9
+                d.line((cx, cy, ex, ey), fill=ol + (255,), width=4)
+                d.line((cx, cy, ex, ey), fill=c(col) + (255,), width=2)
+                for j in range(2, 6):
+                    px, py = cx + (ex - cx) * j / 6, cy + (ey - cy) * j / 6
+                    for sg in (-1, 1):
+                        d.line((px, py, px + math.cos(a + sg * 1.3) * 2.5, py + math.sin(a + sg * 1.3) * 2.5), fill=shade_rgb(c(col), 1.25) + (255,))
+            d.ellipse((cx - 3, cy - 3, cx + 3, cy + 3), fill=c(col) + (255,), outline=ol + (255,))
+        elif roll < 0.75:
+            # A bank of brachiopod shells
+            pts = irregular(cx, cy, r, rng, 0.8, 10, 0.12)
+            toon_blob(d, pts, cx, cy, r, c(second), ol)
+            for _ in range(int(r / 3)):
+                a, rr = rng.uniform(0, math.tau), rng.uniform(0, r * 0.6)
+                px, py = cx + math.cos(a) * rr, cy + math.sin(a) * rr * 0.8
+                d.arc((px - 3, py - 3, px + 3, py + 3), 190, 350, fill=shade_rgb(c(second), 0.6) + (255,))
+        else:
+            # Archimedes bryozoan from above: a spiral of lace
+            pts = irregular(cx, cy, r, rng, 0.9, 12, 0.06)
+            toon_blob(d, pts, cx, cy, r, c(accent), ol)
+            spiral = [(cx + math.cos(a) * (a / 12.0) * r * 0.85, cy + math.sin(a) * (a / 12.0) * r * 0.7) for a in np.linspace(0, 12, 40)]
+            d.line(spiral, fill=shade_rgb(c(accent), 0.62) + (255,), width=1)
+    else:
+        if roll < 0.55:
+            # Reef sponges: knobbly mounds with dark oscula
+            pts = irregular(cx, cy, r, rng, 0.82, 10, 0.18)
+            toon_blob(d, pts, cx, cy, r, c(main), ol)
+            for _ in range(int(rng.integers(1, 4))):
+                px, py = cx + rng.uniform(-r * 0.4, r * 0.4), cy + rng.uniform(-r * 0.4, r * 0.3)
+                d.ellipse((px - 2, py - 1.6, px + 2, py + 1.6), fill=ol + (255,))
+        elif roll < 0.8:
+            # Red algae thicket: branching from a crust
+            pts = irregular(cx, cy, r * 0.7, rng, 0.85, 9, 0.1)
+            toon_blob(d, pts, cx, cy, r * 0.7, c(second), ol)
+            for k in range(6):
+                a = k / 6 * math.tau + rng.uniform(-0.3, 0.3)
+                ex, ey = cx + math.cos(a) * r, cy + math.sin(a) * r * 0.85
+                d.line((cx, cy, ex, ey), fill=ol + (255,), width=4)
+                d.line((cx, cy, ex, ey), fill=shade_rgb(c(second), 1.2) + (255,), width=2)
+        else:
+            # Pale reef limestone block with fusulinids
+            pts = irregular(cx, cy, r, rng, 0.8, 8, 0.15)
+            toon_blob(d, pts, cx, cy, r, c(accent), ol)
+            for _ in range(int(r / 2)):
+                px, py = cx + rng.uniform(-r * 0.5, r * 0.5), cy + rng.uniform(-r * 0.4, r * 0.4)
+                d.line((px - 1.5, py, px + 1.5, py), fill=shade_rgb(c(accent), 0.65) + (255,))
 
 
 def paint_rim(era, rng):
@@ -533,9 +659,10 @@ def door_frame(era, rng, state):
 
 def barrier(era, d, rng, look):
     ol = look["outline"]
-    if era in ("ediacaran", "cambrian", "ordovician"):
+    if era in ("ediacaran", "cambrian", "ordovician", "carboniferous_sea", "permian_sea"):
         # Living lattice across the gap: mat, glass sponge or bryozoan mesh
-        col = {"ediacaran": look["rim"][2], "cambrian": look["accent"], "ordovician": look["rim"][0]}[era]
+        col = {"ediacaran": look["rim"][2], "cambrian": look["accent"], "ordovician": look["rim"][0],
+               "carboniferous_sea": look["rim"][2], "permian_sea": look["rim"][0]}[era]
         d.rectangle((14, 16, 50, 52), fill=shade_rgb(col, 0.45) + (220,))
         for k in range(-40, 60, 6):
             d.line((14 + k, 16, 14 + k + 36, 52), fill=ol + (255,), width=3)
@@ -609,6 +736,16 @@ def silhouette(era, rng, size):
         for s in (-1, 1):
             dd.ellipse((c + s * 4 - (64 if s < 0 else 0), c - 26, c + s * 4 + (64 if s > 0 else 0), c - 12), fill=255)
             dd.ellipse((c + s * 4 - (58 if s < 0 else 0), c - 8, c + s * 4 + (58 if s > 0 else 0), c + 6), fill=255)
+    elif era in ("carboniferous_sea", "permian_sea"):
+        # A big eugeneodont shark gliding overhead: Edestus or Helicoprion
+        body = [(c + math.sin(k / 20 * math.pi) * (18 if k < 14 else 10) * (1 if k < 20 else 0), c - 62 + k * 6) for k in range(21)]
+        for x, y in body:
+            w = x - c
+            dd.ellipse((c - w - 2, y - 5, c + w + 2, y + 5), fill=255)
+        dd.polygon([(c, c + 52), (c - 20, c + 76), (c - 4, c + 60), (c, c + 70), (c + 4, c + 60), (c + 16, c + 72)], fill=255)
+        for s in (-1, 1):
+            dd.polygon([(c + s * 14, c - 22), (c + s * 46, c - 2), (c + s * 40, c + 6), (c + s * 12, c - 6)], fill=255)
+            dd.polygon([(c + s * 8, c + 28), (c + s * 22, c + 38), (c + s * 8, c + 40)], fill=255)
     else:
         # Clouds (Permian sky) or a drifting raft of plankton (Ediacaran)
         for _ in range(9):
@@ -844,7 +981,11 @@ SLOTS = {"rock": rock, "tall": tall, "mound": mound, "glow": glow, "fossil": fos
 
 
 def main():
+    # ONLY=carboniferous_sea,permian_sea redraws just those eras
+    only = [e for e in os.environ.get("ONLY", "").split(",") if e]
     for i, era in enumerate(ERAS):
+        if only and era not in only:
+            continue
         out = os.path.join("assets", "eras", era)
         os.makedirs(out, exist_ok=True)
         make_room(era, 100 + i).save(os.path.join(out, "room.png"))

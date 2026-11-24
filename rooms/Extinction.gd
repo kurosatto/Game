@@ -51,7 +51,7 @@ func _ready():
 		left = 0.0
 
 func info() -> Dictionary:
-	return SR.EXTINCTIONS[clampi(floor_num, 1, 5)]
+	return SR.EXTINCTIONS[preload("res://data/Worlds.gd").era(floor_num)]
 
 func progress() -> float:
 	return 1.0 - left / SR.EXTINCTION_TIME

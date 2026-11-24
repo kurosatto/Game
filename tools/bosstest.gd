@@ -5,6 +5,7 @@
 #   godot --headless --path . -s res://tools/bosstest.gd
 # Optional BOSS=3 tests one floor; FIGHT_SECONDS=25 sets the length;
 # BOSS_ALT=1 fights the alternate drawn bosses (bosses/DrawnBoss.gd), 0 the originals.
+# WORLD=sea fights the sea-world bosses of floors 4 and 5 (data/Worlds.gd).
 extends SceneTree
 
 var out := OS.get_environment("SHOT_DIR")
@@ -72,8 +73,10 @@ func run():
 				await snap("boss%d_%d_%s" % [floor_num, shots, boss.state])
 				shots += 1
 		# Force the rarer attacks once each so they are exercised too
-		var force = {2: ["rake_wind"], 4: ["rear", "coil"], 5: ["tail_wind", "to_sun", "bask"], 3: ["ram_wind", "blast_wind"], 1: ["detach", "contract"]}
-		var forced: Array = force.get(floor_num, [])
+		# Keyed by era: 6 and 7 are the sea worlds of floors 4 and 5 (WORLD=sea)
+		var force = {2: ["rake_wind"], 4: ["rear", "coil"], 5: ["tail_wind", "to_sun", "bask"], 3: ["ram_wind", "blast_wind"], 1: ["detach", "contract"],
+			6: ["thrash_wind", "pass_wind", "shear_wind"], 7: ["tail_wind", "dive_wind", "hunt_wind", "saw_wind"]}
+		var forced: Array = force.get(load("res://data/Worlds.gd").era(floor_num), [])
 		if boss.has_method("start_move"):
 			forced = boss.kit.duplicate()
 		for st in forced:

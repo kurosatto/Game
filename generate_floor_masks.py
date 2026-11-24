@@ -14,7 +14,9 @@ import numpy as np
 from PIL import Image, ImageFilter
 from scipy import ndimage
 
-ERAS = ["ediacaran", "cambrian", "ordovician", "carboniferous", "permian"]
+import os
+ERAS = ["ediacaran", "cambrian", "ordovician", "carboniferous", "permian", "carboniferous_sea", "permian_sea"]
+ERAS = [e for e in ERAS if not os.environ.get("ONLY") or e in os.environ["ONLY"].split(",")]
 
 for era in ERAS:
     src = Image.open(f"assets/eras/{era}/room.png").convert("RGB")

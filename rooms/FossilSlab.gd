@@ -60,7 +60,7 @@ func split_open():
 	col.set_deferred("disabled", true)
 	if on_broken.is_valid():
 		on_broken.call()
-	var fossil = SR.FOSSILS[clampi(floor_num, 1, 5)]
+	var fossil = SR.FOSSILS[preload("res://data/Worlds.gd").era(floor_num)]
 	var rare = SR.rare_element(floor_num)
 	SR.spill(get_parent(), position, [rare, rare, "Ca"], 4.5, 6)
 	SoundManager.play_sfx("level_up", 0.9, -4.0)
@@ -94,7 +94,7 @@ func _draw():
 			slab.append(p * 0.78)
 		draw_colored_polygon(slab, Color(0.86, 0.8, 0.68, 0.95))
 		draw_polyline(slab, Color(INK, 0.8), 2.2, true)
-		_draw_fossil(SR.FOSSILS[clampi(floor_num, 1, 5)].shape)
+		_draw_fossil(SR.FOSSILS[preload("res://data/Worlds.gd").era(floor_num)].shape)
 		return
 	draw_colored_polygon(outline, Color(0.72, 0.66, 0.56, 0.97))
 	draw_polyline(outline, Color(INK, 0.9), 2.8, true)
