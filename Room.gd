@@ -12,6 +12,7 @@ var side_margin: float = 0.0
 # starts on the far side of the room from that door
 var entry_dir: Vector2i = Vector2i.ZERO
 
+const TraceLayerScript = preload("res://rooms/TraceLayer.gd")
 const ERA_ART = ["ediacaran", "cambrian", "ordovician", "carboniferous", "permian"]
 
 # Tests can force a margin (headless runs always report a 1920px viewport)
@@ -58,6 +59,11 @@ func setup_room(data, floor_number: int):
     
     # 3. Add Ambient Bioluminescent Particles tailored to room theme
     spawn_ambient_particles()
+    # Tracks in the sediment that you and the animals leave (data/Traces.gd)
+    var traces = TraceLayerScript.new()
+    traces.name = "Traces"
+    traces.room = self
+    add_child(traces)
     
     # 4. Add Impenetrable Room Boundary Colliders & Door Placements
     spawn_boundary_colliders_and_doors()

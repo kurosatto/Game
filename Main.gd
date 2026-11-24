@@ -460,6 +460,11 @@ func note_new_hunt(hunter: String, prey: String, pos: Vector2):
     pos.y = clamp(pos.y, o.y + 220.0, o.y + 1000.0)
     player.popup_text(pos + Vector2(0, -40), text, Color(0.98, 0.76, 0.38))
 
+# The first time you see a kind of trace being made (rooms/TraceLayer.gd)
+func note_new_trace(id: String):
+    var t = preload("res://data/Traces.gd").TRACES[id]
+    hud.show_item_banner("TRACE FOSSIL: " + String(t.name).to_upper(), t.fact, false, 3.2, t.short)
+
 func display_item_banner(title: String, desc: String, hold: float = -1.0, short: String = ""):
     hud.show_item_banner(title, desc, false, hold, short)
 
