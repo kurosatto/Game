@@ -38,6 +38,7 @@ func begin(first: bool):
 		"glow": _glow(first)
 		"dark": fight(first)
 		"fire": _fire(first)
+		"molt": _molt(first)
 	if first and kind != "ambush":
 		introduce()
 
@@ -327,3 +328,17 @@ func _glow(first: bool):
 func _fire(first: bool):
 	fight(first)
 	add_feature("Wildfire.gd", {"state": state, "room": room, "first": first})
+
+# ---- Mass molt: a crowd of trilobites shedding their shells ----
+func _molt(first: bool):
+	if not fight(first, false):
+		return
+	var info = SR.MOLTERS[clampi(floor_num, 2, 3)]
+	var ppos = player.global_position - room.global_position if player else Vector2(300, 540)
+	var centre = Vector2(1180.0 if ppos.x < 960.0 else 740.0, 540.0)
+	var crowd: Array = []
+	for i in info.count:
+		var at = room.free_spot(centre + Vector2.from_angle(TAU * i / info.count + 0.3) * randf_range(70.0, 150.0), 40.0)
+		room.spawn_enemy(at, "skittish@" + info.species, floor_num)
+		crowd.append(room.active_enemies.back())
+	add_feature("MoltGathering.gd", {"room": room, "crowd": crowd})

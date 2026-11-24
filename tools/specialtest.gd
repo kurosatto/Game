@@ -102,7 +102,7 @@ func _initialize():
 	for i in 20:
 		await process_frame
 	p = main.player
-	var tests = ["vent", "tar", "dig", "frenzy", "extinction", "nest", "tide", "symbiont", "ambush", "glow", "dark", "fire", "deal", "run"]
+	var tests = ["vent", "tar", "dig", "frenzy", "extinction", "nest", "tide", "symbiont", "ambush", "glow", "dark", "fire", "molt", "deal", "run"]
 	for t in tests:
 		if only != "" and t != only:
 			continue
@@ -193,6 +193,44 @@ func t_frenzy():
 		var got = total(p.elements) - els
 		check(d.cleared, "frenzy clears when all are eaten")
 		check(got > 1.0, "frenzy is a feast (%.1f units)" % got)
+
+func t_molt():
+	for f in [2, 3]:
+		var d = await setup("molt", f)
+		var g = feature("MoltGathering.gd")
+		check(g != null, "the molt gathering is there (era %d)" % f)
+		check(main.in_combat(), "molt room starts with doors shut")
+		var crowd = room().active_enemies.duplicate()
+		check(crowd.size() >= 6, "a crowd gathered (%d)" % crowd.size())
+		check(crowd.all(func(e): return e.damage == 0), "molting trilobites are harmless")
+		# Hard before molting
+		var e0 = crowd.filter(func(e): return not e.get_meta("molted", false))[0]
+		var h0 = e0.health
+		e0.take_damage(2.0)
+		check(abs((h0 - e0.health) - 2.0 * g.HARD_MULT) < 0.01, "the old shell turns most of a blow (%.2f)" % (h0 - e0.health))
+		var els = p.elements.get("Ca", 0.0)
+		await frames(60 * 4, Vector2(200, 900))
+		var molted = crowd.filter(func(e): return is_instance_valid(e) and e.get_meta("molted", false))
+		check(molted.size() >= 1, "some have molted (%d)" % molted.size())
+		check(g.shells.size() == molted.size(), "each left a moult on the floor")
+		var softs = g.soft.keys()
+		check(not softs.is_empty(), "a fresh molt is soft")
+		if not softs.is_empty():
+			var s = softs[0]
+			var h1 = s.health
+			s.take_damage(0.5)
+			check((h1 - s.health) >= 0.5 * g.SOFT_MULT - 0.01, "a soft one takes 3x (%.2f)" % (h1 - s.health))
+		if f == 2:
+			await frames(20, Vector2(860, 760))
+			await snap("13_molt_era%d" % f, false)
+		# Hardened again after a while
+		await frames(60 * 7, Vector2(200, 900))
+		var first = molted[0] if not molted.is_empty() else null
+		if first and is_instance_valid(first) and not first.dead:
+			check(float(first.get_meta("hit_mult", 1.0)) == 1.0, "the new shell hardens")
+		await kill_all()
+		await frames(40)
+		check(d.cleared, "molt room clears when all are eaten")
 
 func t_extinction():
 	for f in [3, 5]:
@@ -403,7 +441,7 @@ func t_deal():
 				check(false, "floor %d got no special rooms" % f)
 			if not rooms.values().any(func(r): return r.special == "dark"):
 				check(false, "floor %d got no dark room" % f)
-	check(seen.size() == 12, "all twelve kinds turn up (%d)" % seen.size())
+	check(seen.size() == SR.KINDS.size(), "all %d kinds turn up (%d)" % [SR.KINDS.size(), seen.size()])
 
 func t_run():
 	# The ordinary floor still works with specials in it

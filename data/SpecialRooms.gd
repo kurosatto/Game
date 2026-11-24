@@ -13,7 +13,7 @@ const BIOMINERALS = preload("res://data/Biominerals.gd")
 const INK = Color(0.24, 0.15, 0.08)
 const PAPER = Color(0.95, 0.9, 0.78)
 
-const KINDS = ["vent", "tar", "dig", "frenzy", "extinction", "nest", "tide", "symbiont", "ambush", "glow", "dark", "fire"]
+const KINDS = ["vent", "tar", "dig", "frenzy", "extinction", "nest", "tide", "symbiont", "ambush", "glow", "dark", "fire", "molt"]
 
 # Which eras each kind can turn up in. No brood care, hunters lying in wait
 # or animal sidekicks before the Cambrian; no glowing animals known on land
@@ -25,6 +25,8 @@ const ERAS = {
 	"dark": [1, 2, 3, 4, 5],
 	# Land plants to burn, and air rich enough in oxygen to burn them often
 	"fire": [4, 5],
+	# Trilobites gathering to shed their shells together
+	"molt": [2, 3],
 }
 
 # Rooms with nothing to fight when you walk in: open doors, open ground
@@ -60,6 +62,7 @@ static func title(kind: String, f: int) -> String:
 		"glow": return "GLOWING CAVE"
 		"dark": return "NIGHT" if is_land(f) else "THE DEEP"
 		"fire": return "WILDFIRE"
+		"molt": return "MASS MOLT"
 	return kind.to_upper()
 
 static func fact(kind: String, f: int) -> String:
@@ -100,6 +103,8 @@ static func fact(kind: String, f: int) -> String:
 				"Below about 200 m the sea is black. Fish feel moving water with their lateral line and find prey unseen.",
 				"Spiders and scorpions hunt at night by feeling footsteps through the ground, as they did in the coal swamps.",
 				"Many animals hunt at night by smell, touch and sound, when the day's hunters can't see them."][clampi(f - 1, 0, 4)]
+		"molt":
+			return MOLTERS[clampi(f, 2, 3)].fact
 		"fire":
 			if f <= 4:
 				return "Late Carboniferous air was about 35% oxygen, against 21% today, so lightning set the forests burning again and again. Coal from this time is full of fossil charcoal, called fusain. Ash puts back the phosphorus the plants had locked up."
@@ -121,11 +126,18 @@ static func how(kind: String, f: int) -> String:
 		"glow": return "It's dark. Glowing animals light the way."
 		"dark": return "Pitch dark. Hunt with your senses."
 		"fire": return "A fire front sweeps the room. Stay ahead of it or dash through."
+		"molt": return "Their shells are hard. Wait for one to molt, then strike while it's soft."
 	return ""
 
 # ---- Per-kind details ----
 # The trapped animal in the mud: a slow, harmless grazer of the era
 const TRAPPED = {1: "Kimberella", 2: "Olenoides", 3: "Isotelus", 4: "Euphoberia", 5: "Lystrosaurus"}
+
+# Trilobites gathered to molt (rooms/MoltGathering.gd)
+const MOLTERS = {
+	2: {"species": "Olenoides", "count": 7, "fact": "An arthropod can only grow by shedding its shell, and for a day or two after, until the new one hardens, it is soft and helpless. Beds of trilobite moults lie heaped together, as if they gathered to molt in numbers, the way horseshoe crabs and spiny lobsters still do."},
+	3: {"species": "Isotelus", "count": 6, "fact": "Giant Ordovician trilobites are found packed together in their hundreds, many of them empty moults: they seem to have gathered to molt and mate. A freshly molted arthropod is soft for days, and the shed shell is often eaten for its calcium."},
+}
 
 # Small prey that comes in a crowd
 const FRENZY = {
