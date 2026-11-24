@@ -212,6 +212,8 @@ func _physics_process(delta: float):
         cloak_time -= delta
     if bite_chain_time > 0:
         bite_chain_time -= delta
+    if filter_hold > 0.0 or filter_open > 0.0:
+        filter_tick(delta)
     if slow_timer > 0:
         slow_timer -= delta
     # Spiny bodies (the spines weapon or the Defensive Spines adaptation)
@@ -917,6 +919,9 @@ func aim_assist(dir: Vector2) -> Vector2:
 func shoot_tear(dir: Vector2):
     face_dir = dir
     aim_hold = 0.4
+    if current_weapon == "filter":
+        filter_fan(dir)
+        return
     if body_art:
         body_art.on_attack()
     if lineages.weapon_stats(current_weapon).melee:
@@ -1121,6 +1126,85 @@ func melee_attack(dir: Vector2):
     swing.color = body_col
     swing.rotation = dir.angle()
     add_child(swing)
+
+# ---- Filter fan (crinoids) ----
+# A sea lily never strikes: it holds its feathery arms up in a fan and
+# whatever drifts in sticks to the tube feet and is passed down to the mouth.
+# Hold attack and the fan stays spread, catching and digesting everything in
+# it several times a second; keep still and it opens wider.
+const FilterFanScript = preload("res://FilterFan.gd")
+var filter_hold: float = 0.0   # seconds the fan stays up after the last tick
+var filter_open: float = 0.0   # 0..1, how far it has opened (grows while still)
+var filter_dir: Vector2 = Vector2.RIGHT
+var filter_sound_t: float = 0.0
+var filter_marked: Dictionary = {} # animal id -> seconds until its next ink mark
+var filter_node: Node2D = null
+
+func filter_reach() -> float:
+    return lineages.weapon_stats("filter").reach * range_mult * (1.0 + 0.35 * filter_open)
+
+func filter_half_arc() -> float:
+    return min(PI, lineages.weapon_stats("filter").arc * 0.5 + melee_arc_bonus + 0.4 * filter_open)
+
+func filter_tick(delta: float):
+    filter_hold = max(0.0, filter_hold - delta)
+    filter_sound_t -= delta
+    for k in filter_marked.keys():
+        filter_marked[k] -= delta
+    # Spread and still, the arms open out; moving or let go, they fold
+    if filter_hold > 0.0 and velocity.length() < 90.0:
+        filter_open = min(1.0, filter_open + delta * 1.2)
+    elif filter_hold > 0.0:
+        filter_open = max(0.25, filter_open - delta * 2.0) if filter_open > 0.25 else min(0.25, filter_open + delta * 2.0)
+    else:
+        filter_open = max(0.0, filter_open - delta * 4.0)
+    if filter_node == null or not is_instance_valid(filter_node):
+        filter_node = FilterFanScript.new()
+        filter_node.player = self
+        add_child(filter_node)
+
+func filter_fan(dir: Vector2):
+    var w = lineages.weapon_stats("filter")
+    shoot_cooldown = fire_delay * w.cooldown
+    filter_hold = 0.25
+    filter_dir = dir
+    filter_tick(0.0)
+    var reach = filter_reach()
+    var half_arc = filter_half_arc()
+    var dmg: float = damage * w.damage * (1.0 + 0.3 * filter_open)
+    var body_col: Color = body_art.main_color if body_art and body_art.visible else current_modulate
+    var caught := 0
+    var struck_body := "soft"
+    for e in get_tree().get_nodes_in_group("enemies"):
+        if not is_instance_valid(e) or e.get("dead") or not e.has_method("take_damage"):
+            continue
+        if not in_melee_arc(e.global_position, body_radius(e, 30.0), dir, reach, half_arc):
+            continue
+        caught += 1
+        if caught == 1 and e.has_method("body_material"):
+            struck_body = e.body_material()
+        var away = (e.global_position - global_position).normalized()
+        # Tangled: drawn in toward the mouth, and held a moment
+        if e.has_method("apply_knockback"):
+            e.apply_knockback(-away * w.pull, 0.12)
+        var key = e.get_instance_id()
+        if filter_marked.get(key, 0.0) <= 0.0:
+            filter_marked[key] = 0.45
+            HitFX.strike(get_parent(), e.global_position - away * body_radius(e, 30.0) * 0.3, -away, "lash", body_col, body_radius(e, 30.0) * 0.7)
+        e.take_damage(dmg)
+        if current_tear_perks.get("vampiric", false) and randf() < 0.04:
+            heal(1)
+    # Drifting shots stick in the arms too
+    for t in get_tree().get_nodes_in_group("enemy_tears"):
+        if is_instance_valid(t) and t.has_method("destroy_tear") and in_melee_arc(t.global_position, 14.0, dir, reach, half_arc):
+            t.destroy_tear()
+    if filter_sound_t <= 0.0:
+        filter_sound_t = 0.32
+        SoundManager.play_attack("lash", 1.25 + randf_range(-0.05, 0.05))
+        if caught > 0:
+            SoundManager.play_hit(struck_body, false, -6.0)
+    if filter_node:
+        filter_node.caught = caught
 
 # Each attack's signature move (Lineages.WEAPONS "special" describes them).
 # Returns the damage multiplier for this victim, or -1 when it was eaten whole.
@@ -1475,7 +1559,7 @@ func recompute_stats():
     max_dash_cooldown = form_stats.dash_cd / (1.0 + m.get("dash_cd", 0.0))
     max_discharge_cooldown = 4.5 / (1.0 + m.get("zap_cd", 0.0))
     discharge_radius = 290.0 * (1.0 + m.get("zap_radius", 0.0))
-    vision = clampi(form_stats.vision + int(m.get("vision", 0)), 1, 10)
+    vision = clampi(form_stats.vision + int(m.get("vision", 0)), 0, 10)
     sense = clampi(form_stats.sense + int(m.get("sense", 0)), 1, 10)
     sense_profile = form_stats.get("senses", {}).duplicate()
     if sense_kind != "":

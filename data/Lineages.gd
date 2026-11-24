@@ -197,8 +197,8 @@ const TREE = {
         "shot_speed": 680.0,
         "max_health_add": 6,
         "attack_type": "triple",
-        "weapon": "lash",
-        "weapon_name": "Feather-arm sweep",
+        "weapon": "filter",
+        "weapon_name": "Filter fan",
         "tear_perks": {"knockback": 250.0},
         "dash_perks": {},
         "passive": "regen",
@@ -1255,8 +1255,8 @@ const TREE = {
         "shot_speed": 680.0,
         "max_health_add": 6,
         "attack_type": "triple",
-        "weapon": "lash",
-        "weapon_name": "Feather-arm sweep",
+        "weapon": "filter",
+        "weapon_name": "Filter fan",
         "tear_perks": {"knockback": 250.0},
         "dash_perks": {},
         "passive": "regen",
@@ -1278,8 +1278,8 @@ const TREE = {
         "shot_speed": 680.0,
         "max_health_add": 6,
         "attack_type": "triple",
-        "weapon": "lash",
-        "weapon_name": "Feather-arm sweep",
+        "weapon": "filter",
+        "weapon_name": "Filter fan",
         "tear_perks": {"knockback": 250.0},
         "dash_perks": {"slipstream": true},
         "passive": "regen",
@@ -1301,8 +1301,8 @@ const TREE = {
         "shot_speed": 680.0,
         "max_health_add": 10,
         "attack_type": "triple",
-        "weapon": "lash",
-        "weapon_name": "Feather-arm sweep",
+        "weapon": "filter",
+        "weapon_name": "Filter fan",
         "tear_perks": {"knockback": 250.0},
         "dash_perks": {},
         "passive": "regen",
@@ -1324,8 +1324,8 @@ const TREE = {
         "shot_speed": 680.0,
         "max_health_add": 10,
         "attack_type": "triple",
-        "weapon": "lash",
-        "weapon_name": "Feather-arm sweep",
+        "weapon": "filter",
+        "weapon_name": "Filter fan",
         "tear_perks": {"knockback": 250.0},
         "dash_perks": {},
         "passive": "regen",
@@ -1347,8 +1347,8 @@ const TREE = {
         "shot_speed": 680.0,
         "max_health_add": 6,
         "attack_type": "triple",
-        "weapon": "lash",
-        "weapon_name": "Feather-arm sweep",
+        "weapon": "filter",
+        "weapon_name": "Filter fan",
         "tear_perks": {"knockback": 250.0},
         "dash_perks": {"slipstream": true},
         "passive": "regen",
@@ -1370,8 +1370,8 @@ const TREE = {
         "shot_speed": 680.0,
         "max_health_add": 6,
         "attack_type": "shrapnel",
-        "weapon": "lash",
-        "weapon_name": "Feather-arm sweep",
+        "weapon": "filter",
+        "weapon_name": "Filter fan",
         "tear_perks": {"knockback": 250.0},
         "dash_perks": {"slipstream": true},
         "passive": "regen",
@@ -1747,14 +1747,14 @@ const TREE = {
     }
 }
 
-# How well each form sees, 1 (light-sensing at best) to 10 (best eyes alive).
+# How well each form sees, 0 (eyeless: the smallest lit circle), 1 (light-sensing at best) to 10 (best eyes alive).
 # Drives the darkness around the player (VisionFog.gd): poor eyes mean a small
 # lit circle, sharp eyes light most of the room. Ratings follow the real eyes
 # of the living group, not the extinct stem animals.
 const VISION = {
     "ancestral_collar_cell": [1, "no eyes, a single cell senses only light and chemicals"],
     "pikaia_chordate": [2, "a pair of simple light-sensing spots"],
-    "early_echinoderm": [1, "no eyes, light-sensitive skin"],
+    "early_echinoderm": [0, "no eyes at all, a fixed cup feeding blind"],
     "early_mollusc": [2, "simple cup-shaped eyespots"],
     "early_arthropod": [5, "early compound eyes, like trilobites"],
     "jawed_fish": [6, "true camera eyes with lens and retina"],
@@ -1829,7 +1829,7 @@ const VISION = {
     "mangrove_horseshoe_crab": [5, "large compound eyes that brighten at night"],
 }
 
-const VISION_WORDS = ["", "Blind", "Very poor", "Poor", "Dim", "Fair", "Good", "Sharp", "Keen", "Superb", "Superb"]
+const VISION_WORDS = ["Eyeless", "Blind", "Very poor", "Poor", "Dim", "Fair", "Good", "Sharp", "Keen", "Superb", "Superb"]
 
 # Vision rating 1-10 for a form (1 when unknown)
 static func get_vision(data: Dictionary) -> int:
@@ -2104,6 +2104,7 @@ const WEAPONS = {
     "rasp": {"melee": true, "label": "rasp, drains health", "reach": 115.0, "arc": 1.0, "damage": 1.7, "cooldown": 1.0, "drain": true, "special": "Grind: each rasp scrapes twice more"},
     "pincer": {"melee": true, "label": "pinch, stuns", "reach": 135.0, "arc": 0.9, "damage": 2.1, "cooldown": 1.4, "knockback": 250.0, "stun": 0.6, "special": "Crush: pinching a stunned animal does double damage"},
     "claw": {"melee": true, "label": "wide slash", "reach": 140.0, "arc": 1.7, "damage": 1.8, "cooldown": 1.3, "knockback": 200.0, "special": "Pounce: leap forward into the slash"},
+    "filter": {"melee": true, "label": "hold a filter fan", "reach": 165.0, "arc": 1.9, "damage": 0.7, "cooldown": 0.6, "pull": 160.0, "special": "Filter fan: hold attack to keep the arms spread. Anything in the fan sticks and is digested several times a second, and shots are caught. Keep still and the fan opens wider and digests faster"},
     "lash": {"melee": true, "label": "wide sweep", "reach": 145.0, "arc": 2.2, "damage": 1.6, "cooldown": 1.3, "knockback": 300.0, "special": "Whip crack: hits at the tip do double damage and fling"},
     "sting": {"melee": true, "label": "long jab, venom", "reach": 170.0, "arc": 0.55, "damage": 2.0, "cooldown": 1.4, "venom": true, "special": "Venom build-up: the third sting on one animal does 3x"},
     "arms": {"melee": true, "label": "long grab, pulls", "reach": 200.0, "arc": 0.8, "damage": 1.6, "cooldown": 1.35, "knockback": -220.0, "stun": 0.4, "special": "Grab: a hit wraps a tentacle round the animal and holds it for a second. Keep hitting it while it is held for a 1.8x bite"},
