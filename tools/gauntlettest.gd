@@ -56,6 +56,8 @@ func run():
 	main.on_boss_defeated(5)
 	for i in 5: await process_frame
 	var room = main.current_room_node
+	var prize = room.get_children().filter(func(n): return "item_id" in n and n.item_id != "")
+	check(prize.size() == 1, "the boss leaves an item")
 	check(room.get_node_or_null("TrapdoorFinale") != null and room.get_node_or_null("TrapdoorEnd") == null, "only the way on into the Great Dying")
 	main.advance_floor("finale")
 	for i in 150: await process_frame
