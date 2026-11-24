@@ -282,6 +282,7 @@ func _update_fullscreen_text(on: bool):
 	fullscreen_btn.text = "FULLSCREEN: " + ("ON" if on else "OFF")
 
 func start_game():
+	endgame.mode = ""
 	SoundManager.play_sfx("evolve")
 	get_tree().change_scene_to_file("res://Main.tscn")
 
@@ -555,6 +556,22 @@ func endgame_card(e: Dictionary) -> Control:
 		l.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		col.add_child(l)
+	if open and e.get("play", false):
+		var go = button("▶  PLAY THE GAUNTLET", start_gauntlet, UI.SUN)
+		go.custom_minimum_size = Vector2(420, 70)
+		go.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+		col.add_child(go)
+	if open and e.get("toggle", false):
+		var tg = button("", func(): pass)
+		tg.custom_minimum_size = Vector2(420, 70)
+		tg.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+		var show_state = func(): tg.text = "DEEP TIME: " + ("ON for every run" if endgame.deep_time() else "OFF")
+		show_state.call()
+		tg.pressed.connect(func():
+			endgame.set_deep_time(not endgame.deep_time())
+			SoundManager.play_sfx("dna_pickup", 0.8)
+			show_state.call())
+		col.add_child(tg)
 	if open:
 		for b in e.get("bosses", []):
 			var info = endgame.BOSSES[b]
@@ -563,6 +580,11 @@ func endgame_card(e: Dictionary) -> Control:
 			l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 			col.add_child(l)
 	return card
+
+func start_gauntlet():
+	endgame.mode = "gauntlet"
+	SoundManager.play_sfx("evolve")
+	get_tree().change_scene_to_file("res://Main.tscn")
 
 # What a challenge's starting trait does: name, effect and the real biology
 func trait_card(a: Dictionary, unlocked: bool, chosen: bool) -> Control:
@@ -769,11 +791,15 @@ func past_run_row(r: Dictionary) -> Control:
 	var head: String
 	if r.get("won", false):
 		head = "Survived to the end as %s" % String(r.get("form", "")).to_lower().capitalize()
+		if String(r.get("finale", "")) == "won":
+			head = "Lived through the Great Dying as %s" % String(r.get("form", "")).to_lower().capitalize()
 	else:
 		var where = int(r.get("world_era", era))
 		head = "%s, era %d: %s" % [ERA_NAMES[clampi(where, 1, 7) - 1], era, String(r.get("form", "")).to_lower().capitalize()]
 		if String(r.get("killer", "")) != "":
 			head += "  ·  killed by %s" % r.killer
+	if r.get("deep", false):
+		head = "DEEP TIME  ·  " + head
 	var h = label(head, 22, UI.SUN if r.get("won", false) else UI.CREAM)
 	h.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	col.add_child(h)
