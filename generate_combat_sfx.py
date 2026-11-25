@@ -1,4 +1,7 @@
-"""Combat sound effects (numpy + scipy), all synthesised, nothing sampled.
+"""(Superseded: the game now uses tools/build_combat_sfx.py. Kept so set C,
+the old sounds softened, can be rebuilt from these originals.)
+
+Combat sound effects (numpy + scipy), all synthesised, nothing sampled.
 
 Every attack style gets its own sound, every hit sounds like what it struck,
 and kills crack, squelch or thump depending on the animal's body:

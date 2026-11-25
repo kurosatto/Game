@@ -9,6 +9,10 @@ func _initialize():
 	await process_frame
 	var sm = root.get_node("SoundManager")
 	print("EXPORTCHECK sound_streams loaded: ", sm.sound_streams.size(), " of ", sm.SOUND_VOLUMES.size())
+	var takes := 0
+	for k in sm.sound_takes:
+		takes += sm.sound_takes[k].size()
+	print("EXPORTCHECK extra takes: ", sm.sound_takes.size(), " sounds with ", takes, " takes")
 	sm.play_attack("bite")
 	sm.play_hit("shell")
 	await process_frame
