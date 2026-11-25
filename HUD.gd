@@ -1849,6 +1849,9 @@ func show_pause_info():
             var body = form.fact
             if w.get("special", "") != "":
                 body += "\nAttack: %s. %s" % [player.current_weapon_name, w.special]
+            var twist: Array = lineages.fan_twist(player.current_character_id)
+            if not twist.is_empty():
+                body += "\n%s: %s." % [twist[1], twist[2]]
             # Forms drawn in code (PlayerBody.gd) have no sprite texture; their
             # sheet in assets/lineages is rendered from the same drawing
             var tex: Texture2D = spr.texture

@@ -191,11 +191,11 @@ const TREE = {
         "color": Color(1.3, 0.75, 0.4),
         "light_color": Color(1.0, 0.6, 0.3),
         "scale": Vector2(1.35, 1.35),
-        "speed": 280.0,
-        "damage": 8.4,
+        "speed": 210.0,
+        "damage": 13.0,
         "fire_delay": 0.24,
         "shot_speed": 680.0,
-        "max_health_add": 6,
+        "max_health_add": 3,
         "attack_type": "triple",
         "weapon": "filter",
         "weapon_name": "Filter fan",
@@ -1249,11 +1249,11 @@ const TREE = {
         "color": Color(1.45, 0.75, 0.25),
         "light_color": Color(1.15, 0.60, 0.15),
         "scale": Vector2(1.35, 1.35),
-        "speed": 280.0,
-        "damage": 9.8,
+        "speed": 230.0,
+        "damage": 16.5,
         "fire_delay": 0.24,
         "shot_speed": 680.0,
-        "max_health_add": 6,
+        "max_health_add": 4,
         "attack_type": "triple",
         "weapon": "filter",
         "weapon_name": "Filter fan",
@@ -1279,7 +1279,7 @@ const TREE = {
         "max_health_add": 6,
         "attack_type": "triple",
         "weapon": "filter",
-        "weapon_name": "Filter fan",
+        "weapon_name": "Swimming fan",
         "tear_perks": {"knockback": 250.0},
         "dash_perks": {"slipstream": true},
         "passive": "regen",
@@ -1295,14 +1295,14 @@ const TREE = {
         "color": Color(1.60, 0.75, 0.10),
         "light_color": Color(1.30, 0.60, 0.00),
         "scale": Vector2(1.35, 1.35),
-        "speed": 280.0,
-        "damage": 14.1,
+        "speed": 220.0,
+        "damage": 24.0,
         "fire_delay": 0.24,
         "shot_speed": 680.0,
-        "max_health_add": 10,
+        "max_health_add": 6,
         "attack_type": "triple",
         "weapon": "filter",
-        "weapon_name": "Filter fan",
+        "weapon_name": "Bowl fan",
         "tear_perks": {"knockback": 250.0},
         "dash_perks": {},
         "passive": "regen",
@@ -1318,14 +1318,14 @@ const TREE = {
         "color": Color(1.30, 0.75, 0.40),
         "light_color": Color(1.00, 0.60, 0.30),
         "scale": Vector2(1.35, 1.35),
-        "speed": 280.0,
-        "damage": 14.1,
+        "speed": 220.0,
+        "damage": 22.0,
         "fire_delay": 0.24,
         "shot_speed": 680.0,
-        "max_health_add": 10,
+        "max_health_add": 6,
         "attack_type": "triple",
         "weapon": "filter",
-        "weapon_name": "Filter fan",
+        "weapon_name": "Many-armed fan",
         "tear_perks": {"knockback": 250.0},
         "dash_perks": {},
         "passive": "regen",
@@ -1348,7 +1348,7 @@ const TREE = {
         "max_health_add": 6,
         "attack_type": "triple",
         "weapon": "filter",
-        "weapon_name": "Filter fan",
+        "weapon_name": "Swimming fan",
         "tear_perks": {"knockback": 250.0},
         "dash_perks": {"slipstream": true},
         "passive": "regen",
@@ -1371,7 +1371,7 @@ const TREE = {
         "max_health_add": 6,
         "attack_type": "shrapnel",
         "weapon": "filter",
-        "weapon_name": "Filter fan",
+        "weapon_name": "Swimming fan",
         "tear_perks": {"knockback": 250.0},
         "dash_perks": {"slipstream": true},
         "passive": "regen",
@@ -2143,9 +2143,9 @@ const ESCAPES = {
     "sea_star": ["withdraw", "Clamp to the rock", "tube feet grip so hard a wave cannot lift it"],
     "sea_urchin": ["bristle", "Raise the spines", "spines on ball joints swing toward a threat"],
     "sea_cucumber": ["tubules", "Sticky tubules", "some sea cucumbers shoot out sticky threads that tangle attackers"],
-    "isocrinid_sea_lily": ["withdraw", "Curl the arms", "the arms roll into a tight ball around the cup"],
-    "endoxocrinus": ["withdraw", "Curl the arms", "the arms roll into a tight ball around the cup"],
-    "metacrinus": ["withdraw", "Curl the arms", "the arms roll into a tight ball around the cup"],
+    "isocrinid_sea_lily": ["crawl", "Let go and crawl", "stalked sea lilies break off the stalk and crawl away on their arms when a sea urchin comes to graze"],
+    "endoxocrinus": ["crawl", "Let go and crawl", "like all stalked sea lilies, it can drop off the stalk and crawl away on its arms"],
+    "metacrinus": ["crawl", "Let go and crawl", "like all stalked sea lilies, it can drop off the stalk and crawl away on its arms"],
     "reef_feather_star": ["withdraw", "Curl the arms", "the arms roll into a tight ball"],
     "cone_snail": ["withdraw", "Seal the shell", "the operculum closes the shell like a door"],
     "moon_snail": ["withdraw", "Seal the shell", "pulls its big foot in and shuts the operculum"],
@@ -2163,6 +2163,33 @@ const ESCAPE_STYLES = {
     "bristle": {"label": "SPINE", "invulnerable": 0.6, "rooted": 0.6, "cooldown": 1.6, "radius": 140.0, "knockback": 350.0, "damage": 2.0},
     "tubules": {"label": "STICK", "invulnerable": 0.5, "rooted": 0.5, "cooldown": 2.4, "radius": 180.0, "stun": 2.0, "damage": 0.5},
     "ink": {"label": "INK", "invulnerable": 0.8, "rooted": 0.0, "cooldown": 2.0},
+    # A short scramble on the arms, dragging the stalk: slower than a dart
+    "crawl": {"label": "CRAWL", "invulnerable": 0.45, "rooted": 0.0, "cooldown": 1.6, "speed": 560.0, "time": 0.32},
+}
+
+# What each crinoid adds to the filter fan, so the line changes every era:
+# id -> [twist, name, what it does]. Descendants keep their parent's twist
+# unless they have their own.
+const FAN_TWISTS = {
+    "isocrinid_sea_lily": ["crawl", "Arm crawl", "the dash button lets go of the sea floor and crawls a short way on the arms, as living stalked sea lilies do to escape grazing urchins"],
+    "endoxocrinus": ["bowl", "Bowl fan", "the arms bend back into a bowl facing the current, the way Endoxocrinus feeds in the deep Caribbean. Every 5 shots caught in the fan are digested into half a heart"],
+    "metacrinus": ["shed", "Shed an arm", "crinoids drop an arm to a predator and grow it back. Every 8 seconds a new arm is ready to lose instead of taking a hit, and the many arms make the fan wider"],
+    "feather_star": ["swim", "Swimming fan", "free of the stalk, the arms beat to swim and stay spread while you move"],
+}
+
+static func fan_twist(id: String) -> Array:
+    var at := id
+    for i in 6:
+        if FAN_TWISTS.has(at):
+            return FAN_TWISTS[at]
+        at = PARENT_IDS.get(at, "")
+        if at == "":
+            break
+    return []
+
+const PARENT_IDS = {
+    "endoxocrinus": "isocrinid_sea_lily", "metacrinus": "isocrinid_sea_lily",
+    "rosy_feather_star": "feather_star", "reef_feather_star": "feather_star",
 }
 
 # Forms that are hard to spot: animals have to come this much closer

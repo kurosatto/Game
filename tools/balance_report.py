@@ -42,7 +42,11 @@ for name, body in re.findall(r'"(\w+)": \{("melee".*?)\},?\n', section("const WE
 
 ESCAPES = dict(re.findall(r'"(\w+)": \["(\w+)"', section("const ESCAPES =", "const ESCAPE_STYLES")))
 # Forms without a dash: how much each escape is worth (toughness, attack)
-ESCAPE_VALUE = {"withdraw": (1.25, 1.0), "bristle": (1.1, 1.1), "tubules": (1.15, 1.05), "ink": (1.15, 1.05)}
+ESCAPE_VALUE = {"withdraw": (1.25, 1.0), "bristle": (1.1, 1.1), "tubules": (1.15, 1.05), "ink": (1.15, 1.05),
+                "crawl": (1.1, 1.0)}
+# Crinoid fan twists (Lineages.FAN_TWISTS): (toughness, attack) multipliers
+FAN_TWIST_VALUE = {"isocrinid_sea_lily": (1.0, 1.0), "endoxocrinus": (1.12, 1.0), "metacrinus": (1.15, 1.08),
+                   "feather_star": (1.0, 1.08), "rosy_feather_star": (1.0, 1.08), "reef_feather_star": (1.0, 1.08)}
 
 FORMS = {}
 for path, body in re.findall(r'\n    "([\d,]*)": \{(.*?)\n    \}', section("const TREE =", "const VISION ="), re.S):
@@ -140,6 +144,9 @@ for path, body in FORMS.items():
         tv, av = ESCAPE_VALUE[ESCAPES[text(body, "id")]]
         t *= tv
         a *= av
+    tv, av = FAN_TWIST_VALUE.get(text(body, "id"), (1.0, 1.0))
+    t *= tv
+    a *= av
     m = move(body)
     s = senses(body)
     score = a * t ** 0.8 * m * s ** 0.3
