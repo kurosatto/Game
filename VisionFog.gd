@@ -60,7 +60,13 @@ var pitch: float = 0.0 # 1 in a pitch-dark room (data/SpecialRooms.gd "dark")
 
 # How far you actually see this frame: a cave closes the light in, and a
 # pitch-dark room leaves only a glimmer around your own body
+const EYELESS_RADIUS := 110.0
+var eyeless: bool = false
+
 func light_radius() -> float:
+	# Eyeless forms never used light, so a dark room takes nothing from them
+	if eyeless:
+		return radius
 	return radius * (1.0 - 0.3 * cave - 0.32 * pitch)
 
 func _ready():
@@ -98,13 +104,15 @@ func apply_style(id: String):
 func set_sense(rating: int, kind: String, profile: Dictionary = {}):
 	hints.set_sense(rating, kind, profile)
 
-# rating: 1 (blind) to 10 (best eyes alive)
+# rating: 0 (eyeless) to 10 (best eyes alive)
 func set_vision(rating: int, instant: bool = false):
 	var r = clamp(rating, 0, 10)
-	# Kept tight so sight matters: a cell sees a little past its own body and
-	# relies on its other senses (SenseHints.gd), while even the best eyes
-	# leave the far corners of the room in shadow.
-	target_radius = 180.0 + r * 40.0       # 180 px eyeless, 220 px for a cell, 580 px for a dragonfly
+	# Kept tight so sight matters: even the best eyes leave the far corners of
+	# the room in shadow. Forms with no eyes at all (the cell, crinoids, urchins,
+	# sea cucumbers, burrowing bivalves) see only a hand's width past their
+	# body and live by their other senses, which reach further (SenseHints.gd).
+	eyeless = r == 0
+	target_radius = EYELESS_RADIUS if eyeless else 180.0 + r * 40.0 # 220 px blind, 580 px for a dragonfly
 	# Past the soft edge it is solid black, whatever the eyes
 	target_darkness = 1.0
 	if instant:
