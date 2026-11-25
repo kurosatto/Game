@@ -33,7 +33,10 @@ func apply_style(id: String):
 
 # Each era's floor is a different brightness, so each sets where bare paper
 # starts (EraLook "ink_light"): dark swamps still read as paper, not ink
+var boil_time: float = 0.0
+
 func _process(_delta: float):
+	boil_time = fmod(boil_time + _delta, 64.0 / 6.0)
 	var light: float = fixed_light
 	var main = get_tree().current_scene
 	if light < 0.0:
@@ -51,5 +54,7 @@ func _process(_delta: float):
 		mat.set_shader_parameter("floor_seen", Vector3(seen.r, seen.g, seen.b))
 	else:
 		mat.set_shader_parameter("floor_seen", Vector3(-1, -1, -1))
+	# The sepia line redraws six times a second; the count wraps so it never grows large
+	mat.set_shader_parameter("boil_step", floor(boil_time * 6.0))
 	mat.set_shader_parameter("light_lum", light)
 	mat.set_shader_parameter("dark_lum", light * 0.12)
