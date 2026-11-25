@@ -128,6 +128,7 @@ var shot_counter: int = 0
 var recoil_velocity: Vector2 = Vector2.ZERO
 var shot_kick: float = 0.0
 const HitFX = preload("res://HitFX.gd")
+const Difficulty = preload("res://data/Difficulty.gd")
 const TearScript = preload("res://Tear.gd")
 
 # Bio-Hydro Dash
@@ -960,7 +961,9 @@ func shoot_tear(dir: Vector2):
 
 # Shots leave from the front of the body rather than its middle
 func muzzle_distance() -> float:
-    return 24.0
+    # Lysosomes leave from the cell's own membrane, which is wider than the
+    # old sprite
+    return 30.0 if current_weapon == "vesicle" else 24.0
 
 func spawn_tear(dir: Vector2, alpha: bool = false, boomerang: bool = false):
     var tear = tear_scene.instantiate()
@@ -1775,7 +1778,7 @@ func take_damage(amount: int, source: String = ""):
     last_hurt_by = source if source != "" else nearest_attacker()
     
     # Invincibility frames (doubled for heavy carapace)
-    invincibility_time = 2.0 if current_passive == "double_iframes" else 1.0
+    invincibility_time = Difficulty.PLAYER_IFRAMES * (2.0 if current_passive == "double_iframes" else 1.0)
     
     SoundManager.play_sfx("player_hurt", 1.0)
     SoundManager.play_sfx("hurt_thud", randf_range(0.9, 1.05))

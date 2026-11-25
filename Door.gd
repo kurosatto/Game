@@ -5,16 +5,14 @@ signal door_entered(direction)
 
 @export var direction: Vector2i = Vector2i.UP
 @export var is_locked: bool = false
-# Set by Room.gd: the era's door art (generate_room_art.py) and glow
+# Set by Room.gd: the era's door art (generate_room_art.py). Doors carry no
+# light or glow (kuro): the inked DoorMarks say open, shut or locked.
 var era_dir: String = ""
-var open_light: Color = Color(0.0, 0.95, 1.0)
 
 var is_open: bool = false
 var trigger_cooldown: float = 0.6
 var hint_cooldown: float = 0.0
 var key_badge: Node2D = null
-
-@onready var light = $PointLight2D
 
 func _ready():
 	add_to_group("doors")
@@ -77,10 +75,6 @@ func _process(delta: float):
 			key_badge.get_node("Label").text = "USE KEY" if has_key else "NEED KEY"
 			key_badge.modulate = Color(0.6, 1.0, 0.6) if has_key else Color.WHITE
 
-	# Gentle pulsating light on doors
-	if light and is_open:
-		light.energy = 0.55 + sin(Time.get_ticks_msec() * 0.005) * 0.15
-
 func open_door():
 	if is_locked:
 		return
@@ -88,13 +82,11 @@ func open_door():
 	is_open = true
 	update_visuals()
 	if not was_open and is_inside_tree():
-		# Pop and glow so a newly opened exit catches the eye
+		# A little pop so a newly opened exit catches the eye
 		var sprite = $Sprite2D
 		sprite.scale = Vector2.ONE * 1.3
 		var tw = create_tween()
 		tw.tween_property(sprite, "scale", Vector2.ONE, 0.35).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-		if light:
-			light.energy = 1.4
 
 func close_door():
 	var was_open = is_open
@@ -136,23 +128,14 @@ func update_visuals():
 		$Sprite2D.texture = _door_texture("locked")
 		$Sprite2D.modulate = Color.WHITE
 		$StaticBody2D/CollisionShape2D.set_deferred("disabled", false)
-		if light:
-			light.color = Color(1.0, 0.75, 0.1)
-			light.energy = 1.0
 	elif is_open:
 		$Sprite2D.texture = _door_texture("open")
 		$Sprite2D.modulate = Color(1.0, 1.0, 1.0, 1.0)
 		$StaticBody2D/CollisionShape2D.set_deferred("disabled", true)
-		if light:
-			light.color = open_light
-			light.energy = 0.6
 	else: # Closed
 		$Sprite2D.texture = _door_texture("closed")
 		$Sprite2D.modulate = Color.WHITE
 		$StaticBody2D/CollisionShape2D.set_deferred("disabled", false)
-		if light:
-			light.color = open_light.darkened(0.6)
-			light.energy = 0.35
 
 func _door_texture(state: String) -> Texture2D:
 	var path = era_dir + "door_" + state + ".png"

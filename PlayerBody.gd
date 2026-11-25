@@ -2399,32 +2399,126 @@ func sea_cucumber():
 
 # ───────────────────────── the first cell ─────────────────────────
 func ancestral_collar_cell():
-	# Choanoflagellate-like cell: an ovoid cell body, a collar of microvilli
-	# behind it and one long flagellum whose travelling wave pushes it along.
-	var body = Color(0.36, 0.82, 0.9)
-	spine_setup(30, 60, 0.0, 1.0)
+	# Choanoflagellate-like cell, drawn like a cell under the microscope: a
+	# soft, never quite round membrane; one long flagellum whose travelling
+	# wave pushes it; a collar of stiff microvilli that strains bacteria from
+	# the water; and inside, the nucleus in its double envelope, mitochondria
+	# with folded cristae, a Golgi stack, food vacuoles and the lysosomes it
+	# spits at prey. The cytoplasm streams, so the organelles slowly circle.
+	var body = Color(0.42, 0.8, 0.86)
+	var cyto = Color(0.62, 0.9, 0.9)
+	spine_setup(34, 120, 0.0, 1.0)
+	# Flagellum from the rear pole: a wave running tip-ward, faster at speed
 	var pts := PackedVector2Array()
-	for k in 16:
-		var f = k / 15.0
-		pts.append(sp(-12 - f * 46) + Vector2(0, sin(swim * 1.5 - f * 7.0) * (1.0 + 8.0 * f)))
-	taper(pts, 2.8, 1.2, Color(0.78, 1.0, 0.97))
-	fill(pv([Vector2(-4, -10), Vector2(-24, -17), Vector2(-24, 17), Vector2(-4, 10)]), Color(0.6, 1.0, 0.95, 0.22))
+	for k in 20:
+		var f = k / 19.0
+		pts.append(sp(-24 - f * 66) + Vector2(0, sin(swim * 1.5 - f * 8.0) * (0.5 + 11.0 * f)))
+	taper(pts, 2.4, 0.9, Color(0.78, 0.96, 0.94))
+	# Collar of microvilli round the flagellum's base, a funnel opening back
+	var collar_base := -18.0
+	var collar_tip := -44.0
 	if not halo_pass:
-		for k in range(-6, 7):
-			var a = k / 6.0
-			draw_line(Vector2(-4, a * 10), Vector2(-24, a * 17 + sin(t * 2 + k) * 0.8), Color(0.75, 1.0, 0.96, 0.9), 1.4, true)
-	var pulse = 1.0 + 0.04 * sin(t * 3.0) + 0.1 * strike
-	oval(Vector2(6, 0), 21 * pulse, 17 / pulse, 0, Color(body.r, body.g, body.b, 0.95))
+		# Microvilli: pale actin rods with an ink edge, a mucus sheen between
+		var tips := PackedVector2Array()
+		for k in range(-7, 8):
+			var a = k / 7.0
+			tips.append(Vector2(collar_tip + abs(a) * 4.0 + sin(t * 1.1 + k) * 0.8, a * 23 + sin(t * 1.8 + k * 0.9) * 0.9))
+		var sheen := PackedVector2Array([Vector2(collar_base, -12)])
+		sheen.append_array(tips)
+		sheen.append(Vector2(collar_base, 12))
+		draw_colored_polygon(sheen, Color(0.75, 0.95, 0.92, 0.12))
+		for k in tips.size():
+			var root = Vector2(collar_base, (k - 7) / 7.0 * 12)
+			draw_line(root, tips[k], Color(0.08, 0.14, 0.16, 0.8), 2.2, true)
+			draw_line(root, tips[k], Color(0.8, 0.97, 0.94, 0.95), 1.0, true)
+		# Bacteria caught on the collar slide down it toward the cell
+		for k in 2:
+			var u = fposmod(t * 0.22 + k * 0.5, 1.0)
+			var side = 1.0 if k == 0 else -1.0
+			var q = Vector2(lerp(collar_tip + 2.0, collar_base - 1.0, u), side * lerp(20.0, 11.0, u))
+			var c = Color(0.35, 0.28, 0.18, 0.85 * min(1.0, (1.0 - u) * 4.0))
+			draw_line(q - Vector2(2.2, 0).rotated(side * 0.5), q + Vector2(2.2, 0).rotated(side * 0.5), c, 2.0, true)
+	# Membrane: a lumpy oval that breathes, bulging toward the aim where a
+	# lysosome is pushed out (exocytosis)
+	var mem := PackedVector2Array()
+	var cx := 4.0
+	var rx := 26.0 * (1.0 + 0.03 * sin(t * 2.4))
+	var ry := 21.0 / (1.0 + 0.03 * sin(t * 2.4))
+	for i in 40:
+		var a = TAU * i / 40.0
+		var r = 1.0 + 0.035 * sin(3.0 * a + t * 1.7) + 0.025 * sin(5.0 * a - t * 2.3) + 0.015 * sin(8.0 * a + t * 3.1)
+		var q = Vector2(cos(a) * rx * r, sin(a) * ry * r)
+		var fwd = pow(max(0.0, cos(a)), 6.0)
+		q.x += fwd * (7.0 * strike + 1.5 * sin(t * 1.3))
+		# The rear flattens where the collar sits
+		q.x += pow(max(0.0, -cos(a)), 4.0) * 3.0
+		mem.append(Vector2(cx, 0) + q)
+	shape(mem, Color(body.r, body.g, body.b, 0.95), 2.2)
 	if halo_pass:
 		return
-	draw_colored_polygon(ellipse_pts(Vector2(9, -3), 14, 10, 0), shade(body, 1.2))
-	draw_circle(Vector2(9, 2), 7.5, OUTLINE, true, -1.0, true)
-	draw_circle(Vector2(9, 2), 6.5, Color(0.28, 0.38, 0.78), true, -1.0, true)
-	draw_circle(Vector2(10, 3), 2.4, Color(0.5, 0.6, 0.95), true, -1.0, true)
+	# Cytoplasm just inside the membrane is clearer (the cortex): a paler
+	# band, then the granular inner cytoplasm
+	var inner := PackedVector2Array()
+	for q in mem:
+		inner.append(Vector2(cx, 0) + (q - Vector2(cx, 0)) * 0.84)
+	draw_colored_polygon(inner, Color(cyto.r * 0.9, cyto.g * 0.9, cyto.b * 0.9, 0.55))
+	var loop := inner.duplicate()
+	loop.append(inner[0])
+	draw_polyline(loop, Color(0.1, 0.2, 0.22, 0.25), 0.8, true)
+	# Streaming granules: tiny specks circling the nucleus
+	for k in 14:
+		var g = t * 0.35 + k * TAU / 14.0
+		var rr = 0.55 + 0.25 * sin(k * 2.7)
+		draw_circle(Vector2(cx + cos(g) * rx * rr, sin(g) * ry * rr), 0.7 + 0.4 * fposmod(k * 0.37, 1.0), Color(0.12, 0.2, 0.22, 0.5), true, -1.0, true)
+	# Food vacuoles near the collar, where caught bacteria are taken in
+	for k in 2:
+		var g = t * 0.12 + k * 1.4
+		var vc = Vector2(-12 + cos(g) * 3.0, (k * 2 - 1) * 8.0 + sin(g) * 2.0)
+		var vr = 4.6 - k * 1.2
+		draw_circle(vc, vr, Color(0.86, 0.95, 0.9, 0.9), true, -1.0, true)
+		draw_arc(vc, vr, 0, TAU, 16, Color(0.1, 0.18, 0.2, 0.8), 0.9, true)
+		draw_line(vc + Vector2(-1.6, -0.6), vc + Vector2(1.4, 0.8), Color(0.35, 0.28, 0.18, 0.8), 1.6, true)
+	# Mitochondria with cristae, carried round by the streaming cytoplasm
 	for k in 3:
-		var g = t * 0.6 + k * 2.1
-		draw_circle(Vector2(2 + cos(g) * 9, sin(g) * 8), 2.2 - k * 0.4, [Color(0.5, 0.9, 0.5), Color(0.95, 0.85, 0.45), Color(0.6, 0.95, 0.7)][k], true, -1.0, true)
-	draw_colored_polygon(ellipse_pts(Vector2(16, -8), 5, 2.5, -0.5), Color(1, 1, 1, 0.6))
+		var g = -t * 0.18 + k * TAU / 3.0 + 0.6
+		var mc = Vector2(cx + 2.0 + cos(g) * 15.0, sin(g) * 11.5)
+		var ma = g + PI * 0.5
+		var mp = ellipse_pts(mc, 5.2, 2.4, ma, 14)
+		draw_colored_polygon(mp, Color(0.78, 0.84, 0.66))
+		mp.append(mp[0])
+		draw_polyline(mp, Color(0.1, 0.16, 0.14, 0.9), 0.9, true)
+		var ax = Vector2.RIGHT.rotated(ma)
+		var nx = Vector2(-ax.y, ax.x)
+		var cr := PackedVector2Array()
+		for j in 7:
+			cr.append(mc + ax * (-3.8 + j * 1.27) + nx * (1.4 if j % 2 == 0 else -1.4))
+		draw_polyline(cr, Color(0.1, 0.16, 0.14, 0.7), 0.7, true)
+	# Golgi stack: curved cisternae beside the nucleus, budding vesicles
+	var gc = Vector2(cx - 5.0, -10.0)
+	for j in 3:
+		draw_arc(gc + Vector2(0, j * 1.9), 6.0 - j * 0.7, PI * 0.15, PI * 0.85, 8, Color(0.12, 0.2, 0.22, 0.75), 1.1, true)
+	# The nucleus: double envelope with pores, chromatin and a dark nucleolus
+	var nc = Vector2(cx + 3.0 + sin(t * 0.5) * 0.6, 2.0)
+	draw_circle(nc, 8.4, Color(0.56, 0.7, 0.78), true, -1.0, true)
+	draw_arc(nc, 8.4, 0, TAU, 24, OUTLINE, 1.3, true)
+	draw_arc(nc, 7.2, 0, TAU, 24, Color(0.1, 0.16, 0.24, 0.55), 0.7, true)
+	for j in 6:
+		var pa = j * TAU / 6.0 + 0.3
+		draw_circle(nc + Vector2.from_angle(pa) * 7.8, 0.8, Color(0.9, 0.96, 0.95), true, -1.0, true)
+	for j in 7:
+		var ca = j * 2.4
+		draw_circle(nc + Vector2(cos(ca), sin(ca)) * (2.2 + fposmod(j * 0.61, 1.0) * 3.6), 0.8, Color(0.14, 0.18, 0.3, 0.55), true, -1.0, true)
+	draw_circle(nc + Vector2(1.6, -1.2), 2.7, Color(0.16, 0.18, 0.34), true, -1.0, true)
+	# Lysosomes: small dark-rimmed sacs that ride forward to the membrane.
+	# On a strike the front one fuses with the bulge and is gone.
+	for k in 3:
+		var u = fposmod(t * 0.3 + k / 3.0, 1.0)
+		var lc = Vector2(cx + lerp(-2.0, 21.0, u), (k - 1) * 9.0 * (1.0 - u * 0.6))
+		var lr = 2.6 * (1.0 - strike * smooth((u - 0.6) / 0.4))
+		if lr > 0.4:
+			draw_circle(lc, lr, Color(0.7, 0.42, 0.5), true, -1.0, true)
+			draw_arc(lc, lr, 0, TAU, 12, Color(0.18, 0.08, 0.12, 0.9), 0.9, true)
+			draw_circle(lc + Vector2(-0.5, 0.4), lr * 0.35, Color(0.3, 0.12, 0.18, 0.8), true, -1.0, true)
 
 # id -> [drawing function, optional parameters]. Descendants that differ
 # from their parent mostly in colour reuse its drawing with their own.

@@ -542,9 +542,9 @@ func apply_fauna(floor_number: int):
 	idle_style = f.get("idle", "graze")
 	if temper != "" and enemy_type not in HARMLESS:
 		var t = fauna.TEMPERS[temper]
-		aggro_radius = t.aggro * randf_range(0.9, 1.1)
+		aggro_radius = t.aggro * randf_range(0.9, 1.1) * Difficulty.AGGRO_RADIUS_MULT
 		calm_radius = t.calm
-		notice_time = t.notice
+		notice_time = t.notice * Difficulty.NOTICE_TIME_MULT
 		mood = "calm"
 		idle_timer = randf_range(0.0, 2.0)
 
@@ -584,7 +584,7 @@ func process_lunge(delta: float) -> bool:
 		face_sprite(lunge_dir, delta, 30.0)
 		if move_and_slide() or lunge_timer <= 0:
 			lunge_state = ""
-			lunge_cooldown = randf_range(2.0, 3.2)
+			lunge_cooldown = randf_range(2.0, 3.2) * Difficulty.LUNGE_REST_MULT
 			$Sprite2D.modulate = base_tint
 		return true
 	lunge_cooldown -= delta
@@ -592,7 +592,7 @@ func process_lunge(delta: float) -> bool:
 		lunge_state = "windup"
 		lunge_timer = 0.45
 		SoundManager.play_sfx("enemy_lunge", randf_range(0.95, 1.1))
-		lunge_dir = (player.global_position - global_position).normalized()
+		lunge_dir = (Difficulty.lead_target(global_position, player, speed * 4.0, Difficulty.LUNGE_LEAD) - global_position).normalized()
 		velocity = Vector2.ZERO
 		return true
 	return false
@@ -1393,7 +1393,7 @@ func check_contact_damage():
 func shoot_at_player():
 	if not player:
 		return
-	var dir = (player.global_position - global_position).normalized()
+	var dir = (Difficulty.lead_target(global_position, player, 460.0, Difficulty.SHOT_LEAD) - global_position).normalized()
 	drawn_strike()
 	var tear = tear_scene.instantiate()
 	tear.position = global_position

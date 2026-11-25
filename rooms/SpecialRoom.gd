@@ -57,6 +57,13 @@ func introduce():
 	if main == null or not main.get("hud"):
 		return
 	var key = "special_" + kind
+	if kind == "fire":
+		# Oxygen-rich air: warn every time, not just the first (kuro). The
+		# room also draws an inked fire sign where the lightning will land
+		main.set_meta(key, true)
+		var warn = "HIGH OXYGEN. Fire is coming: keep ahead of the flames or dash through"
+		main.hud.show_item_banner("WILDFIRE WARNING", SR.fact(kind, floor_num) + "\n" + SR.how(kind, floor_num), true, 3.6, warn)
+		return
 	if main.has_meta(key):
 		if player:
 			player.popup_text(player.global_position + Vector2(0, -90), SR.title(kind, floor_num), Color(0.98, 0.82, 0.5))
