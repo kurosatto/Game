@@ -192,7 +192,9 @@ func draw_body():
 	if has_exuvia:
 		# The cast-off shell stays in the mud, split open at the front
 		pen.draw_set_transform(to_local(exuvia_pos), exuvia_rot, Vector2.ONE)
+		pen.solid = false # an empty shell, not the animal
 		draw_animal(Color(SHELL_DARK, 0.55), 0.0, true)
+		pen.solid = true
 	pen.draw_set_transform(Vector2.ZERO, facing.angle(), Vector2.ONE)
 	light_rot = facing.angle()
 	shadow(Vector2(-30, 14), 210, 110)

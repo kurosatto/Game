@@ -203,6 +203,7 @@ func draw_body():
 
 	# Vortex: food particles spiralling into the mouth
 	if state == "vortex":
+		pen.solid = false # food swirling in is not part of the animal
 		var mouth = to_local(mouth_pos())
 		var strength = clamp(state_time / 0.5, 0.0, 1.0)
 		for i in 30:
@@ -213,6 +214,7 @@ func draw_body():
 			pen.draw_circle(pos, 3.0 + p * 4.0, Color(0.8, 1.0, 1.0, 0.8 * p * strength), true, -1.0, true)
 		for k in 3:
 			pen.draw_arc(mouth, 120.0 + k * 110.0, t * 3.0 + k, t * 3.0 + k + 2.2, 24, Color(0.75, 1.0, 1.0, 0.35 * strength), 5.0)
+		pen.solid = true
 
 	# Shadow and holdfast
 	shadow(spine[0] + Vector2(0, 10), 34, 14)

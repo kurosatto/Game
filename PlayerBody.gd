@@ -251,6 +251,9 @@ func _draw():
 	pen.begin(self)
 	_draw_body()
 	pen.flush()
+	if foe and pen.has_method("take_hits"):
+		hits = pen.take_hits()
+		hits_xf = get_global_transform()
 
 func _draw_body():
 	var spec: Array = FORMS[form_id]
@@ -272,6 +275,7 @@ func _draw_body():
 	pen.draw_set_transform(down + off * 0.6, _radial_rot, _stretch)
 	halo_pass = true
 	shadow_pass = true
+	pen.set("solid", false) # halo and drop shadow are not body (HitPen.gd)
 	_draw_parts()
 	_draw_shadow_pass(spec)
 	pen.draw_set_transform(off, _radial_rot, _stretch)
@@ -279,6 +283,7 @@ func _draw_body():
 		_draw_parts()
 		_draw_form(spec)
 	halo_pass = false
+	pen.set("solid", true)
 	_main_area = 0.0
 	_draw_parts()
 	_sil.resize(0)
@@ -293,6 +298,10 @@ func _draw_body():
 # magnetite teeth at the mouth. They sit on the outline of the drawing
 # (its convex hull from the last frame), so they fit every form.
 var _sil := PackedVector2Array()
+# A giant drawn boss (bosses/DrawnBoss.gd) draws with a HitPen: the pieces
+# it drew last frame, in this node's space, are where the boss can be hit
+var hits: Array = []
+var hits_xf := Transform2D.IDENTITY # where this node was when they were drawn
 var _hull := PackedVector2Array()
 var _parts_pass: bool = false
 
@@ -585,9 +594,15 @@ func lit(col: Color, n: Vector3) -> Color:
 
 func lit_poly(pts: PackedVector2Array, col: Color):
 	Shading.lit_poly(pen, pts, col, _L)
+	# Shaded fills go out as raw triangles: note them as solid body too
+	if foe and pen.has_method("hit_poly"):
+		pen.hit_poly(pts)
 
 func lit_tube(spine: Array, widths: Array, col: Color):
 	Shading.lit_tube(pen, spine, widths, col, _L)
+	if foe and pen.has_method("hit_seg"):
+		for i in spine.size() - 1:
+			pen.hit_seg(spine[i], spine[i + 1], (widths[i] + widths[i + 1]) * 0.5)
 
 func fill(pts: PackedVector2Array, col: Color):
 	if halo_pass or pts.size() < 3 or Geometry2D.triangulate_polygon(pts).is_empty():

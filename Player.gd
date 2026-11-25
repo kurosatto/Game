@@ -231,7 +231,7 @@ func _physics_process(delta: float):
             spine_aura_timer = 0.5
             var prick = damage * ((0.4 if current_weapon == "spines" else 0.0) + 0.3 * thorns)
             for e in get_tree().get_nodes_in_group("enemies"):
-                if is_instance_valid(e) and e.global_position.distance_to(global_position) < body_radius(e, 30.0) + 55.0:
+                if is_instance_valid(e) and reach_dist(e, global_position) < body_radius(e, 30.0) + 55.0:
                     e.take_damage(prick)
                     # Tetrodotoxin: the prick shuts its nerves down for a moment
                     if paralyse and is_instance_valid(e) and e.has_method("apply_stun"):
@@ -307,7 +307,7 @@ func _physics_process(delta: float):
         if current_dash_perks.get("slipstream", false):
             var enemies = get_tree().get_nodes_in_group("enemies")
             for e in enemies:
-                if is_instance_valid(e) and global_position.distance_to(e.global_position) < 120.0:
+                if is_instance_valid(e) and reach_dist(e, global_position) < 120.0:
                     var push = (e.global_position - global_position).normalized()
                     if e.has_method("apply_knockback"):
                         e.apply_knockback(push * 420.0, 0.25)
@@ -315,7 +315,7 @@ func _physics_process(delta: float):
         # Bony head shield: ram each animal once per dash
         if ram_mult > 0.0:
             for e in get_tree().get_nodes_in_group("enemies"):
-                if is_instance_valid(e) and not ram_hit.has(e) and global_position.distance_to(e.global_position) < body_radius(e, 30.0) + 40.0:
+                if is_instance_valid(e) and not ram_hit.has(e) and reach_dist(e, global_position) < body_radius(e, 30.0) + 40.0:
                     ram_hit.append(e)
                     e.take_damage(damage * ram_mult)
                     HitFX.impact(get_parent(), e.global_position, dash_direction, Color(0.95, 0.85, 0.6), 1.4)
@@ -327,7 +327,7 @@ func _physics_process(delta: float):
         if slam_dmg > 0:
             var enemies = get_tree().get_nodes_in_group("enemies")
             for e in enemies:
-                if is_instance_valid(e) and global_position.distance_to(e.global_position) < 100.0:
+                if is_instance_valid(e) and reach_dist(e, global_position) < 100.0:
                     if e.has_method("take_damage"):
                         e.take_damage(slam_dmg)
 
@@ -520,7 +520,7 @@ func perform_bio_dash():
     if current_dash_perks.get("cavitation_burst", false):
         var enemies = get_tree().get_nodes_in_group("enemies")
         for e in enemies:
-            if is_instance_valid(e) and global_position.distance_to(e.global_position) < 160.0:
+            if is_instance_valid(e) and reach_dist(e, global_position) < 160.0:
                 if e.has_method("take_damage"):
                     e.take_damage(12.0)
                 if e.has_method("apply_stun"):
@@ -578,7 +578,7 @@ func perform_escape():
         hit += damage * ram_mult
         radius = max(radius, 120.0)
     for e in get_tree().get_nodes_in_group("enemies"):
-        if not is_instance_valid(e) or global_position.distance_to(e.global_position) > radius:
+        if not is_instance_valid(e) or reach_dist(e, global_position) > radius:
             continue
         if hit > 0 and e.has_method("take_damage"):
             e.take_damage(hit)
@@ -846,7 +846,7 @@ func perform_bio_discharge():
     var enemies = get_tree().get_nodes_in_group("enemies")
     for e in enemies:
         if is_instance_valid(e):
-            var dist = global_position.distance_to(e.global_position)
+            var dist = reach_dist(e, global_position)
             if dist <= discharge_radius:
                 spawn_electric_spark_line(global_position, e.global_position)
                 if e.has_method("take_damage"):
@@ -1066,9 +1066,13 @@ func melee_attack(dir: Vector2):
         move_and_collide(dir * step)
 
     var victims: Array = []
+    var struck_at := {} # instance id -> [centre, radius] of the part hit
     for e in get_tree().get_nodes_in_group("enemies"):
-        if is_instance_valid(e) and e.has_method("take_damage") and in_melee_arc(e.global_position, body_radius(e, 30.0), dir, reach, half_arc):
-            victims.append(e)
+        if is_instance_valid(e) and e.has_method("take_damage"):
+            var part = melee_part(e, dir, reach, half_arc)
+            if not part.is_empty():
+                victims.append(e)
+                struck_at[e.get_instance_id()] = part
     var special_hit := false
     var struck_body := "soft"
     if not victims.is_empty() and victims[0].has_method("body_material"):
@@ -1080,7 +1084,8 @@ func melee_attack(dir: Vector2):
     for e in victims:
         if not is_instance_valid(e):
             continue
-        var away = (e.global_position - global_position).normalized()
+        var part: Array = struck_at[e.get_instance_id()]
+        var away = (part[0] - global_position).normalized()
         var mult = weapon_special(e, away, reach)
         if mult < 0.0:
             special_hit = true
@@ -1092,12 +1097,13 @@ func melee_attack(dir: Vector2):
             e.apply_knockback(away * k, max(stun, 0.15))
         elif e.has_method("apply_hit_push"):
             e.apply_hit_push(away * 260.0)
-        var er = body_radius(e, 30.0)
-        HitFX.impact(get_parent(), e.global_position - away * er * 0.6, away, current_modulate, 1.2)
+        var er: float = min(part[1], 90.0)
+        var at: Vector2 = part[0] - away * (part[1] - er)
+        HitFX.impact(get_parent(), at - away * er * 0.6, away, current_modulate, 1.2)
         # The weapon's own mark on the first few animals it lands on
         if marks < 3:
             marks += 1
-            HitFX.strike(get_parent(), e.global_position - away * er * 0.25, away, current_weapon, body_col, er, mult > 1.0)
+            HitFX.strike(get_parent(), at - away * er * 0.25, away, current_weapon, body_col, er, mult > 1.0)
         e.take_damage(dmg * mult)
         if venom:
             apply_venom(e, dmg * 0.25)
@@ -1125,7 +1131,7 @@ func melee_attack(dir: Vector2):
     if not victims.is_empty():
         SoundManager.play_hit(struck_body, special_hit)
         var first = victims[0]
-        var hit_pos: Vector2 = first.global_position if is_instance_valid(first) else global_position + dir * reach
+        var hit_pos: Vector2 = struck_at[first.get_instance_id()][0] if is_instance_valid(first) else global_position + dir * reach
         if drain and randf() < 0.3:
             heal(1)
         if current_tear_perks.get("electric", false):
@@ -1211,7 +1217,8 @@ func filter_fan(dir: Vector2):
     for e in get_tree().get_nodes_in_group("enemies"):
         if not is_instance_valid(e) or e.get("dead") or not e.has_method("take_damage"):
             continue
-        if not in_melee_arc(e.global_position, body_radius(e, 30.0), dir, reach, half_arc):
+        var part = melee_part(e, dir, reach, half_arc)
+        if part.is_empty():
             continue
         caught += 1
         if caught == 1 and e.has_method("body_material"):
@@ -1223,7 +1230,8 @@ func filter_fan(dir: Vector2):
         var key = e.get_instance_id()
         if filter_marked.get(key, 0.0) <= 0.0:
             filter_marked[key] = 0.45
-            HitFX.strike(get_parent(), e.global_position - away * body_radius(e, 30.0) * 0.3, -away, "lash", body_col, body_radius(e, 30.0) * 0.7)
+            var pr: float = min(part[1], 90.0)
+            HitFX.strike(get_parent(), part[0] - away * pr * 0.3, -away, "lash", body_col, pr * 0.7)
         e.take_damage(dmg)
         if current_tear_perks.get("vampiric", false) and randf() < 0.04:
             heal(1)
@@ -1322,7 +1330,7 @@ func weapon_special(e: Node, away: Vector2, reach: float) -> float:
                 return 2.0
         "lash":
             # The tip of a whip moves fastest: hits at the far end crack
-            if e.global_position.distance_to(global_position) > reach * 0.6:
+            if reach_dist(e, global_position) > reach * 0.6:
                 popup_text(e.global_position, "CRACK", Color(0.8, 0.95, 1.0))
                 return 2.0
         "sting":
@@ -1364,6 +1372,44 @@ func in_melee_arc(target: Vector2, radius: float, dir: Vector2, reach: float, ha
         return true
     return abs(dir.angle_to(to)) <= half_arc + atan2(radius, dist)
 
+# Every part of an animal that can be hit, as [global centre, radius]. A boss
+# reports the circles along its whole drawn body (BossBase.hurt_parts), so
+# its tail, shell and limbs take hits like its head.
+func hurt_parts(e: Node2D) -> Array:
+    if e.has_method("hurt_parts"):
+        return e.hurt_parts()
+    return [[e.global_position, body_radius(e, 30.0)]]
+
+# Distance from p to an animal, measured as if its nearest part were its
+# centre: the plain distance for small animals, and for a boss the gap to
+# the closest part of its drawn body plus its main body radius.
+func reach_dist(e: Node2D, p: Vector2) -> float:
+    if not e.has_method("gap_to"):
+        return e.global_position.distance_to(p)
+    var r0: float = e.hurt_parts()[0][1]
+    return e.gap_to(p) + r0
+
+# The part of an animal a melee strike lands on, as [centre, radius], or an
+# empty array on a miss. A boss is struck at the nearest point of its drawn
+# body toward you or toward the middle of the swing.
+func melee_part(e: Node2D, dir: Vector2, reach: float, half_arc: float) -> Array:
+    if not e.has_method("nearest_point"):
+        var r = body_radius(e, 30.0)
+        return [e.global_position, r] if in_melee_arc(e.global_position, r, dir, reach, half_arc) else []
+    var best: Array = []
+    var best_d := INF
+    var probes = [global_position, global_position + dir * reach * 0.6, global_position + dir * reach]
+    for part in hurt_parts(e):
+        probes.append(part[0])
+    for probe in probes:
+        var q: Vector2 = e.nearest_point(probe)
+        if in_melee_arc(q, 6.0, dir, reach, half_arc):
+            var d = global_position.distance_to(q)
+            if d < best_d:
+                best_d = d
+                best = [q, 24.0]
+    return best
+
 func body_radius(node: Node2D, fallback: float) -> float:
     var cs = node.get_node_or_null("CollisionShape2D")
     if cs and cs.shape is CircleShape2D:
@@ -1380,14 +1426,14 @@ func apply_venom(enemy: Node, per_tick: float):
 
 func melee_electric_arc(from_pos: Vector2, already_hit: Array):
     for e in get_tree().get_nodes_in_group("enemies"):
-        if is_instance_valid(e) and not already_hit.has(e) and not e.get("dead") and not (e.has_method("is_burrowed") and e.is_burrowed()) and e.global_position.distance_to(from_pos) < 260.0:
+        if is_instance_valid(e) and not already_hit.has(e) and not e.get("dead") and not (e.has_method("is_burrowed") and e.is_burrowed()) and reach_dist(e, from_pos) < 260.0:
             e.take_damage(2.5)
             spawn_electric_spark_line(from_pos, e.global_position)
             break
 
 func melee_blast(pos: Vector2, amount: float):
     for e in get_tree().get_nodes_in_group("enemies"):
-        if is_instance_valid(e) and e.global_position.distance_to(pos) < 120.0:
+        if is_instance_valid(e) and reach_dist(e, pos) < 120.0:
             e.take_damage(amount)
     var p = CPUParticles2D.new()
     p.position = pos

@@ -106,6 +106,7 @@ func setup():
 		pivot.add_child(holder)
 		var b = PlayerBody.new()
 		b.foe = true
+		b.pen = preload("res://HitPen.gd").new()
 		b.player = self
 		b.set_form(spec.form)
 		b.scale = Vector2.ONE * S
@@ -414,6 +415,31 @@ func update_hits():
 			pts.append(global_position + facing * k * 90.0 * S)
 			radii.append(14.0 * S * (1.0 - abs(k) * 0.6))
 	set_hit_circles(pts, radii)
+
+# The giant drawings are child nodes, drawn after the boss with their own
+# HitPen: read what they drew when asked, so the hit test matches the
+# picture on screen (BossBase.gap_to)
+var _pieces: Array = []
+var _pieces_r: float = 0.0
+var _pieces_frame: int = -1
+
+func hit_pieces() -> Array:
+	var f = Engine.get_frames_drawn()
+	if f != _pieces_frame:
+		_pieces_frame = f
+		_pieces = []
+		var inv = get_global_transform().affine_inverse()
+		for b in bodies:
+			if not b.visible:
+				continue
+			# Where the drawing was on screen, not where the node has moved since
+			var m: Transform2D = inv * b.hits_xf
+			var k: float = m.get_scale().x
+			for d in b.hits:
+				# capsule [a, b, half width] or polygon [points, centre, radius]
+				_pieces.append([m * d[0], m * d[1], d[2] * k])
+		_pieces_r = bound_of(_pieces)
+	return [_pieces, _pieces_r]
 
 func draw_body():
 	var spd = 1.2 if phase2 else 1.0
