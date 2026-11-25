@@ -61,7 +61,7 @@ func draw_body():
 		for f in flakes:
 			var p: Vector2 = f[0]
 			var a = reveal
-			draw_line(p, p + Vector2(18, 0).rotated(f[2]), Color(HAIR, a), 5.0, true)
+			pen.draw_line(p, p + Vector2(18, 0).rotated(f[2]), Color(HAIR, a), 5.0, true)
 		return
 	# Warnings as the kit draws them
 	if state == "rake_wind":
@@ -70,11 +70,11 @@ func draw_body():
 		warn_circle(to_local(telson_tip()), 60.0)
 	if state == "lurch_wind":
 		warn_line(facing * 90.0, facing * 620.0, 170.0)
-	draw_set_transform(Vector2.ZERO, facing.angle(), Vector2.ONE)
+	pen.draw_set_transform(Vector2.ZERO, facing.angle(), Vector2.ONE)
 	light_rot = facing.angle()
 	shadow(Vector2(-20, 14), 190, 130)
 	draw_spider()
-	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+	pen.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 	light_rot = 0.0
 
 # The 1980 reconstruction: a hairy giant spider, eight legs and a round
@@ -94,24 +94,24 @@ func draw_spider():
 			# Hairs along the leg
 			for h in 6:
 				var hp = knee.lerp(foot, h / 6.0)
-				draw_line(hp, hp + (foot - knee).normalized().orthogonal() * 7.0, HAIR, 1.5, true)
+				pen.draw_line(hp, hp + (foot - knee).normalized().orthogonal() * 7.0, HAIR, 1.5, true)
 	# Abdomen, round and hairy
 	oval(Vector2(-110, 0), 100.0, 82.0, 0.0, shade(SPIDER, 1.05), 3.0)
 	for i in 30:
 		var a = TAU * i / 30.0
 		var p = Vector2(-110, 0) + Vector2(cos(a) * 100.0, sin(a) * 82.0)
-		draw_line(p, p + Vector2.from_angle(a) * 8.0, HAIR, 1.5, true)
+		pen.draw_line(p, p + Vector2.from_angle(a) * 8.0, HAIR, 1.5, true)
 	# Chevron bands down the abdomen, as tarantula-like drawings show
 	for k in 4:
 		var cx = -60.0 - k * 30.0
-		draw_polyline(PackedVector2Array([Vector2(cx - 14, -40 + k * 6), Vector2(cx + 6, 0), Vector2(cx - 14, 40 - k * 6)]), Color(HAIR, 0.7), 4.0, true)
+		pen.draw_polyline(PackedVector2Array([Vector2(cx - 14, -40 + k * 6), Vector2(cx + 6, 0), Vector2(cx - 14, 40 - k * 6)]), Color(HAIR, 0.7), 4.0, true)
 	# Cephalothorax, fangs and a cluster of eyes
 	oval(Vector2(30, 0), 66.0, 58.0, 0.0, shade(SPIDER, 1.12), 3.0)
 	for side in [-1.0, 1.0]:
 		var base = Vector2(92, side * 16)
 		var tip = base + Vector2(22, -side * 8.0 - side * rake * 8.0)
-		draw_line(base, tip, OUTLINE, 9.0, true)
-		draw_line(base, tip, Color(0.2, 0.14, 0.1), 6.0, true)
+		pen.draw_line(base, tip, OUTLINE, 9.0, true)
+		pen.draw_line(base, tip, Color(0.2, 0.14, 0.1), 6.0, true)
 	for e in [Vector2(70, -10), Vector2(70, 10), Vector2(62, -24), Vector2(62, 24), Vector2(78, -4), Vector2(78, 4)]:
-		draw_circle(e, 4.5, EYE, true, -1.0, true)
-		draw_circle(e + Vector2(1, -1), 1.3, Color(1, 1, 1, 0.7), true, -1.0, true)
+		pen.draw_circle(e, 4.5, EYE, true, -1.0, true)
+		pen.draw_circle(e + Vector2(1, -1), 1.3, Color(1, 1, 1, 0.7), true, -1.0, true)

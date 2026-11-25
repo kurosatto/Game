@@ -23,6 +23,7 @@ var scald_cd: float = 0.0
 var puffs: Array = [] # [pos, age, size]
 var tubes: Array = []
 var told_hot: bool = false
+var pen = preload("res://InkBatch.gd").new() # the vent in one draw call
 
 func _ready():
 	z_index = -2
@@ -76,13 +77,14 @@ func _process(delta: float):
 		warm_time = 0.0
 
 func _draw():
+	pen.begin(self)
 	var warm = heal_left > 0
 	# Warm ring: a dashed circle where it's good to rest
 	var segs = 36
 	for i in segs:
 		if i % 2 == 0:
 			var a0 = TAU * i / segs + time * 0.05
-			draw_arc(Vector2.ZERO, WARM_R, a0, a0 + TAU / segs, 6, Color(INK, 0.45 if warm else 0.18), 2.2, true)
+			pen.draw_arc(Vector2.ZERO, WARM_R, a0, a0 + TAU / segs, 6, Color(INK, 0.45 if warm else 0.18), 2.2, true)
 	if land():
 		_draw_spring()
 	else:
@@ -94,7 +96,8 @@ func _draw():
 		for i in 41:
 			var a = TAU * i / 40.0
 			pts.append(Vector2.from_angle(a) * (r + sin(a * 9.0 + time * 4.0 + k) * 4.0))
-		draw_polyline(pts, Color(0.55, 0.22, 0.1, 0.5 - k * 0.12), 1.6, true)
+		pen.draw_polyline(pts, Color(0.55, 0.22, 0.1, 0.5 - k * 0.12), 1.6, true)
+	pen.flush()
 	SR.draw_label(self, Vector2(0, -WARM_R - 14), "WARM: REST HERE" if warm else "COOLED", 24, 0.9 if warm else 0.55)
 	SR.draw_label(self, Vector2(0, SCALD_R + 36), "TOO HOT", 20, 0.8)
 
@@ -104,30 +107,30 @@ func _draw_smoker():
 		var dir = Vector2.UP.rotated(t[2])
 		var base: Vector2 = t[0]
 		var tip = base + dir * t[1] + Vector2(sin(time * 1.5 + base.x) * 2.0, 0)
-		draw_line(base, tip, Color(0.92, 0.88, 0.78), 5.0, true)
-		draw_line(base, tip, Color(INK, 0.8), 1.4, true)
-		draw_circle(tip, 3.6, Color(0.78, 0.42, 0.32, 0.9))
-		draw_arc(tip, 3.6, 0, TAU, 10, Color(INK, 0.8), 1.2, true)
+		pen.draw_line(base, tip, Color(0.92, 0.88, 0.78), 5.0, true)
+		pen.draw_line(base, tip, Color(INK, 0.8), 1.4, true)
+		pen.draw_circle(tip, 3.6, Color(0.78, 0.42, 0.32, 0.9))
+		pen.draw_arc(tip, 3.6, 0, TAU, 10, Color(INK, 0.8), 1.2, true)
 	# The chimney mound: rough rock, cross-hatched, with a dark mouth
 	var mound := PackedVector2Array()
 	for i in 20:
 		var a = TAU * i / 20.0
 		mound.append(Vector2.from_angle(a) * (74.0 + sin(a * 5.0) * 7.0 + sin(a * 11.0) * 3.0))
-	draw_colored_polygon(mound, Color(0.62, 0.55, 0.47, 0.95))
+	pen.draw_colored_polygon(mound, Color(0.62, 0.55, 0.47, 0.95))
 	mound.append(mound[0])
-	draw_polyline(mound, Color(INK, 0.9), 2.6, true)
+	pen.draw_polyline(mound, Color(INK, 0.9), 2.6, true)
 	for i in range(-6, 7):
 		var x = i * 11.0
 		var h = 66.0 * sqrt(max(0.0, 1.0 - pow(x / 72.0, 2)))
-		draw_line(Vector2(x - 8, -h * 0.8), Vector2(x + 8, h * 0.8), Color(INK, 0.3), 1.1, true)
-	draw_circle(Vector2.ZERO, 24.0, Color(0.12, 0.08, 0.05, 0.95))
-	draw_arc(Vector2.ZERO, 24.0, 0, TAU, 20, Color(INK), 2.0, true)
+		pen.draw_line(Vector2(x - 8, -h * 0.8), Vector2(x + 8, h * 0.8), Color(INK, 0.3), 1.1, true)
+	pen.draw_circle(Vector2.ZERO, 24.0, Color(0.12, 0.08, 0.05, 0.95))
+	pen.draw_arc(Vector2.ZERO, 24.0, 0, TAU, 20, Color(INK), 2.0, true)
 	# The black smoke: ink-wash billows
 	for p in puffs:
 		var t = p[1] / 3.0
 		var r = p[2] * (1.0 + t * 2.2)
-		draw_circle(p[0], r, Color(0.16, 0.11, 0.08, 0.5 * (1.0 - t)))
-		draw_arc(p[0], r, 0, TAU, 16, Color(INK, 0.35 * (1.0 - t)), 1.2, true)
+		pen.draw_circle(p[0], r, Color(0.16, 0.11, 0.08, 0.5 * (1.0 - t)))
+		pen.draw_arc(p[0], r, 0, TAU, 16, Color(INK, 0.35 * (1.0 - t)), 1.2, true)
 
 func _draw_spring():
 	# Terraces of mineral crust, then the pool, then bubbles at the mouth
@@ -137,17 +140,17 @@ func _draw_spring():
 		for i in 32:
 			var a = TAU * i / 32.0
 			pts.append(Vector2.from_angle(a) * (r + sin(a * 6.0 + k) * 6.0) * Vector2(1.0, 0.8))
-		draw_colored_polygon(pts, Color(0.88, 0.8, 0.62, 0.35) if k < 2 else Color(0.62, 0.72, 0.7, 0.55))
+		pen.draw_colored_polygon(pts, Color(0.88, 0.8, 0.62, 0.35) if k < 2 else Color(0.62, 0.72, 0.7, 0.55))
 		pts.append(pts[0])
-		draw_polyline(pts, Color(INK, 0.55 + k * 0.1), 1.8, true)
+		pen.draw_polyline(pts, Color(INK, 0.55 + k * 0.1), 1.8, true)
 	for i in 6:
 		var t = fmod(time * 0.8 + i * 0.29, 1.0)
 		var p = Vector2(sin(i * 2.1) * 30.0, cos(i * 1.7) * 18.0)
-		draw_arc(p, 3.0 + 6.0 * t, 0, TAU, 12, Color(INK, 0.6 * (1.0 - t)), 1.4, true)
+		pen.draw_arc(p, 3.0 + 6.0 * t, 0, TAU, 12, Color(INK, 0.6 * (1.0 - t)), 1.4, true)
 	# Steam wisps
 	for p in puffs:
 		var t = p[1] / 3.0
 		var pts := PackedVector2Array()
 		for j in 8:
 			pts.append(p[0] + Vector2(sin(j * 0.9 + time * 2.0 + p[2]) * 8.0, -j * 6.0))
-		draw_polyline(pts, Color(INK, 0.35 * (1.0 - t)), 1.6, true)
+		pen.draw_polyline(pts, Color(INK, 0.35 * (1.0 - t)), 1.6, true)

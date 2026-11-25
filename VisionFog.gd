@@ -39,6 +39,7 @@ void fragment() {
 }
 """
 
+const InkBatch = preload("res://InkBatch.gd")
 var rect: ColorRect
 var hints: Control
 var mat: ShaderMaterial
@@ -56,6 +57,9 @@ var pitch: float = 0.0 # 1 in a pitch-dark room (data/SpecialRooms.gd "dark")
 # pitch-dark room leaves only a glimmer around your own body
 func light_radius() -> float:
 	return radius * (1.0 - 0.3 * cave - 0.32 * pitch)
+
+func _exit_tree():
+	InkBatch.fog_radius = -1.0
 
 func _ready():
 	# Above the world, below the HUD (layer 2), touch controls and transitions
@@ -147,5 +151,13 @@ func _process(delta: float):
 	# Pitch dark has a hard edge: the glimmer stops close to your body
 	mat.set_shader_parameter("softness", radius * 0.6 * (1.0 - 0.55 * pitch))
 	mat.set_shader_parameter("darkness", darkness)
+	# Fully black past radius + softness (see the shader); a margin for the
+	# frame the body moves before the fog does
+	var zoom = player.get_canvas_transform().get_scale().x
+	if cave <= 0.0 and darkness >= 0.999 and visible and rect.visible and zoom > 0.0:
+		InkBatch.fog_center = player.drawn_position()
+		InkBatch.fog_radius = (light_radius() + radius * 0.6) / zoom + 24.0
+	else:
+		InkBatch.fog_radius = -1.0
 	# No lit patch around doorways (kuro: no lights on doors): the inked
 	# DoorMarks are drawn above the fog, so exits still show in the dark

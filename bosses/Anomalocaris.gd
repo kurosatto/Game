@@ -179,7 +179,7 @@ func draw_body():
 	if state == "rake_wind":
 		warn_sector(Vector2.ZERO, RAKE_R, facing.angle(), 1.15)
 
-	draw_set_transform(Vector2.ZERO, facing.angle(), Vector2.ONE)
+	pen.draw_set_transform(Vector2.ZERO, facing.angle(), Vector2.ONE)
 	light_rot = facing.angle()
 	shadow(bx(-90, 0) + Vector2(0, 0), 170, 60)
 
@@ -205,7 +205,7 @@ func draw_body():
 			# Broad rounded lobe, its front edge overlapping the next flap
 			var lobe = ellipse_pts(root + (tip - root) * 0.5, length * 0.55, 15.0, ang, 14)
 			shape(lobe, shade(FLAP, 0.85 + 0.2 * (stroke * 0.5 + 0.5)), 2.0)
-			draw_line(root, root + (tip - root) * 0.85, shade(FLAP, 0.65), 1.5, true)
+			pen.draw_line(root, root + (tip - root) * 0.85, shade(FLAP, 0.65), 1.5, true)
 
 	# Trunk: segmented body tapering to the tail
 	var spine := []
@@ -217,8 +217,8 @@ func draw_body():
 	tube_shaded(spine, widths, BODY)
 	for i in range(1, 12):
 		var p: Vector2 = spine[i]
-		draw_line(p + Vector2(0, -widths[i] * 0.9), p + Vector2(4, 0) + Vector2(0, -0.0), shade(BODY, 0.6), 2.0, true)
-		draw_line(p + Vector2(0, widths[i] * 0.9), p + Vector2(4, 0), shade(BODY, 0.6), 2.0, true)
+		pen.draw_line(p + Vector2(0, -widths[i] * 0.9), p + Vector2(4, 0) + Vector2(0, -0.0), shade(BODY, 0.6), 2.0, true)
+		pen.draw_line(p + Vector2(0, widths[i] * 0.9), p + Vector2(4, 0), shade(BODY, 0.6), 2.0, true)
 
 	# Frontal appendages
 	for side in [-1.0, 1.0]:
@@ -235,9 +235,9 @@ func draw_body():
 		limb(PackedVector2Array([base, eye]), 7.0, shade(BODY, 0.9))
 		oval(eye, 17, 13, side * 0.6 + eye_look * 0.4, Color(0.12, 0.1, 0.12))
 		for f in 5:
-			draw_circle(eye + Vector2(-6 + f * 3, -4 + (f % 2) * 6).rotated(side * 0.6), 1.8, Color(0.35, 0.6, 0.55, 0.8), true, -1.0, true)
-		draw_circle(eye + Vector2(5, -5).rotated(eye_look), 3.5, Color(1, 1, 1, 0.85), true, -1.0, true)
-	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+			pen.draw_circle(eye + Vector2(-6 + f * 3, -4 + (f % 2) * 6).rotated(side * 0.6), 1.8, Color(0.35, 0.6, 0.55, 0.8), true, -1.0, true)
+		pen.draw_circle(eye + Vector2(5, -5).rotated(eye_look), 3.5, Color(1, 1, 1, 0.85), true, -1.0, true)
+	pen.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 	light_rot = 0.0
 
 func body_w(x: float) -> float:
@@ -260,12 +260,12 @@ func draw_appendage(side: float):
 	limb(pts, 10.0, LIMB)
 	for i in pts.size() - 1:
 		var w = 10.0 - i * 0.55
-		draw_circle(pts[i], w * 0.32, shade(LIMB, 0.7), true, -1.0, true)
+		pen.draw_circle(pts[i], w * 0.32, shade(LIMB, 0.7), true, -1.0, true)
 	# Paired inner spines on each podomere
 	for s in spines:
 		var sp: Vector2 = s[0]
 		var a: float = s[1]
 		var inward = Vector2.RIGHT.rotated(a - side * PI * 0.5)
 		var tip = sp + inward.rotated(side * 0.5) * 13.0
-		draw_line(sp, tip, OUTLINE, 4.0, true)
-		draw_line(sp, tip, SPINE, 2.0, true)
+		pen.draw_line(sp, tip, OUTLINE, 4.0, true)
+		pen.draw_line(sp, tip, SPINE, 2.0, true)
