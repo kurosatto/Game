@@ -76,6 +76,18 @@ func covers(pos: Vector2, pad: float = 0.0) -> bool:
 	var sy = size.y + pad
 	return (d.x * d.x) / (sx * sx) + (d.y * d.y) / (sy * sy) <= 1.0
 
+# Does the outlined patch overlap any part of your drawn body?
+func touches_player() -> bool:
+	if not player.has_method("touched_by_gap"):
+		return covers(player.global_position, 20.0)
+	var c := global_position
+	var sz := size
+	var patch = func(p: Vector2) -> float:
+		var d: Vector2 = p - c
+		var q := sqrt((d.x * d.x) / (sz.x * sz.x) + (d.y * d.y) / (sz.y * sz.y))
+		return 0.0 if q <= 1.0 else d.length() * (1.0 - 1.0 / q)
+	return player.touched_by_gap(patch, c, max(sz.x, sz.y))
+
 func _physics_process(delta: float):
 	time += delta
 	burst_flash = max(0.0, burst_flash - delta * 2.0)
@@ -118,7 +130,7 @@ func burst():
 		var sm = get_node_or_null("/root/SoundManager")
 		if sm:
 			sm.play_sfx("explosion", 0.55, -12.0)
-	if covers(player.global_position, 20.0) and player.has_method("take_damage"):
+	if touches_player() and player.has_method("take_damage"):
 		player.take_damage(1, "dead water" if kind == "euxinic" else "a fumarole")
 	for e in get_tree().get_nodes_in_group("enemies"):
 		if is_instance_valid(e) and not e.dead and covers(e.global_position, 20.0) \

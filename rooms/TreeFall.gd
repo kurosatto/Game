@@ -58,6 +58,19 @@ func _clear_obstacles():
 		if c.is_in_group("obstacles") and c is Node2D and _under(c.position, HALF_W + 50.0):
 			c.queue_free()
 
+# Does the trunk land on any part of your drawn body (Player.touched_by_gap)?
+func _crushes_player() -> bool:
+	if not player.has_method("touched_by_gap"):
+		return _under(player.global_position - global_position, HALF_W + 10.0)
+	# The trunk as drawn in _trunk: 0.8 of HALF_W at the root, tapering to 0.6
+	var a: Vector2 = to_global(base)
+	var b: Vector2 = to_global(tip())
+	var trunk = func(p: Vector2) -> float:
+		var q := Geometry2D.get_closest_point_to_segment(p, a, b)
+		var u: float = a.distance_to(q) / maxf(1.0, a.distance_to(b))
+		return max(0.0, p.distance_to(q) - HALF_W * 0.8 * (1.0 - 0.25 * u))
+	return player.touched_by_gap(trunk, (a + b) * 0.5, a.distance_to(b) * 0.5 + HALF_W)
+
 # Is a point under the trunk's line?
 func _under(p: Vector2, half: float) -> bool:
 	var rel = p - base
@@ -107,7 +120,7 @@ func _land():
 		if is_instance_valid(e) and not e.dead and _under(e.global_position - global_position, HALF_W + 24.0):
 			crushed += 1
 			e.take_damage(CRUSH)
-	if player and is_instance_valid(player) and player.health > 0 and _under(player.global_position - global_position, HALF_W + 10.0):
+	if player and is_instance_valid(player) and player.health > 0 and _crushes_player():
 		player.take_damage(2, "a falling tree")
 		# Thrown clear of the trunk
 		var side = signf((player.global_position - global_position - base).cross(dir))

@@ -133,7 +133,7 @@ func think(delta: float):
 			swim_amp = 2.6
 			swim_rate = 16.0
 			var tail = global_position - facing * LENGTH * 0.62
-			if not did_hit and player.global_position.distance_to(tail) < 230.0:
+			if not did_hit and player.global_position.distance_to(tail) < 230.0 and drawing_touches_player():
 				did_hit = true
 				player.take_damage(1, killer_name())
 				push_player((player.global_position - tail).normalized() * 900.0)

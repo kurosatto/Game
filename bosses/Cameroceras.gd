@@ -101,7 +101,7 @@ func think(delta: float):
 			reach = max(60.0, to_beak.length() + 40.0)
 			if to_beak.length() > 30.0:
 				player.move_and_collide(to_beak.normalized() * min(520.0 * delta, to_beak.length()))
-			if not did_hit and to_beak.length() < 70.0:
+			if not did_hit and to_beak.length() < 90.0 and drawing_touches_player():
 				did_hit = true
 				player.take_damage(2, killer_name())
 				shake(8.0)
@@ -162,10 +162,7 @@ func think(delta: float):
 			funnel_pulse = 1.0
 			vel = -aim * 220.0
 			move_by(vel * delta, 70.0)
-			var rel = player.global_position - funnel_pos()
-			var along = rel.dot(aim)
-			var across = abs(rel.cross(aim))
-			if along > 0.0 and along < 760.0 and across < 60.0:
+			if jet_touches_player():
 				push_player(aim * 900.0)
 				if not did_hit:
 					did_hit = true
@@ -175,6 +172,20 @@ func think(delta: float):
 				set_state("drift")
 	var back = facing
 	set_hit_circles([global_position - back * 120.0, global_position - back * 230.0, global_position - back * 340.0], [50.0, 38.0, 24.0])
+
+# The jet as drawn: bubbles from the funnel spreading to about 45 px either
+# side over 760 px. It shoves wherever it meets your drawn body.
+func jet_touches_player() -> bool:
+	var a := funnel_pos()
+	var b := a + aim * 760.0
+	if not player.has_method("touched_by_gap"):
+		var rel = player.global_position - a
+		return rel.dot(aim) > 0.0 and rel.dot(aim) < 760.0 and abs(rel.cross(aim)) < 60.0
+	var jet = func(p: Vector2) -> float:
+		var q := Geometry2D.get_closest_point_to_segment(p, a, b)
+		var t := a.distance_to(q) / 760.0
+		return max(0.0, p.distance_to(q) - (6.0 + 39.0 * t))
+	return player.touched_by_gap(jet, (a + b) * 0.5, 430.0)
 
 func funnel_pos() -> Vector2:
 	return global_position + facing * 48.0 + facing.rotated(PI * 0.5) * 40.0

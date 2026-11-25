@@ -94,7 +94,7 @@ func think(delta: float):
 			spread = move_toward(spread, 0.0, delta * 7.0)
 			vel = vel.move_toward(Vector2.ZERO, 3000.0 * delta)
 			move_by(vel * delta, 60.0)
-			if not did_hit and in_grab(to_p):
+			if not did_hit and in_grab(to_p) and drawing_touches_player():
 				player.take_damage(2 if phase2 else 1, killer_name())
 				did_hit = true
 			if state_time > 0.35:
@@ -143,7 +143,7 @@ func think(delta: float):
 			curl = move_toward(curl, 1.0, delta * 5.0)
 			spread = move_toward(spread, 0.0, delta * 5.0)
 			if not did_hit and state_time < 0.25:
-				if to_p.length() < RAKE_R and abs(facing.angle_to(to_p)) < 1.15:
+				if to_p.length() < RAKE_R and abs(facing.angle_to(to_p)) < 1.15 and drawing_touches_player():
 					player.take_damage(1, killer_name())
 					did_hit = true
 			if state_time > 0.7:
