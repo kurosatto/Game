@@ -191,13 +191,13 @@ func draw_body():
 		warn_line(facing * 90.0, facing * 620.0, 170.0)
 	if has_exuvia:
 		# The cast-off shell stays in the mud, split open at the front
-		draw_set_transform(to_local(exuvia_pos), exuvia_rot, Vector2.ONE)
+		pen.draw_set_transform(to_local(exuvia_pos), exuvia_rot, Vector2.ONE)
 		draw_animal(Color(SHELL_DARK, 0.55), 0.0, true)
-	draw_set_transform(Vector2.ZERO, facing.angle(), Vector2.ONE)
+	pen.draw_set_transform(Vector2.ZERO, facing.angle(), Vector2.ONE)
 	light_rot = facing.angle()
 	shadow(Vector2(-30, 14), 210, 110)
 	draw_animal(shell_col(), walk, false)
-	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+	pen.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 	light_rot = 0.0
 
 # Forward is +x. empty: the cast-off moult, no legs moving, split shield
@@ -226,8 +226,8 @@ func draw_animal(col: Color, w: float, empty: bool):
 				var f = (s + 1) / 6.0
 				var sp = mid.lerp(tip, f)
 				var out = (tip - mid).normalized().rotated(side * -1.3) * (16.0 - s * 1.5)
-				draw_line(sp, sp + out, OUTLINE, 3.5, true)
-				draw_line(sp, sp + out, Color(SPINE, col.a), 1.8, true)
+				pen.draw_line(sp, sp + out, OUTLINE, 3.5, true)
+				pen.draw_line(sp, sp + out, Color(SPINE, col.a), 1.8, true)
 	# Body: twelve segments, broad then narrowing to the spiked tail
 	var segs := 12
 	for i in segs:
@@ -242,7 +242,7 @@ func draw_animal(col: Color, w: float, empty: bool):
 		if not empty and j < 7:
 			# A row of small tubercles across each broad plate
 			for k in range(-2, 3):
-				draw_circle(Vector2(x, k * half * 0.3), 2.0, Color(SHELL_DARK, 0.45 * col.a), true, -1.0, true)
+				pen.draw_circle(Vector2(x, k * half * 0.3), 2.0, Color(SHELL_DARK, 0.45 * col.a), true, -1.0, true)
 	# The spiked telson
 	var tbase = Vector2(-10.0 - segs * 19.0, 0)
 	var tdir = Vector2.LEFT.rotated(tail_aim if not empty else 0.0)
@@ -276,18 +276,18 @@ func draw_animal(col: Color, w: float, empty: bool):
 	for i in 21:
 		var a = -PI * 0.45 + PI * 0.9 * i / 20.0
 		rim.append(Vector2(10.0 + cos(a) * 82.0, sin(a) * 80.0))
-	draw_polyline(rim, Color(SHELL_DARK, 0.5), 1.6, true)
+	pen.draw_polyline(rim, Color(SHELL_DARK, 0.5), 1.6, true)
 	var rng = RandomNumberGenerator.new()
 	rng.seed = 7
 	for i in 26:
 		var p = Vector2(rng.randf_range(-4, 85), rng.randf_range(-70, 70))
 		if (p - Vector2(10, 0)).length() < 78.0:
-			draw_circle(p, rng.randf_range(1.5, 3.0), Color(SHELL_DARK, 0.55), true, -1.0, true)
+			pen.draw_circle(p, rng.randf_range(1.5, 3.0), Color(SHELL_DARK, 0.55), true, -1.0, true)
 	# Small compound eyes close together near the middle, as on
 	# hibbertopterids
 	for side in [-1.0, 1.0]:
 		var e = Vector2(30, side * 13)
-		draw_colored_polygon(ellipse_pts(e, 7.0, 4.0, 0.0, 10), EYE)
+		pen.draw_colored_polygon(ellipse_pts(e, 7.0, 4.0, 0.0, 10), EYE)
 	if soft_time > 0.0:
 		# Fresh soft cuticle, still pale, glistens
-		draw_arc(Vector2(10, 0), 88.0, -PI * 0.4, PI * 0.4, 18, Color(1, 1, 1, 0.25 + 0.15 * sin(t * 5.0)), 3.0, true)
+		pen.draw_arc(Vector2(10, 0), 88.0, -PI * 0.4, PI * 0.4, 18, Color(1, 1, 1, 0.25 + 0.15 * sin(t * 5.0)), 3.0, true)

@@ -67,7 +67,7 @@ static func thumb_path(id: String) -> String:
 const PRELUDE = """
 shader_type canvas_item;
 render_mode unshaded;
-uniform sampler2D screen_tex : hint_screen_texture, filter_linear_mipmap;
+uniform sampler2D screen_tex : hint_screen_texture, filter_linear;
 uniform float dark_lum = 0.05;
 uniform float light_lum = 0.45;
 

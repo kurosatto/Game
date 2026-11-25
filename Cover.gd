@@ -22,6 +22,7 @@ var inside: float = -1.0 # seconds the player has been inside, -1 when out
 var stems: Array = []    # [base, height, lean, phase, kind]
 var push: float = 0.0    # sway from something moving through
 var fade: float = 1.0
+var pen = preload("res://InkBatch.gd").new() # the whole patch in one draw call
 
 func _ready():
 	z_index = 2 # over animals and you: you are in it
@@ -71,13 +72,18 @@ func _process(delta: float):
 	queue_redraw()
 
 func _draw():
+	pen.begin(self)
+	_draw_patch()
+	pen.flush()
+
+func _draw_patch():
 	var a = fade
 	# The ground under it: a soft darker patch
 	var pts := PackedVector2Array()
 	for i in 24:
 		var t = TAU * i / 24.0
 		pts.append(Vector2.from_angle(t) * size * (1.0 + 0.05 * sin(t * 5.0 + seed_val)))
-	draw_colored_polygon(pts, Color(0.3, 0.26, 0.16, 0.14 * a))
+	pen.draw_colored_polygon(pts, Color(0.3, 0.26, 0.16, 0.14 * a))
 	for s in stems:
 		var base: Vector2 = s[0]
 		var h: float = s[1]
@@ -92,16 +98,16 @@ func _draw():
 			_: _scrub(base, tip, dir, a)
 
 func _line(a: Vector2, b: Vector2, alpha: float, w: float = 2.0):
-	draw_line(a, b, Color(INK, min(1.0, alpha)), w * 1.5, true)
+	pen.draw_line(a, b, Color(INK, min(1.0, alpha)), w * 1.5, true)
 
 # Rangeomorph frond: a quilted leaf on a stalk
 func _frond(base: Vector2, tip: Vector2, dir: Vector2, a: float):
 	var side = dir.orthogonal()
 	var mid = base.lerp(tip, 0.35)
 	var leaf = PackedVector2Array([mid, mid.lerp(tip, 0.5) + side * 12.0, tip, mid.lerp(tip, 0.5) - side * 12.0])
-	draw_colored_polygon(leaf, Color(0.78, 0.72, 0.56, 0.75 * a))
+	pen.draw_colored_polygon(leaf, Color(0.78, 0.72, 0.56, 0.75 * a))
 	leaf.append(leaf[0])
-	draw_polyline(leaf, Color(INK, 0.85 * a), 1.6, true)
+	pen.draw_polyline(leaf, Color(INK, 0.85 * a), 1.6, true)
 	_line(base, tip, a, 1.4)
 	for k in 4:
 		var p = mid.lerp(tip, (k + 1) / 5.0)
@@ -113,13 +119,13 @@ func _sponge(base: Vector2, tip: Vector2, h: float, kind: int, a: float):
 	var w = 10.0 + kind * 4.0
 	var top = base + Vector2(0, -h * 0.7)
 	var body = PackedVector2Array([base + Vector2(-w * 0.6, 0), top + Vector2(-w, 0), top + Vector2(w, 0), base + Vector2(w * 0.6, 0)])
-	draw_colored_polygon(body, Color(0.82, 0.74, 0.58, 0.8 * a))
+	pen.draw_colored_polygon(body, Color(0.82, 0.74, 0.58, 0.8 * a))
 	body.append(body[0])
-	draw_polyline(body, Color(INK, 0.85 * a), 1.6, true)
-	draw_arc(top, w, PI, TAU, 10, Color(INK, 0.8 * a), 1.4, true)
+	pen.draw_polyline(body, Color(INK, 0.85 * a), 1.6, true)
+	pen.draw_arc(top, w, PI, TAU, 10, Color(INK, 0.8 * a), 1.4, true)
 	for k in 3:
 		var y = lerp(base.y, top.y, (k + 1) / 4.0)
-		draw_circle(Vector2(base.x + (k - 1) * w * 0.4, y), 1.6, Color(INK, 0.6 * a))
+		pen.draw_circle(Vector2(base.x + (k - 1) * w * 0.4, y), 1.6, Color(INK, 0.6 * a))
 
 # Sea lilies: a stalk and a cup of feathery arms
 func _crinoid(base: Vector2, tip: Vector2, dir: Vector2, a: float):
@@ -127,8 +133,8 @@ func _crinoid(base: Vector2, tip: Vector2, dir: Vector2, a: float):
 	for k in 5:
 		var arm = dir.rotated(-0.9 + k * 0.45)
 		var end = tip + arm * 22.0
-		draw_polyline(PackedVector2Array([tip, tip.lerp(end, 0.5) + arm.orthogonal() * 3.0, end]), Color(INK, 0.85 * a), 1.3, true)
-	draw_circle(tip, 4.0, Color(0.8, 0.72, 0.55, a))
+		pen.draw_polyline(PackedVector2Array([tip, tip.lerp(end, 0.5) + arm.orthogonal() * 3.0, end]), Color(INK, 0.85 * a), 1.3, true)
+	pen.draw_circle(tip, 4.0, Color(0.8, 0.72, 0.55, a))
 
 # Ferns and horsetails
 func _fern(base: Vector2, tip: Vector2, dir: Vector2, kind: int, a: float):
@@ -156,6 +162,6 @@ func _scrub(base: Vector2, tip: Vector2, dir: Vector2, a: float):
 		_line(fork, end, a, 1.4)
 		var side = dir.rotated(0.5 * k).orthogonal()
 		var leaf = PackedVector2Array([end, end + dir * 6.0 + side * 6.0, end + dir * 16.0, end + dir * 6.0 - side * 6.0])
-		draw_colored_polygon(leaf, Color(0.76, 0.7, 0.5, 0.8 * a))
+		pen.draw_colored_polygon(leaf, Color(0.76, 0.7, 0.5, 0.8 * a))
 		leaf.append(leaf[0])
-		draw_polyline(leaf, Color(INK, 0.85 * a), 1.2, true)
+		pen.draw_polyline(leaf, Color(INK, 0.85 * a), 1.2, true)

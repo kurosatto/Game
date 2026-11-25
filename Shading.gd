@@ -34,8 +34,15 @@ static func lit(col: Color, n: Vector3, L: Vector3) -> Color:
 	var rim = pow(1.0 - clamp(n.z, 0.0, 1.0), 3.0) * 0.18
 	return Color(min(c.r + spec - rim, 1.0), min(c.g + spec - rim, 1.0), min(c.b + spec - rim * 0.8, 1.0), col.a)
 
+# ci: an InkBatch (one draw call per body), or a canvas item RID
+static func _emit(ci, idx: PackedInt32Array, verts: PackedVector2Array, cols: PackedColorArray):
+	if ci is RID:
+		RenderingServer.canvas_item_add_triangle_array(ci, idx, verts, cols)
+	else:
+		ci.add_triangles(idx, verts, cols)
+
 # Polygon shaded as a dome over its outline (rings shrinking to the centre)
-static func lit_poly(ci: RID, pts: PackedVector2Array, col: Color, L: Vector3):
+static func lit_poly(ci, pts: PackedVector2Array, col: Color, L: Vector3):
 	var n = pts.size()
 	var c := Vector2.ZERO
 	for q in pts:
@@ -63,10 +70,10 @@ static func lit_poly(ci: RID, pts: PackedVector2Array, col: Color, L: Vector3):
 	var centre = verts.size() - 1
 	for i in n:
 		idx.append_array([last + i, last + (i + 1) % n, centre])
-	RenderingServer.canvas_item_add_triangle_array(ci, idx, verts, cols)
+	_emit(ci, idx, verts, cols)
 
 # Long body shaded as a cylinder along its spine
-static func lit_tube(ci: RID, spine: Array, widths: Array, col: Color, L: Vector3):
+static func lit_tube(ci, spine: Array, widths: Array, col: Color, L: Vector3):
 	var n = spine.size()
 	if n < 2:
 		return
@@ -87,11 +94,11 @@ static func lit_tube(ci: RID, spine: Array, widths: Array, col: Color, L: Vector
 		for j in m - 1:
 			var a = i * m + j
 			idx.append_array([a, a + 1, a + m + 1, a, a + m + 1, a + m])
-	RenderingServer.canvas_item_add_triangle_array(ci, idx, verts, cols)
+	_emit(ci, idx, verts, cols)
 
 # Round limbs drawn as strokes: a shadow along the side away from the light
 # and a thin glint along the lit side
-static func limb_shine(ci: CanvasItem, pts: PackedVector2Array, w: float, col: Color, L: Vector3):
+static func limb_shine(ci, pts: PackedVector2Array, w: float, col: Color, L: Vector3):
 	if w < 1.6 or pts.size() < 2:
 		return
 	var l2 = Vector2(L.x, L.y).normalized()

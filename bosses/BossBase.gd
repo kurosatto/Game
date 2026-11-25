@@ -13,6 +13,8 @@ signal boss_health_changed(current, max_value, boss_title)
 
 # Shared lighting (preloaded: works even before the editor has rescanned)
 const Shading = preload("res://Shading.gd")
+# All of a boss's drawing goes out as one draw call (InkBatch.gd)
+var pen = preload("res://InkBatch.gd").new()
 # Open floor of the boss room, inside the walls and clear of the door gaps
 const ARENA = Rect2(190, 190, 1540, 700)
 const OUTLINE = Color(0.05, 0.07, 0.12, 1.0)
@@ -137,9 +139,11 @@ func on_phase2():
 	tell_time = 1.0
 
 func _draw():
+	pen.begin(self)
 	draw_body()
-	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+	pen.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 	draw_tell()
+	pen.flush()
 
 # ── Tells ──
 # Every attack wind-up (a state ending in "_wind") flashes ink marks over
@@ -164,7 +168,7 @@ func draw_tell():
 		# Phase change: ink rings burst off the boss
 		var k = 1.0 - enraged
 		for i in 3:
-			draw_arc(Vector2.ZERO, tell_height() * (0.8 + k * (1.2 + i * 0.5)), 0, TAU, 48, Color(INK, enraged * 0.7), 5.0 - i, true)
+			pen.draw_arc(Vector2.ZERO, tell_height() * (0.8 + k * (1.2 + i * 0.5)), 0, TAU, 48, Color(INK, enraged * 0.7), 5.0 - i, true)
 	if tell_time <= 0.0:
 		return
 	tell_time = max(0.0, tell_time - get_process_delta_time())
@@ -176,10 +180,10 @@ func draw_tell():
 		var x = (m - (marks - 1) * 0.5) * 22.0
 		var a = top + Vector2(x, -30.0 * pop)
 		var b = top + Vector2(x, -6.0 * pop)
-		draw_line(a, b, Color(0.98, 0.93, 0.82, 0.9 * min(1.0, k * 2.0)), 11.0 * pop, true)
-		draw_line(a, b, Color(INK, min(1.0, k * 2.0)), 6.0 * pop, true)
-		draw_circle(top + Vector2(x, 6.0 * pop), 5.5 * pop, Color(0.98, 0.93, 0.82, 0.9 * min(1.0, k * 2.0)), true, -1.0, true)
-		draw_circle(top + Vector2(x, 6.0 * pop), 3.5 * pop, Color(INK, min(1.0, k * 2.0)), true, -1.0, true)
+		pen.draw_line(a, b, Color(0.98, 0.93, 0.82, 0.9 * min(1.0, k * 2.0)), 11.0 * pop, true)
+		pen.draw_line(a, b, Color(INK, min(1.0, k * 2.0)), 6.0 * pop, true)
+		pen.draw_circle(top + Vector2(x, 6.0 * pop), 5.5 * pop, Color(0.98, 0.93, 0.82, 0.9 * min(1.0, k * 2.0)), true, -1.0, true)
+		pen.draw_circle(top + Vector2(x, 6.0 * pop), 3.5 * pop, Color(INK, min(1.0, k * 2.0)), true, -1.0, true)
 
 # ── State and movement helpers ──
 func _room_sliding() -> bool:
@@ -398,13 +402,13 @@ func shape(pts: PackedVector2Array, fill: Color, width: float = 3.0) -> bool:
 	if pts.size() < 3 or Geometry2D.triangulate_polygon(pts).is_empty():
 		return false
 	if fill.a > 0.8 and star_shaped(pts):
-		Shading.lit_poly(get_canvas_item(), pts, fill, light_dir())
+		Shading.lit_poly(pen, pts, fill, light_dir())
 	else:
-		draw_colored_polygon(pts, lit(fill, Vector3(0, 0, 1)) if fill.a > 0.8 else fill)
+		pen.draw_colored_polygon(pts, lit(fill, Vector3(0, 0, 1)) if fill.a > 0.8 else fill)
 	if width > 0:
 		var loop := pts.duplicate()
 		loop.append(pts[0])
-		draw_polyline(loop, Shading.ink(fill) if fill.a > 0.8 else OUTLINE, width, true)
+		pen.draw_polyline(loop, Shading.ink(fill) if fill.a > 0.8 else OUTLINE, width, true)
 	return true
 
 func oval(c: Vector2, rx: float, ry: float, rot: float, fill: Color, width: float = 3.0):
@@ -413,14 +417,14 @@ func oval(c: Vector2, rx: float, ry: float, rot: float, fill: Color, width: floa
 func limb(pts: PackedVector2Array, w: float, col: Color, outline: bool = true):
 	var ink = Shading.ink(col)
 	if outline:
-		draw_polyline(pts, ink, w + 4.0, true)
+		pen.draw_polyline(pts, ink, w + 4.0, true)
 		for p in pts:
-			draw_circle(p, (w + 4.0) * 0.5, ink, true, -1.0, true)
+			pen.draw_circle(p, (w + 4.0) * 0.5, ink, true, -1.0, true)
 	var base = lit(col, Vector3(0, 0, 1)).darkened(0.12)
-	draw_polyline(pts, base, w, true)
+	pen.draw_polyline(pts, base, w, true)
 	for p in pts:
-		draw_circle(p, w * 0.5, base, true, -1.0, true)
-	Shading.limb_shine(self, pts, w, col, light_dir())
+		pen.draw_circle(p, w * 0.5, base, true, -1.0, true)
+	Shading.limb_shine(pen, pts, w, col, light_dir())
 
 # A body along a spine: points with a half-width at each, closed into one
 # outlined polygon. Used for horns, tails, tentacles and trunks.
@@ -441,11 +445,11 @@ func tube_pts(spine: Array, widths: Array) -> PackedVector2Array:
 
 func tube(spine: Array, widths: Array, fill: Color, width: float = 3.0):
 	if fill.a > 0.8 and spine.size() >= 2:
-		Shading.lit_tube(get_canvas_item(), spine, widths, fill, light_dir())
+		Shading.lit_tube(pen, spine, widths, fill, light_dir())
 		if width > 0:
 			var loop := tube_pts(spine, widths)
 			loop.append(loop[0])
-			draw_polyline(loop, Shading.ink(fill), width, true)
+			pen.draw_polyline(loop, Shading.ink(fill), width, true)
 		return
 	if not shape(tube_pts(spine, widths), fill, width):
 		# Bent too tightly to fill as one polygon: draw it as a thick limb
@@ -472,27 +476,27 @@ func shade_band(spine: Array, widths: Array, side: float, depth: float, col: Col
 	inner.reverse()
 	outer.append_array(inner)
 	if not Geometry2D.triangulate_polygon(outer).is_empty():
-		draw_colored_polygon(outer, col)
+		pen.draw_colored_polygon(outer, col)
 
 # Pulsing warning marks shown before an attack lands
 func warn_alpha() -> float:
 	return 0.25 + 0.2 * sin(t * 18.0)
 
 func warn_circle(c: Vector2, r: float):
-	draw_circle(c, r, Color(WARN.r, WARN.g, WARN.b, warn_alpha() * 0.6), true, -1.0, true)
-	draw_arc(c, r, 0, TAU, 40, Color(WARN.r, WARN.g, WARN.b, 0.8), 3.0)
+	pen.draw_circle(c, r, Color(WARN.r, WARN.g, WARN.b, warn_alpha() * 0.6), true, -1.0, true)
+	pen.draw_arc(c, r, 0, TAU, 40, Color(WARN.r, WARN.g, WARN.b, 0.8), 3.0)
 
 func warn_line(a: Vector2, b: Vector2, w: float):
-	draw_line(a, b, Color(WARN.r, WARN.g, WARN.b, warn_alpha() * 0.6), w, true)
-	draw_line(a, b, Color(WARN.r, WARN.g, WARN.b, 0.7), 2.0, true)
+	pen.draw_line(a, b, Color(WARN.r, WARN.g, WARN.b, warn_alpha() * 0.6), w, true)
+	pen.draw_line(a, b, Color(WARN.r, WARN.g, WARN.b, 0.7), 2.0, true)
 
 func warn_sector(c: Vector2, r: float, ang: float, half: float):
 	var pts := PackedVector2Array([c])
 	for i in 17:
 		pts.append(c + Vector2.RIGHT.rotated(ang - half + 2.0 * half * i / 16.0) * r)
-	draw_colored_polygon(pts, Color(WARN.r, WARN.g, WARN.b, warn_alpha() * 0.6))
+	pen.draw_colored_polygon(pts, Color(WARN.r, WARN.g, WARN.b, warn_alpha() * 0.6))
 	pts.append(c)
-	draw_polyline(pts, Color(WARN.r, WARN.g, WARN.b, 0.7), 2.0)
+	pen.draw_polyline(pts, Color(WARN.r, WARN.g, WARN.b, 0.7), 2.0)
 
 func shadow(c: Vector2, rx: float, ry: float, rot: float = 0.0):
-	draw_colored_polygon(ellipse_pts(c, rx, ry, rot, 20), Color(0, 0, 0, 0.28))
+	pen.draw_colored_polygon(ellipse_pts(c, rx, ry, rot, 20), Color(0, 0, 0, 0.28))

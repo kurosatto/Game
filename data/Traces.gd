@@ -151,7 +151,7 @@ static func all_ids() -> Array:
 # One mark in the sediment at `pos`, heading `angle`; `side` alternates +1/-1
 # from mark to mark (left and right feet), `phase` is the distance walked
 # (wavy fin lines), `s` the animal's size and `a` the fade.
-static func draw_mark(ci: CanvasItem, id: String, pos: Vector2, angle: float, side: float, phase: float, s: float, a: float):
+static func draw_mark(ci, id: String, pos: Vector2, angle: float, side: float, phase: float, s: float, a: float):
 	if not TRACES.has(id) or a <= 0.01:
 		return
 	var t: Dictionary = TRACES[id]
@@ -264,7 +264,7 @@ static func draw_mark(ci: CanvasItem, id: String, pos: Vector2, angle: float, si
 				ci.draw_line(palm + d * 3.5, palm + d * (3.5 + tl), ink, 1.5 if not stubby else 2.0, true)
 	ci.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
-static func _ell(ci: CanvasItem, c: Vector2, rx: float, ry: float, fill: Color, line: Color):
+static func _ell(ci, c: Vector2, rx: float, ry: float, fill: Color, line: Color):
 	var pts := PackedVector2Array()
 	for i in 14:
 		var t = TAU * i / 14.0
@@ -276,7 +276,7 @@ static func _ell(ci: CanvasItem, c: Vector2, rx: float, ry: float, fill: Color, 
 		ci.draw_polyline(pts, line, 1.2, true)
 
 # A short sample trackway across a box, for the TRACES page
-static func draw_sample(ci: CanvasItem, id: String, box: Rect2, a: float = 1.0):
+static func draw_sample(ci, id: String, box: Rect2, a: float = 1.0):
 	if not TRACES.has(id):
 		return
 	var g: float = TRACES[id].gap

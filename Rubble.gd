@@ -18,6 +18,7 @@ func set_theme(era_name: String):
 var a := Vector2.ZERO
 var b := Vector2.ZERO
 var stones: Array = [] # [outline points, centre, radius]
+var pen = preload("res://InkBatch.gd").new() # all the pebbles in one draw call
 
 func setup(from: Vector2, to: Vector2, thickness: float = 40.0):
     a = from
@@ -56,16 +57,18 @@ func setup(from: Vector2, to: Vector2, thickness: float = 40.0):
     queue_redraw()
 
 func _draw():
+    pen.begin(self)
     for s in stones:
         var pts: PackedVector2Array = s[0]
-        draw_colored_polygon(pts, FILL)
+        pen.draw_colored_polygon(pts, FILL)
         # shaded underside, two hatch strokes, then the ink outline
         var c: Vector2 = s[1]
         var h: float = s[2]
-        draw_circle(c + Vector2(0, h * 0.4), h * 0.5, SHADE)
+        pen.draw_circle(c + Vector2(0, h * 0.4), h * 0.5, SHADE)
         for k in 2:
             var x = (k - 0.5) * h * 0.7
-            draw_line(c + Vector2(x - h * 0.25, h * 0.1), c + Vector2(x + h * 0.25, h * 0.6), INK, 1.2, true)
+            pen.draw_line(c + Vector2(x - h * 0.25, h * 0.1), c + Vector2(x + h * 0.25, h * 0.6), INK, 1.2, true)
         var ring := pts.duplicate()
         ring.append(pts[0])
-        draw_polyline(ring, INK, 2.2, true)
+        pen.draw_polyline(ring, INK, 2.2, true)
+    pen.flush()

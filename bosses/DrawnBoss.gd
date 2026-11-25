@@ -435,12 +435,12 @@ func draw_body():
 			for k in 4:
 				var f = fmod(t * 1.6 + k * 0.25, 1.0)
 				var rr = lerp(420.0, 30.0, f)
-				draw_arc(mouth, rr, facing.angle() - 0.9, facing.angle() + 0.9, 24, Color(WARN.r, WARN.g, WARN.b, 0.5 * f), 3.0, true)
+				pen.draw_arc(mouth, rr, facing.angle() - 0.9, facing.angle() + 0.9, 24, Color(WARN.r, WARN.g, WARN.b, 0.5 * f), 3.0, true)
 		"ring_wind", "burst_wind", "stir_wind":
 			var k = clamp(state_time / 0.6, 0.0, 1.0)
-			draw_arc(Vector2.ZERO, r * (1.0 + 0.4 * k), 0, TAU, 48, Color(WARN.r, WARN.g, WARN.b, 0.3 + 0.4 * k), 4.0, true)
+			pen.draw_arc(Vector2.ZERO, r * (1.0 + 0.4 * k), 0, TAU, 48, Color(WARN.r, WARN.g, WARN.b, 0.3 + 0.4 * k), 4.0, true)
 		"dive", "surface":
 			# A ripple on the surface where it swims
 			for k in 3:
 				var f = fmod(t * 1.2 + k / 3.0, 1.0)
-				draw_arc(Vector2.ZERO, 30.0 + f * 90.0, 0, TAU, 32, Color(0.2, 0.15, 0.1, 0.5 * (1.0 - f)), 3.0, true)
+				pen.draw_arc(Vector2.ZERO, 30.0 + f * 90.0, 0, TAU, 32, Color(0.2, 0.15, 0.1, 0.5 * (1.0 - f)), 3.0, true)
