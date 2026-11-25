@@ -144,6 +144,60 @@ ERA_LOOK = {
 }
 
 
+# Each floor's quiet two-tone theme (keep in step with data/SceneryTheme.gd):
+# [dark tone, pale tone, glow tint]. kuro (2026-11-25): the scenery and the
+# room edges were too loud (pink, blue and orange stones side by side) and
+# too crude, so the rim, doors and obstacles are recoloured into one theme
+# per floor and inked: hatched shade and a heavier ink line.
+THEMES = {
+    "ediacaran": [(74, 84, 74), (184, 191, 168), (204, 230, 209)],
+    "cambrian": [(97, 77, 56), (209, 186, 148), (242, 219, 173)],
+    "ordovician": [(66, 77, 92), (176, 186, 199), (199, 217, 242)],
+    "carboniferous": [(71, 79, 51), (173, 179, 133), (209, 230, 158)],
+    "permian": [(102, 61, 46), (212, 171, 140), (255, 179, 115)],
+    "carboniferous_sea": [(54, 79, 82), (161, 186, 181), (189, 230, 224)],
+    "permian_sea": [(79, 69, 87), (186, 173, 186), (224, 209, 235)],
+}
+HUE_KEEP = 0.22
+
+
+def theme_ink(era):
+    return tuple(int(v * 0.42) for v in THEMES[era][0])
+
+
+def theme_recolour(img, era, keep=HUE_KEEP, lift=0.0):
+    """Map an RGBA image's values onto the floor's theme: ink, dark, pale.
+    keep is how much of the original colour stays; lift brightens first."""
+    arr = np.asarray(img.convert("RGBA"), np.float32)
+    rgb, al = arr[..., :3], arr[..., 3:]
+    lum = (rgb @ np.array([0.299, 0.587, 0.114], np.float32)) / 255
+    lum = np.clip(lum + lift, 0, 1)
+    dk, pl = np.array(THEMES[era][0], np.float32), np.array(THEMES[era][1], np.float32)
+    ink = np.array(theme_ink(era), np.float32)
+    v = np.clip((lum - 0.12) / 0.78, 0, 1)[..., None]
+    low = ink + (dk - ink) * np.clip(lum[..., None] / 0.3, 0, 1)
+    themed = np.where(lum[..., None] < 0.3, low, dk + (pl - dk) * v)
+    out = themed * (1 - keep) + rgb * keep
+    return Image.fromarray(np.dstack([np.clip(out, 0, 255), al]).astype(np.uint8), "RGBA")
+
+
+def ink_hatch(img, era, spacing=5, strength=0.55):
+    """Pen hatching over the darker half of an RGBA layer (half-res art)."""
+    arr = np.asarray(img, np.float32)
+    h, w = arr.shape[:2]
+    yy, xx = np.mgrid[0:h, 0:w].astype(np.float32)
+    lum = (arr[..., :3] @ np.array([0.299, 0.587, 0.114], np.float32)) / 255
+    wob = np.sin(yy * 0.09) * 0.8
+    a = (((xx + yy + wob) % spacing) < 1.2).astype(np.float32)
+    b = (((xx - yy + wob) % spacing) < 1.1).astype(np.float32)
+    dk = 1 - lum / max(1e-3, float(np.percentile(lum[arr[..., 3] > 0], 85)) if (arr[..., 3] > 0).any() else 1)
+    k = np.clip((dk - 0.25) * 3, 0, 1) * a + np.clip((dk - 0.55) * 3, 0, 1) * b
+    k = np.clip(k, 0, 1) * strength * (arr[..., 3] / 255)
+    ink = np.array(theme_ink(era), np.float32)
+    arr[..., :3] = arr[..., :3] * (1 - k[..., None]) + ink * k[..., None]
+    return Image.fromarray(arr.astype(np.uint8), "RGBA")
+
+
 def shade_rgb(c, k):
     """k < 1 darkens, k > 1 lightens toward white."""
     if k < 1:
@@ -613,7 +667,9 @@ def make_room(era, seed):
     rng = np.random.default_rng(seed)
     look = ERA_LOOK[era]
     floor = paint_floor(era, rng).convert("RGBA")
-    rim = paint_rim(era, rng)
+    rim = ink_hatch(theme_recolour(paint_rim(era, rng), era), era)
+    # The floor keeps its own look, nudged toward the floor's theme
+    floor = theme_recolour(floor, era, keep=0.6)
     # Soft shadow the rim casts onto the floor (down and to the right)
     alpha = rim.getchannel("A")
     sh = Image.new("L", (W, H), 0)
@@ -651,8 +707,9 @@ def door_frame(era, rng, state):
     # Flanking pieces, back to front
     for (x, y, r) in ((8, 14, 13), (56, 14, 13), (6, 38, 14), (58, 38, 14), (10, 58, 9), (54, 58, 9)):
         rim_piece(era, d, x, y, r, np.random.default_rng(int(x * 31 + y)), 2 if y > 30 else 1)
+    img = ink_hatch(theme_recolour(img, era), era)
     if state == "locked":
-        seal(d)
+        seal(ImageDraw.Draw(img)) # the gold seal keeps its colour
     return img.resize((128, 128), Image.NEAREST)
 
 

@@ -1,6 +1,6 @@
 # Companion.gd
-# The follower from a symbiont room (data/SpecialRooms.gd "symbiont"): an era
-# animal that waits in its room until you touch it, then follows you and
+# The animal you free from the mud (rooms/MudPool.gd, data/SpecialRooms.gd
+# "tar"): it follows you and
 # darts at whatever you're fighting, the way egrets follow grazing cattle for
 # the insects they flush out. It can't be hurt, and it stays for the rest of
 # the era (Main.generate_floor sends it off).
@@ -17,6 +17,7 @@ const COOLDOWN := 1.3
 var floor_num: int = 2
 var on_joined: Callable = Callable()
 var joined: bool = false
+var start_joined: bool = false # freed from the mud: joins at once
 var puppet: Node2D = null
 var player: Node2D = null
 var species: String = ""
@@ -35,6 +36,8 @@ func _ready():
 	var info = SR.SYMBIONTS[preload("res://data/Worlds.gd").era(floor_num)]
 	species = info.species
 	puppet = preload("res://rooms/SpecialRoom.gd").make_puppet(self, floor_num, species, info.type, Vector2.ZERO)
+	if start_joined:
+		join.call_deferred()
 
 func join():
 	joined = true

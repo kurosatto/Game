@@ -207,6 +207,10 @@ static func generate_level(floor_number: int = 1, avoid: Array = []) -> Dictiona
     # always tested (data/SpecialRooms.gd "dark")
     kinds.erase("dark")
     kinds.push_front("dark")
+    # kuro's favourite, a swarm of prey scattering from you: one every floor
+    if "frenzy" in kinds:
+        kinds.erase("frenzy")
+        kinds.insert(1, "frenzy")
     for i in mini(specials.count_for(floor_number) + 1, spots.size()):
         spots[i].special = kinds[i % kinds.size()]
     # Main menu SENSE TEST: every other fight room is dark too

@@ -97,6 +97,16 @@ func _initialize():
 	p.perform_bio_dash()
 	for i in 20: await physics_frame
 	fails += check("head shield rams %.1f" % (th - target.health), target.health < th)
+	# ...and an escape move (an echinoderm's spines) jolts what's close
+	if is_instance_valid(target):
+		target.global_position = p.global_position + Vector2(80, 0)
+		th = target.health
+		p.escape_style = "withdraw"
+		p.dash_cooldown = 0.0
+		p.perform_escape()
+		for i in 5: await physics_frame
+		fails += check("head shield works through an escape %.1f" % (th - target.health), not is_instance_valid(target) or target.health < th)
+		p.escape_style = "dart"
 
 	# Tetrodotoxin: spine pricks paralyse
 	p.apply_item_upgrade("tetrodotoxin")

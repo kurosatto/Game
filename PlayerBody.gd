@@ -2258,48 +2258,61 @@ func star(p: Dictionary):
 			pen.draw_circle(Vector2(-3, 4), 2.2, c8(250, 230, 120), true, -1.0, true)
 
 # Crinoid arms: each of `n` arms (forking from five) is a feather of pinnules
-func feather_arms(n: int, L: float, col: Color, beat: float):
+func feather_arms(n: int, L: float, col: Color, beat: float, spread: float = TAU, curl: float = 0.0, pinnule: float = 4.5):
+	# spread < TAU fans the arms out over that angle facing forward (+X);
+	# curl bends each arm back toward the middle, making a bowl
 	for k in n:
-		var a0 = k * TAU / n + (PI / n)
+		var a0 = k * TAU / n + (PI / n) if spread >= TAU else -spread / 2.0 + spread * (k + 0.5) / n
 		var pts := PackedVector2Array([Vector2.RIGHT.rotated(a0) * 5])
 		var p = pts[0]
 		var a = a0
+		var inward = -sign(a0) * curl
 		for i in 7:
 			var g = (i + 1) / 7.0
-			a += sin(swim * 0.8 + k * 1.1 + g * 2.0) * beat * g
+			a += sin(swim * 0.8 + k * 1.1 + g * 2.0) * beat * g + inward / 7.0
 			p += Vector2.RIGHT.rotated(a) * L / 7.0 * (1.0 - 0.3 * tuck)
 			pts.append(p)
-		limb(pts, 2.4, col)
+		limb(pts, 2.4 if n <= 12 else 1.8, col)
 		if not halo_pass:
 			for i in range(1, 7):
 				var tn = (pts[i + 1] - pts[i - 1]).normalized()
 				var nm = Vector2(-tn.y, tn.x)
-				var lw = 4.5 * (1.0 - i / 9.0)
+				var lw = pinnule * (1.0 - i / 9.0)
 				pen.draw_line(pts[i] + nm * lw - tn * 1.5, pts[i], shade(col, 1.25), 1.2, true)
 				pen.draw_line(pts[i] - nm * lw - tn * 1.5, pts[i], shade(col, 1.25), 1.2, true)
 
 func sea_lily(p: Dictionary = {}):
 	# Crinoid: a cup with five arms forking into ten feathery arms and a
 	# jointed stalk trailing behind (whorls of cirri on stalked sea lilies).
+	# Later forms: a longer stalk (isocrinids), arms bent back into a bowl
+	# facing the current (Endoxocrinus), or a crown of many arms (Metacrinus).
 	var col: Color = p.get("col", c8(190, 90, 120))
+	var seg: int = p.get("stalk", 12)
 	spine_setup(0, 70, 4.0, 2.0)
 	var stalk := []
-	for i in 12:
+	for i in seg:
 		var x = -6.0 - i * 3.6
 		stalk.append(sp(x))
 	if p.get("cirri", false):
-		for i in [3, 6, 9]:
+		var every: int = p.get("cirri_every", 3)
+		for i in range(every, seg - 1, every):
 			for side in [-1.0, 1.0]:
 				var b: Vector2 = stalk[i]
-				limb(pv([b, b + Vector2(-2, side * 6 + sin(t * 2 + i) * 0.8).rotated(sp_ang(b.x))]), 1.2, p.get("cirri_col", c8(240, 220, 160)))
+				var clen = 6.0 + (2.0 if every <= 2 else 0.0)
+				limb(pv([b, b + Vector2(-2, side * clen + sin(t * 2 + i) * 0.8).rotated(sp_ang(b.x))]), 1.2, p.get("cirri_col", c8(240, 220, 160)))
 	taper(pv(stalk), 4.6, 3.0, shade(col, 0.85))
 	if not halo_pass:
-		for i in range(1, 12):
+		for i in range(1, seg):
 			var b: Vector2 = stalk[i]
 			var a = sp_ang(b.x)
 			pen.draw_line(b + Vector2(0, -2.2).rotated(a), b + Vector2(0, 2.2).rotated(a), shade(col, 0.6), 1.0, true)
-	feather_arms(10, 34.0, col, 0.18 + 0.1 * move)
-	disc(Vector2.ZERO, 8, shade(col, 1.1))
+	var beat = 0.18 + 0.1 * move
+	if p.get("bowl", false):
+		# Parabolic filtration fan: arms swept back around a bowl
+		feather_arms(p.get("arms", 10), p.get("arm_len", 36.0), col, beat * 0.5, 2.6, -1.4, 5.5)
+	else:
+		feather_arms(p.get("arms", 10), p.get("arm_len", 34.0), col, beat, TAU, 0.0, p.get("pinnule", 4.5))
+	disc(Vector2.ZERO, p.get("cup", 8.0), shade(col, 1.1))
 	dot(Vector2(-2, -2), 3, shade(col, 1.3))
 
 func feather_star(p: Dictionary = {}):
@@ -2603,9 +2616,9 @@ const FORMS = {
 	"shipworm": ["shipworm"],
 	"early_echinoderm": ["early_echinoderm"],
 	"sea_lily": ["sea_lily"],
-	"isocrinid_sea_lily": ["sea_lily", {"col": Color(0.85, 0.55, 0.35), "cirri": true}],
-	"endoxocrinus": ["sea_lily", {"col": Color(0.9, 0.78, 0.45), "cirri": true}],
-	"metacrinus": ["sea_lily", {"col": Color(0.62, 0.36, 0.62), "cirri": true}],
+	"isocrinid_sea_lily": ["sea_lily", {"col": Color(0.85, 0.55, 0.35), "cirri": true, "stalk": 20, "arm_len": 40.0, "arms": 12}],
+	"endoxocrinus": ["sea_lily", {"col": Color(0.9, 0.78, 0.45), "cirri": true, "stalk": 20, "bowl": true, "arms": 14, "arm_len": 38.0, "cup": 9.0}],
+	"metacrinus": ["sea_lily", {"col": Color(0.62, 0.36, 0.62), "cirri": true, "cirri_every": 2, "stalk": 16, "arms": 30, "arm_len": 30.0, "pinnule": 3.2}],
 	"feather_star": ["feather_star"],
 	"rosy_feather_star": ["feather_star", {"col": Color(0.94, 0.51, 0.59)}],
 	"reef_feather_star": ["feather_star", {"col": Color(0.98, 0.75, 0.24), "arms": 20}],

@@ -13,7 +13,7 @@ const BIOMINERALS = preload("res://data/Biominerals.gd")
 const INK = Color(0.24, 0.15, 0.08)
 const PAPER = Color(0.95, 0.9, 0.78)
 
-const KINDS = ["vent", "tar", "dig", "frenzy", "extinction", "nest", "tide", "symbiont", "ambush", "glow", "dark", "fire", "molt", "procession", "meadow", "mat", "drought", "treefall", "brachiopods", "current", "cupreef"]
+const KINDS = ["vent", "tar", "dig", "frenzy", "extinction", "nest", "tide", "ambush", "glow", "dark", "fire", "molt", "procession", "meadow", "mat", "drought", "treefall", "brachiopods", "current", "cupreef"]
 
 # Which eras each kind can turn up in. No brood care, hunters lying in wait
 # or animal sidekicks before the Cambrian; no glowing animals known on land
@@ -22,7 +22,7 @@ const KINDS = ["vent", "tar", "dig", "frenzy", "extinction", "nest", "tide", "sy
 const ERAS = {
 	"vent": [1, 2, 3, 4, 5, 6, 7], "tar": [1, 2, 3, 4, 5, 6, 7], "dig": [1, 2, 3, 4, 5, 6, 7],
 	"frenzy": [1, 2, 3, 4, 5, 6, 7], "extinction": [1, 2, 3, 4, 5, 6, 7], "tide": [1, 2, 3, 4, 5, 6, 7],
-	"nest": [2, 3, 4, 5, 6], "symbiont": [2, 3, 4, 5, 6, 7], "ambush": [2, 3, 4, 5, 6, 7], "glow": [2, 3],
+	"nest": [2, 3, 4, 5, 6], "ambush": [2, 3, 4, 5, 6, 7], "glow": [2, 3],
 	"dark": [1, 2, 3, 4, 5, 6, 7],
 	# Land plants to burn, and air rich enough in oxygen to burn them often
 	"fire": [4, 5],
@@ -49,7 +49,7 @@ const ERAS = {
 }
 
 # Rooms with nothing to fight when you walk in: open doors, open ground
-const PEACEFUL = ["vent", "dig", "extinction", "nest", "symbiont", "ambush", "procession", "mat", "drought", "brachiopods", "cupreef"]
+const PEACEFUL = ["vent", "dig", "extinction", "nest", "ambush", "procession", "mat", "drought", "brachiopods", "cupreef"]
 
 const Worlds = preload("res://data/Worlds.gd")
 
@@ -80,7 +80,6 @@ static func title(kind: String, f: int) -> String:
 		"extinction": return EXTINCTIONS[Worlds.era(f)].title
 		"nest": return NESTS[Worlds.era(f)].title
 		"tide": return "TIDAL CHANNEL"
-		"symbiont": return "A FOLLOWER"
 		"ambush": return "QUIET ROOM"
 		"glow": return "GLOWING CAVE"
 		"dark": return "NIGHT" if is_land(f) else "THE DEEP"
@@ -121,8 +120,6 @@ static func fact(kind: String, f: int) -> String:
 			return NESTS[Worlds.era(f)].fact
 		"tide":
 			return "Half a billion years ago the Moon was closer and a day lasted about 21 hours, so the tides ran higher than they do today."
-		"symbiont":
-			return "Many animals follow a hunter to snatch the prey it flushes out, the way cattle egrets follow grazing cows and pilot fish swim with sharks."
 		"ambush":
 			return "Ambush hunters lie still and wait. A quiet room is not always an empty one."
 		"glow":
@@ -170,13 +167,12 @@ static func fact(kind: String, f: int) -> String:
 static func how(kind: String, f: int) -> String:
 	match kind:
 		"vent": return "Rest in the warm ring to heal. Too close and it scalds."
-		"tar": return "The mud slows everything. Stand by the trapped animal to pull it free."
+		"tar": return "The mud slows everything. Stand by the trapped animal to pull it free, and it will follow you and hunt beside you for the rest of this era."
 		"dig": return "Attack the rock to break it open."
 		"frenzy": return "A swarm of small prey. Eat them before they scatter!"
 		"extinction": return "Grab the elements and get out before the room turns deadly."
 		"nest": return "Take the %s for a big meal, then deal with the parent." % NESTS[Worlds.era(f)].label.to_lower()
 		"tide": return "The tide comes in and splits the room. Cross at low tide."
-		"symbiont": return "Touch it and it hunts beside you for the rest of this era."
 		"ambush": return ""
 		"glow": return "It's dark. Glowing animals light the way."
 		"dark": return "Pitch dark. Hunt with your senses."
@@ -193,8 +189,10 @@ static func how(kind: String, f: int) -> String:
 	return ""
 
 # ---- Per-kind details ----
-# The trapped animal in the mud: a slow, harmless grazer of the era
-const TRAPPED = {1: "Kimberella", 2: "Olenoides", 3: "Isotelus", 4: "Euphoberia", 5: "Lystrosaurus", 6: "Phillipsia", 7: "Ditomopyge"}
+# The animal trapped in the mud is the era's follower (SYMBIONTS): free it
+# and it joins you (kuro, 2026-11-25: the rescue and follower rooms are one)
+static func trapped_for(f: int) -> String:
+	return SYMBIONTS[Worlds.era(f)].species
 
 # Trilobites gathered to molt (rooms/MoltGathering.gd)
 const MOLTERS = {
@@ -239,7 +237,10 @@ const NESTS = {
 		"fact": "Diictodon dug corkscrew burrows; some fossil burrows hold adults, and some a huddle of young."},
 }
 
+# Followers (rooms/Companion.gd). Animals often trail a hunter to snatch the
+# prey it flushes out, the way cattle egrets follow grazing cows.
 const SYMBIONTS = {
+	1: {"species": "Spriggina", "type": "fly"},
 	2: {"species": "Waptia", "type": "fly"},
 	3: {"species": "Arandaspis", "type": "fly"},
 	4: {"species": "Meganeura", "type": "fly"},

@@ -5,9 +5,16 @@
 # It blocks bodies but is low, so shots fly over it.
 extends StaticBody2D
 
-const INK = Color(0.24, 0.15, 0.08)
-const FILL = Color(0.62, 0.53, 0.42)
-const SHADE = Color(0.45, 0.36, 0.27)
+# Painted in the floor's scenery theme (data/SceneryTheme.gd) by Room.add_rubble
+var INK = Color(0.24, 0.15, 0.08)
+var FILL = Color(0.62, 0.53, 0.42)
+var SHADE = Color(0.45, 0.36, 0.27)
+
+func set_theme(era_name: String):
+    var T = preload("res://data/SceneryTheme.gd")
+    INK = T.dark(era_name).darkened(0.35)
+    FILL = T.tone(era_name, 0.72)
+    SHADE = T.tone(era_name, 0.42)
 var a := Vector2.ZERO
 var b := Vector2.ZERO
 var stones: Array = [] # [outline points, centre, radius]

@@ -118,17 +118,14 @@ func free_it():
 		player.heal(1)
 	SoundManager.play_sfx("level_up", 1.3, -6.0)
 	HitFX.pop(get_parent(), trapped.global_position, Color(0.78, 0.68, 0.5), 30.0, 180.0, 0.4)
-	player.popup_text(trapped.global_position + Vector2(0, -70), "FREED! IT LEAVES YOU A GIFT", Color(0.98, 0.82, 0.5))
-	# It crawls off out of the mud and away
-	var away = (trapped.global_position - player.global_position).normalized()
-	if away == Vector2.ZERO:
-		away = Vector2.RIGHT
-	var t = trapped
-	var tw = t.create_tween()
-	tw.tween_property(t, "position", t.position + away * 380.0, 2.2).set_trans(Tween.TRANS_SINE)
-	tw.parallel().tween_property(t, "modulate:a", 0.0, 2.2).set_delay(0.6)
-	tw.tween_callback(t.queue_free)
-	t.get_node("Sprite2D").rotation = away.angle() + PI / 2
+	player.popup_text(trapped.global_position + Vector2(0, -110), "FREED!", Color(0.98, 0.82, 0.5))
+	# Grateful, it follows you and hunts beside you for the rest of the era
+	var c = preload("res://rooms/Companion.gd").new()
+	c.floor_num = floor_num
+	c.position = trapped.position
+	c.start_joined = true
+	get_parent().add_child(c)
+	trapped.queue_free()
 
 func _process(_delta: float):
 	queue_redraw()
@@ -152,4 +149,4 @@ func _draw():
 		draw_arc(p, 54.0, PI * 0.2, PI * 0.8, 16, Color(INK, 0.4), 2.0, true)
 		if free_progress > 0.0:
 			draw_arc(p, 70.0, -PI / 2, -PI / 2 + TAU * free_progress / FREE_TIME, 40, Color(0.35, 0.55, 0.25, 0.95), 6.0, true)
-		SR.draw_label(self, p + Vector2(0, -88), "STUCK: STAND HERE TO FREE IT", 22)
+		SR.draw_label(self, p + Vector2(0, -88), "STUCK: FREE IT AND IT JOINS YOU", 22)

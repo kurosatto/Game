@@ -10,6 +10,30 @@ from PIL import Image
 import glob, os
 SHRINK = 0.88   # a little inside the ink line, so near misses slide past
 BASE_BAND = 40  # texture px of a tall thing's base that is solid
+MIN_BLOB = 40  # px; smaller loose bits (the pebbles at the foot) aren't solid
+
+
+def keep_body(a):
+    """Opaque pixels, minus small loose specks such as the drawn pebbles."""
+    on = {(x, y) for y in range(a.height) for x in range(a.width) if a.getpixel((x, y)) > 60}
+    keep, seen = set(), set()
+    for p in on:
+        if p in seen:
+            continue
+        blob, stack = [], [p]
+        seen.add(p)
+        while stack:
+            x, y = stack.pop()
+            blob.append((x, y))
+            for q in ((x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)):
+                if q in on and q not in seen:
+                    seen.add(q)
+                    stack.append(q)
+        if len(blob) >= MIN_BLOB:
+            keep.update(blob)
+    return keep
+
+
 out = []
 for f in sorted(glob.glob('assets/eras/*/*.png')):
     era, name = f.split('/')[-2], os.path.basename(f)[:-4]
@@ -20,9 +44,10 @@ for f in sorted(glob.glob('assets/eras/*/*.png')):
         continue
     s = 1.4 if name.startswith('tall') else 1.2
     a = im.split()[3]
+    solid = keep_body(a)
     rows = {}
     for y in range(im.height):
-        xs = [x for x in range(im.width) if a.getpixel((x, y)) > 60]
+        xs = [x for x in range(im.width) if (x, y) in solid]
         if xs:
             rows[y] = (min(xs), max(xs))
     top, bot = min(rows), max(rows)

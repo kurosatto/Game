@@ -68,20 +68,10 @@ func _initialize():
 	check(hud.is_card_up() and not hud.settings_modal.visible, "auto-pause keeps the page, no pause menu on top")
 	hud.back_pressed()
 	check(not hud.is_card_up() and not paused and not hud.settings_modal.visible, "back button closes the page")
-	# Floor quests: done quietly, a small mark under the map pops
+	# No floor quests any more: no mark under the map
 	main.floor_number = 1
 	main.generate_floor()
 	for i in 10: await process_frame
-	main.player.health = 999
-	check(hud.quest_mark.visible and hud.quest_mark.text.contains("0/2"), "quest mark shows 0/2 in play")
-	main.field_event("eat:Fractofusus", 4)
-	await create_timer(0.12).timeout
-	await snap_now("quest_done_pop")
-	check(not hud.item_banner.visible, "finishing a quest shows no banner")
-	check(hud.quest_mark.text.contains("1/2"), "quest mark counts 1/2")
-	await create_timer(1.0).timeout
-	await snap_now("quest_done_after")
-	hud.show_pause_info()
-	check(hud.pause_info_body.text.contains("no mouth or gut"), "pause screen keeps the quest's fact")
+	check(hud.get_node_or_null("QuestMark") == null, "no quest mark in play")
 	print("FAILS ", fails)
 	quit()
