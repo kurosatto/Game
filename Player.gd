@@ -1852,6 +1852,86 @@ func nearest_attacker() -> String:
                 best = e.killer_name()
     return best
 
+# ── Where you are drawn (ArtShape.gd) ──
+# Hits on you test your drawn body, not a circle: an animal, a lash, a spit
+# or a blast hurts only where it touches the drawing. Hairline feelers and
+# flagella are left out (ArtShape.body_pieces): brushing those is no hit. Code-drawn forms use
+# the strokes PlayerBody recorded last frame (HitPen.gd), sheet forms the
+# painted pixels of their frame, at where the body is now.
+const ArtShape = preload("res://ArtShape.gd")
+var _art_frame := -1
+var _art_samples: Array = []
+var _art_gap := Callable()
+var _art_reach := 0.0
+var _art_body: Array = [] # drawn pieces without hairlines
+
+func _art_update():
+    var f := Engine.get_physics_frames()
+    if f == _art_frame:
+        return
+    _art_frame = f
+    _art_samples_frame = -1
+    if body_art and body_art.visible and not body_art.hits.is_empty():
+        var xf: Transform2D = body_art.get_global_transform()
+        _art_body = ArtShape.body_pieces(body_art.hits)
+        _art_gap = ArtShape.pieces_gapper(_art_body, xf)
+        _art_reach = ArtShape.pieces_reach(_art_body, xf, global_position)
+    elif $Sprite2D.texture and not ArtShape.mask($Sprite2D).is_empty():
+        _art_samples = ArtShape.sprite_samples($Sprite2D)
+        _art_gap = ArtShape.sprite_gapper($Sprite2D)
+        _art_reach = ArtShape.sprite_reach($Sprite2D)
+    else:
+        var r := body_radius(self, 26.0)
+        var c := global_position
+        _art_samples = [[c, r]]
+        _art_gap = func(p: Vector2) -> float: return max(0.0, p.distance_to(c) - r)
+        _art_reach = r
+
+# World distance from p to your drawn body (0 when on it)
+func art_gap(p: Vector2) -> float:
+    _art_update()
+    return _art_gap.call(p)
+
+# Circles round the outline of your drawing, worked out only when asked
+var _art_samples_frame := -1
+func art_samples() -> Array:
+    _art_update()
+    if _art_samples_frame != _art_frame:
+        _art_samples_frame = _art_frame
+        if body_art and body_art.visible and not body_art.hits.is_empty():
+            _art_samples = ArtShape.outline_of(ArtShape.dedupe(ArtShape.pieces_samples(_art_body, body_art.get_global_transform(), 4.0)))
+    return _art_samples
+
+# Furthest drawn point from your position
+func art_reach() -> float:
+    _art_update()
+    return _art_reach
+
+# A round strike (bite, blast, spit, fumarole) of radius r at c touches you
+func hit_by_circle(c: Vector2, r: float) -> bool:
+    if c.distance_to(global_position) > r + art_reach():
+        return false
+    return art_gap(c) <= r
+
+# A drawn area touches you: gap(p) gives the world distance from p to it
+# (0 inside); samples further than `bound` from `centre` can't reach it
+func touched_by_gap(gap: Callable, centre: Vector2, bound: float) -> bool:
+    if centre.distance_to(global_position) > bound + art_reach() + 2.0:
+        return false
+    return ArtShape.touches(art_samples(), gap, centre, bound)
+
+# Another drawing touches yours. `other` gives art_gapper() (Callable p ->
+# gap), art_reach() and global_position, like Enemy.gd
+func touched_by(other: Node2D) -> bool:
+    var their_reach: float = other.art_reach()
+    var c: Vector2 = other.art_centre() if other.has_method("art_centre") else other.global_position
+    if c.distance_to(global_position) > their_reach + art_reach() + 2.0:
+        return false
+    if ArtShape.touches(art_samples(), other.art_gapper(), c, their_reach):
+        return true
+    # A small animal right over your middle, inside your outline
+    return art_gap(c) <= 0.0
+
 func take_damage(amount: int, source: String = ""):
     if invincibility_time > 0 or is_dashing or health <= 0:
         return

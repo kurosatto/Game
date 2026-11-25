@@ -91,7 +91,15 @@ func _process(delta: float):
 	# You
 	var plx = player.global_position.x - room.global_position.x
 	hurt_cd -= delta
-	if player.health > 0 and plx > b.x and plx < b.y and hurt_cd <= 0.0:
+	# Burns wherever your drawn body is in the band or the flames leaning
+	# out of its front (Player.touched_by_gap)
+	var lo: float = b.x - (25.0 if state.dir < 0.0 else 0.0)
+	var hi: float = b.y + (25.0 if state.dir > 0.0 else 0.0)
+	var ox: float = room.global_position.x
+	var in_fire = func(p: Vector2) -> float: return max(0.0, max(lo - (p.x - ox), (p.x - ox) - hi))
+	var mid = Vector2(ox + (lo + hi) * 0.5, player.global_position.y)
+	var touching = player.touched_by_gap(in_fire, mid, (hi - lo) * 0.5 + 200.0) if player.has_method("touched_by_gap") else (plx > b.x and plx < b.y)
+	if player.health > 0 and touching and hurt_cd <= 0.0:
 		hurt_cd = HURT_EVERY
 		player.take_damage(1, "a wildfire")
 	# The animals: burnt in it, and running ahead of it

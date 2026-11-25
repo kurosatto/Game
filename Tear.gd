@@ -164,7 +164,23 @@ func update_streak():
     streak.rotation = velocity.angle()
     streak.scale = Vector2(length / STREAK_W, 1.1)
 
+var _art_touch := false
+const ArtShape = preload("res://ArtShape.gd")
+
+# How far the painted shot reaches from its middle, in world px
+func art_radius() -> float:
+    var spr: Sprite2D = $Sprite2D
+    return ArtShape.sprite_radius(spr) if spr.texture else 14.0 * absf(scale.x)
+
 func _physics_process(delta: float):
+    if is_enemy_tear:
+        var pl = get_tree().get_first_node_in_group("player")
+        if pl and pl.has_method("hit_by_circle") and pl.hit_by_circle(global_position, art_radius()):
+            _art_touch = true
+            _on_body_entered(pl)
+            _art_touch = false
+            if is_queued_for_deletion():
+                return
     # A boss is hit wherever it is drawn: tail, shell, sail or limb, not only
     # where its round collision circles are (bosses/BossBase.gd gap_to)
     if not is_enemy_tear:
@@ -245,6 +261,10 @@ func _on_body_entered(body: Node):
     if not is_instance_valid(body) or is_queued_for_deletion():
         return
     if is_enemy_tear:
+        # The player is hit where the drawn shot meets the drawn body, tested
+        # each frame in _physics_process, not where the circles overlap
+        if body.is_in_group("player") and not _art_touch and body.has_method("hit_by_circle"):
+            return
         if body.is_in_group("player") and is_snare:
             body.apply_slow(2.0, 0.5, "SNARED")
             destroy_tear()

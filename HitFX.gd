@@ -43,6 +43,24 @@ static func pop(parent: Node, pos: Vector2, col: Color, from_size: float, to_siz
 	tw.tween_property(s, "modulate:a", 0.0, time)
 	tw.chain().tween_callback(s.queue_free)
 
+# An inked ring that shows exactly how far a burst reaches, then fades
+static func burst_ring(parent: Node, pos: Vector2, r: float, col: Color = Color(0.3, 0.17, 0.08, 0.85)):
+	var l := Line2D.new()
+	var pts := PackedVector2Array()
+	for i in 41:
+		pts.append(Vector2.from_angle(TAU * i / 40.0) * r)
+	l.points = pts
+	l.width = 4.0
+	l.default_color = col
+	l.position = pos
+	l.z_index = 3
+	l.scale = Vector2.ONE * 0.6
+	parent.add_child(l)
+	var tw = l.create_tween().set_parallel(true)
+	tw.tween_property(l, "scale", Vector2.ONE, 0.12).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tw.tween_property(l, "modulate:a", 0.0, 0.45).set_delay(0.12)
+	tw.chain().tween_callback(l.queue_free)
+
 # Flash at the shooter's mouth as a shot leaves
 static func muzzle(parent: Node, pos: Vector2, col: Color):
 	# Kept small and soft so it reads as a little puff, not a camera flash

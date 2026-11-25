@@ -12,7 +12,7 @@ extends Node2D
 # Shared lighting (preloaded: works even before the editor has rescanned)
 const Shading = preload("res://Shading.gd")
 # All of a body's drawing goes out as one draw call (InkBatch.gd)
-var pen = preload("res://InkBatch.gd").new()
+var pen = preload("res://HitPen.gd").new() # records the body for fair hits (ArtShape.gd)
 const OUTLINE := Color(0.05, 0.07, 0.12, 1.0)
 # Rim around the silhouette so the player always reads as the player: a
 # margin of bare paper that sets the sketch apart from the room (InkFilter.gd)
@@ -39,6 +39,7 @@ var preview_parts: Dictionary = {}
 var preview_live: bool = false
 var _last_rot: float = 0.0
 var halo_pass: bool = false
+var body_only: bool = false # tools/fairhits.gd: leave out the paper rim and drop shadow
 # Attack timeline: seconds since the last strike (strike above is the pose
 # it drives), plus the body's whole-body lunge, a hurt flinch and a damped
 # spring that lets the body lag behind speed changes so it moves with weight
@@ -251,7 +252,7 @@ func _draw():
 	pen.begin(self)
 	_draw_body()
 	pen.flush()
-	if foe and pen.has_method("take_hits"):
+	if pen.has_method("take_hits"):
 		hits = pen.take_hits()
 		hits_xf = get_global_transform()
 
@@ -276,10 +277,11 @@ func _draw_body():
 	halo_pass = true
 	shadow_pass = true
 	pen.set("solid", false) # halo and drop shadow are not body (HitPen.gd)
-	_draw_parts()
-	_draw_shadow_pass(spec)
+	if not body_only:
+		_draw_parts()
+		_draw_shadow_pass(spec)
 	pen.draw_set_transform(off, _radial_rot, _stretch)
-	if not foe:
+	if not foe and not body_only:
 		_draw_parts()
 		_draw_form(spec)
 	halo_pass = false
@@ -298,8 +300,9 @@ func _draw_body():
 # magnetite teeth at the mouth. They sit on the outline of the drawing
 # (its convex hull from the last frame), so they fit every form.
 var _sil := PackedVector2Array()
-# A giant drawn boss (bosses/DrawnBoss.gd) draws with a HitPen: the pieces
-# it drew last frame, in this node's space, are where the boss can be hit
+# Every body draws with a HitPen: the pieces drawn last frame, in this
+# node's space, are where a drawn boss can be hit (bosses/DrawnBoss.gd) and
+# where the player and drawn animals touch other things (ArtShape.gd)
 var hits: Array = []
 var hits_xf := Transform2D.IDENTITY # where this node was when they were drawn
 var _hull := PackedVector2Array()

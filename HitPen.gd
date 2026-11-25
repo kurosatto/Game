@@ -3,7 +3,7 @@
 # wherever it is drawn: tail, shell, sail, legs and all, in every pose.
 # Every solid stroke, dot and polygon is kept as a hit piece in the space of
 # the node being drawn (draw_set_transform applied):
-#   [a, b, half width]                 a capsule (a == b for a dot)
+#   [a, b, half width, hairline]       a capsule (a == b for a dot)
 #   [points, centre, bound radius]     a polygon
 # Faint marks (glints, ripples, attack warnings) are left out, and so is
 # anything drawn while `solid` is false. bosses/BossBase.gd gap_to() tests
@@ -11,6 +11,7 @@
 extends "res://InkBatch.gd"
 
 const MIN_ALPHA := 0.6
+const HAIRLINE := 2.5 # half width, drawing units: thinner strokes are feelers, legs, flagella, outlines
 var solid := true
 var hits: Array = []
 
@@ -26,7 +27,10 @@ func take_hits() -> Array:
 
 func hit_seg(a: Vector2, b: Vector2, half_w: float):
 	if solid:
-		hits.append([xf * a, xf * b, max(half_w * _xf_scale, 2.0)])
+		# The fourth entry marks hairlines (feelers, flagella, outlines, hatching),
+		# which ArtShape.gd leaves out of body contact
+		var w := half_w * _xf_scale
+		hits.append([xf * a, xf * b, max(w, 2.0), w < HAIRLINE])
 
 func hit_poly(pts: PackedVector2Array):
 	if not solid or pts.size() < 3:

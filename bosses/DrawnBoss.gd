@@ -199,7 +199,8 @@ func think(delta: float):
 			var dir = facing if state == "sweep" else -facing
 			if not did_hit and state_time < 0.2:
 				var rel = player.global_position - global_position
-				if rel.length() < sweep_r() + 20.0 and abs(dir.angle_to(rel)) < 1.1:
+				# Lands where the sweeping drawing touches yours
+				if rel.length() < sweep_r() + 20.0 and abs(dir.angle_to(rel)) < 1.4 and drawing_touches_player():
 					player.take_damage(damage, killer_name())
 					push_player(rel.normalized() * 600.0)
 					did_hit = true

@@ -105,6 +105,7 @@ var orbit_sign: float = 1.0 # orbiter: which way it circles
 # "" -> "windup" (bends away, trembling) -> "lash" (whips over) -> cooldown
 const FROND_ROOT := Vector2(0, 50) # the holdfast, below the enemy's middle
 const FROND_REACH := 170.0
+const BURST_R := 80.0 # Diictodon bursting out of its burrow
 const FROND_WINDUP := 0.6
 const FROND_LASH := 0.22
 var lash_state: String = ""
@@ -1088,7 +1089,9 @@ func process_burrower(delta: float):
 				set_burrowed(false)
 				$Sprite2D.scale = Vector2.ONE * base_scale
 				SoundManager.play_sfx("explosion", 1.6, -8.0)
-				if player.global_position.distance_to(global_position) < 100.0:
+				# The burst is inked as a ring and hurts only inside it
+				HitFX.burst_ring(get_parent(), global_position, BURST_R)
+				if player.has_method("hit_by_circle") and player.hit_by_circle(global_position, BURST_R):
 					player.take_damage(damage, killer_name())
 				var main = get_tree().get_first_node_in_group("main")
 				if main: main.shake_camera(5.0)
@@ -1196,11 +1199,6 @@ func process_frond(delta: float):
 			lash_timer -= delta
 			var k = 1.0 - lash_timer / FROND_LASH
 			sway = lerpf(-signf(lash_angle if absf(lash_angle) > 0.05 else 1.0) * 0.6, lash_angle, sqrt(k))
-			# The tip sweeps through the space in front of it
-			if not lash_hit and k > 0.4 and to_p.length() < FROND_REACH + 15.0:
-				lash_hit = true
-				if player.has_method("take_damage"):
-					player.take_damage(1, killer_name())
 			if lash_timer <= 0.0:
 				lash_state = "recover"
 				lash_timer = 0.5
@@ -1211,6 +1209,16 @@ func process_frond(delta: float):
 				lash_state = ""
 				lash_cooldown = randf_range(1.4, 2.2)
 	spr.rotation = lerp_angle(spr.rotation, sway, 1.0 - exp(-delta * (30.0 if lash_state == "lash" else 8.0)))
+	# The frond sweeps through the space in front of it and hurts only what
+	# the painted frond touches in the pose just set (ArtShape.gd)
+	if lash_state == "lash" and not lash_hit and lash_touches():
+		lash_hit = true
+		player.take_damage(1, killer_name())
+
+func lash_touches() -> bool:
+	if not player.has_method("touched_by") or player.get("invincibility_time") > 0.0:
+		return false
+	return player.touched_by(self)
 
 # Marrella: harmless and quick; it flees, and slips sideways when cornered
 func process_skittish(delta: float):
@@ -1381,14 +1389,49 @@ func body_material() -> String:
 func is_burrowed() -> bool:
 	return burrow_state in ["under", "rise"]
 
+# Body contact hurts only where the drawings touch (ArtShape.gd), not where
+# the collision circles bump: kuro (2026-11-25) "make all the damages
+# accurate". A painted animal also hurts when its art overlaps yours while
+# the circles are still apart (long tails, spread legs).
 func check_contact_damage():
-	if damage <= 0:
+	if damage <= 0 or dead or not player or boss_state == "jump" or boss_state == "dash" or is_burrowed():
 		return
-	for i in get_slide_collision_count():
-		var collision = get_slide_collision(i)
-		var collider = collision.get_collider()
-		if collider.is_in_group("player") and boss_state != "jump" and boss_state != "dash":
-			collider.take_damage(damage, killer_name())
+	if player.get("invincibility_time") > 0.0 or not player.has_method("touched_by"):
+		return
+	if player.touched_by(self):
+		player.take_damage(damage, killer_name())
+
+# ── Where this animal is drawn (ArtShape.gd) ──
+const ArtShape = preload("res://ArtShape.gd")
+
+func _drawn_hits() -> bool:
+	return body_art != null and body_art.visible and not body_art.hits.is_empty()
+
+# Callable(p) -> world distance from p to the drawing, for this pose
+func art_gapper() -> Callable:
+	var f := Engine.get_physics_frames()
+	if f != _gapper_frame:
+		_gapper_frame = f
+		if _drawn_hits():
+			# Many strokes: test against a bucketed set of sample circles
+			_gapper = ArtShape.samples_gapper(ArtShape.dedupe(ArtShape.pieces_samples(ArtShape.body_pieces(body_art.hits), body_art.get_global_transform(), 4.0)))
+		else:
+			_gapper = ArtShape.sprite_gapper($Sprite2D)
+	return _gapper
+var _gapper_frame := -1
+var _gapper := Callable()
+
+
+func art_centre() -> Vector2:
+	if _drawn_hits():
+		return global_position
+	return ArtShape.sprite_centre($Sprite2D)
+
+# Furthest drawn point from art_centre()
+func art_reach() -> float:
+	if _drawn_hits():
+		return ArtShape.pieces_reach(ArtShape.body_pieces(body_art.hits), body_art.get_global_transform(), global_position)
+	return ArtShape.sprite_radius($Sprite2D)
 
 func shoot_at_player():
 	if not player:

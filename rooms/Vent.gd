@@ -52,7 +52,9 @@ func _process(delta: float):
 	if not player or not is_instance_valid(player) or player.health <= 0:
 		return
 	var d = player.global_position.distance_to(global_position)
-	if d < SCALD_R:
+	# Scalds wherever your drawn body crosses the shimmering ring
+	var scalded = player.hit_by_circle(global_position, SCALD_R - 2.0) if player.has_method("hit_by_circle") else d < SCALD_R
+	if scalded:
 		if scald_cd <= 0.0:
 			scald_cd = 0.9
 			player.take_damage(1, "a scalding vent")

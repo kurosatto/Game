@@ -329,9 +329,38 @@ func shake(amount: float):
 	if main and main.has_method("shake_camera"):
 		main.shake_camera(amount)
 
+# ── The drawing against the player's drawing (ArtShape.gd, Player.touched_by) ──
+const ArtShape = preload("res://ArtShape.gd")
+
+func art_gapper() -> Callable:
+	var hp: Array = hit_pieces()
+	if hp[0].is_empty():
+		return func(p: Vector2) -> float: return gap_to(p)
+	return ArtShape.samples_gapper(ArtShape.dedupe(ArtShape.pieces_samples(hp[0], get_global_transform(), 5.0), 5.0))
+
+func art_reach() -> float:
+	var hp: Array = hit_pieces()
+	var k: float = max(absf(global_scale.x), 0.001)
+	var r: float = hp[1] * k
+	for part in hurt_parts():
+		r = max(r, part[0].distance_to(global_position) + part[1])
+	return r
+
+# Is any drawn part of the boss touching any drawn part of the player?
+func drawing_touches_player() -> bool:
+	return player.touched_by(self) if player.has_method("touched_by") else true
+
 # Hurts the player if they are inside a circle (global position)
+# kuro (2026-11-25): "make all the damages accurate". A strike lands only
+# when your drawn body is inside the strike's circle and the boss's own
+# drawing (jaws, claws, tail, shell) is touching your drawing.
 func hurt_circle(center: Vector2, radius: float, dmg: int = -1) -> bool:
-	if player.global_position.distance_to(center) < radius + 22.0:
+	var touching: bool
+	if player.has_method("hit_by_circle"):
+		touching = player.hit_by_circle(center, radius) and drawing_touches_player()
+	else:
+		touching = player.global_position.distance_to(center) < radius + 22.0
+	if touching:
 		player.take_damage(damage if dmg < 0 else dmg, killer_name())
 		return true
 	return false

@@ -26,18 +26,29 @@ func _physics_process(delta: float):
 				queue_free()
 				return
 			if player and not done_hit:
-				var d = player.global_position.distance_to(global_position)
-				if abs(d - r) < params.get("width", 30.0) * 0.5 + 18.0:
+				if touches_band(player, r, params.get("width", 30.0) * 0.5):
 					player.take_damage(params.get("dmg", 1))
 					done_hit = true
 		"zone":
 			var delay = params.get("delay", 0.8)
 			if age >= delay and not done_hit:
 				done_hit = true
-				if player and player.global_position.distance_to(global_position) < params.get("r", 80.0) + 20.0:
+				# Hurts where the burst (drawn r) meets your drawn body
+				var zr: float = params.get("r", 80.0)
+				var inside = player.hit_by_circle(global_position, zr) if player and player.has_method("hit_by_circle") \
+					else player and player.global_position.distance_to(global_position) < zr + 20.0
+				if inside:
 					player.take_damage(params.get("dmg", 1))
 			if age > delay + 0.35:
 				queue_free()
+
+# The wave's drawn band, from r - half to r + half, against your drawn body
+func touches_band(player: Node2D, r: float, half: float) -> bool:
+	if not player.has_method("touched_by_gap"):
+		return abs(player.global_position.distance_to(global_position) - r) < half + 18.0
+	var c := global_position
+	var band = func(p: Vector2) -> float: return max(0.0, absf(p.distance_to(c) - r) - half)
+	return player.touched_by_gap(band, c, r + half)
 
 func ring_radius() -> float:
 	return params.get("start_r", 20.0) + age * params.get("speed", 420.0)
