@@ -415,6 +415,34 @@ func update_hits():
 			radii.append(14.0 * S * (1.0 - abs(k) * 0.6))
 	set_hit_circles(pts, radii)
 
+# The giant drawings are child nodes, drawn after the boss: read their
+# outline hull and strokes when asked, so the hit test matches the picture
+# on screen (BossBase.gap_to)
+var _pieces: Array = []
+var _pieces_r: float = 0.0
+var _pieces_frame: int = -1
+
+func hit_pieces() -> Array:
+	var f = Engine.get_process_frames()
+	if f != _pieces_frame:
+		_pieces_frame = f
+		_pen_next = []
+		var inv = get_global_transform().affine_inverse()
+		for b in bodies:
+			if not b.visible or b._hull.size() < 3:
+				continue
+			_pen_xf = inv * b.get_global_transform() * b.hit_xf()
+			_pen_poly(b._hull)
+			for poly in b.hit_polys:
+				_pen_poly(poly)
+			for sg in b.hit_segs:
+				_pen_seg(sg[0], sg[1], sg[2])
+		_pen_xf = Transform2D.IDENTITY
+		_pieces = _pen_next
+		_pen_next = []
+		_pieces_r = bound_of(_pieces)
+	return [_pieces, _pieces_r]
+
 func draw_body():
 	var spd = 1.2 if phase2 else 1.0
 	# Ground shadow under the animal

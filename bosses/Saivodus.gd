@@ -135,16 +135,16 @@ func draw_body():
 		warn_circle(Vector2.ZERO - facing * LENGTH * 0.6, 110.0)
 	draw_shark()
 	# The two dorsal fin spines, raked back, in front of each dorsal fin
-	draw_set_transform(Vector2.ZERO, facing.angle(), Vector2.ONE)
+	pen_xf(Vector2.ZERO, facing.angle(), Vector2.ONE)
 	var pts = spine_pts()
 	for i in [5, 10]:
 		var p: Vector2 = pts[i]
 		var back = (Vector2(pts[i + 2]) - p).normalized()
 		var spine = PackedVector2Array([p + back.orthogonal() * 5.0, p + back * 46.0, p - back.orthogonal() * 5.0])
-		draw_colored_polygon(spine, Color(0.92, 0.88, 0.76))
+		pen_polygon(spine, Color(0.92, 0.88, 0.76))
 		spine.append(spine[0])
-		draw_polyline(spine, OUTLINE, 2.0, true)
-	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+		pen_polyline(spine, OUTLINE, 2.0, true)
+	pen_xf(Vector2.ZERO, 0.0, Vector2.ONE)
 
 func draw_teeth(snout: Vector2):
 	# Cladodont teeth: a tall middle cusp with small ones either side, set
@@ -159,6 +159,6 @@ func draw_teeth(snout: Vector2):
 				var h = 15.0 if c == 0 else 7.0
 				var b = base + Vector2(c * 4.0, 0)
 				var tooth = PackedVector2Array([b - Vector2(2.0, 0), b + Vector2(0, -s * h), b + Vector2(2.0, 0)])
-				draw_colored_polygon(tooth, TOOTH)
+				pen_polygon(tooth, TOOTH)
 				tooth.append(tooth[0])
-				draw_polyline(tooth, OUTLINE, 1.2, true)
+				pen_polyline(tooth, OUTLINE, 1.2, true)

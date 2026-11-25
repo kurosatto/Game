@@ -62,6 +62,7 @@ func _init():
 
 func _ready():
 	add_to_group("enemies")
+	add_to_group("bosses") # shots test their drawn bodies (Tear.gd)
 	player = get_tree().get_first_node_in_group("player")
 	# The boss is drawn over its long body; the player walks under fins and
 	# tentacles and is hurt by the parts that attack, not by the hitbox
@@ -137,9 +138,157 @@ func on_phase2():
 	tell_time = 1.0
 
 func _draw():
+	_pen_xf = Transform2D.IDENTITY
+	_pen_next = []
 	draw_body()
-	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+	pen_xf(Vector2.ZERO, 0.0, Vector2.ONE)
+	drawn = _pen_next
+	drawn_r = bound_of(drawn)
 	draw_tell()
+
+# ── Hit where it is drawn ──
+# Every solid piece of the boss's drawing (shape, oval, limb, tube and the
+# pen_ lines, dots and polygons the boss scripts use in place of draw_*) is
+# also kept, in the boss's own space, as a capsule [a, b, half width] or a
+# polygon [points, centre, bound radius]. Shots, bites, stings, blasts and
+# spines measure to it (gap_to), so a tail, shell, sail or limb takes a hit
+# wherever it is drawn this frame, whatever pose the boss is in.
+var drawn: Array = []
+var drawn_r: float = 0.0 # everything drawn lies within this of the centre
+var _pen_next: Array = []
+var _pen_xf := Transform2D.IDENTITY
+const PEN_SOLID := 0.6 # fainter strokes (glints, ripples, warnings) don't count
+
+static func bound_of(pieces: Array) -> float:
+	var r := 0.0
+	for d in pieces:
+		r = max(r, (d[1].length() + d[2]) if d[0] is PackedVector2Array else max(d[0].length(), d[1].length()) + d[2])
+	return r
+
+# The drawn pieces to hit test, and how far out they reach. Bosses drawn
+# by child nodes (DrawnBoss) override this to read their children.
+func hit_pieces() -> Array:
+	return [drawn, drawn_r]
+
+func pen_xf(pos: Vector2, rot: float, scl: Vector2):
+	_pen_xf = Transform2D(rot, scl, 0.0, pos)
+	draw_set_transform(pos, rot, scl)
+
+func _pen_seg(a: Vector2, b: Vector2, half_w: float):
+	var k = _pen_xf.get_scale().x
+	_pen_next.append([_pen_xf * a, _pen_xf * b, max(half_w * absf(k), 2.0)])
+
+func _pen_poly(pts: PackedVector2Array):
+	if pts.size() < 3:
+		return
+	var q: PackedVector2Array = _pen_xf * pts
+	var c := Vector2.ZERO
+	for v in q:
+		c += v
+	c /= q.size()
+	var r := 0.0
+	for v in q:
+		r = max(r, c.distance_to(v))
+	_pen_next.append([q, c, r])
+
+func pen_line(a: Vector2, b: Vector2, col: Color, w: float = -1.0, aa: bool = false):
+	draw_line(a, b, col, w, aa)
+	if col.a >= PEN_SOLID:
+		_pen_seg(a, b, max(w, 1.0) * 0.5)
+
+func pen_polyline(pts: PackedVector2Array, col: Color, w: float = -1.0, aa: bool = false):
+	draw_polyline(pts, col, w, aa)
+	if col.a >= PEN_SOLID:
+		for i in pts.size() - 1:
+			_pen_seg(pts[i], pts[i + 1], max(w, 1.0) * 0.5)
+
+func pen_circle(c: Vector2, r: float, col: Color, filled: bool = true, w: float = -1.0, aa: bool = false):
+	draw_circle(c, r, col, filled, w, aa)
+	if col.a >= PEN_SOLID:
+		_pen_seg(c, c, r + (max(w, 1.0) * 0.5 if not filled else 0.0))
+
+func pen_polygon(pts: PackedVector2Array, col: Color):
+	draw_colored_polygon(pts, col)
+	if col.a >= PEN_SOLID:
+		_pen_poly(pts)
+
+# Distance from a global point to the nearest drawn or hit-circle part of
+# the boss (0 inside it). Pieces further than `limit` are skipped quickly.
+func gap_to(p: Vector2, limit: float = INF) -> float:
+	var best := INF
+	for part in hurt_parts():
+		best = min(best, max(0.0, p.distance_to(part[0]) - part[1]))
+	if best <= 0.0:
+		return 0.0
+	var lp: Vector2 = to_local(p)
+	var k: float = max(absf(global_scale.x), 0.001)
+	var cap: float = min(best, limit) / k
+	var hp: Array = hit_pieces()
+	if lp.length() - hp[1] > cap:
+		return min(best, limit)
+	for d in hp[0]:
+		var g: float
+		if d[0] is PackedVector2Array:
+			if lp.distance_to(d[1]) - d[2] > cap:
+				continue
+			if Geometry2D.is_point_in_polygon(lp, d[0]):
+				return 0.0
+			g = INF
+			var n = d[0].size()
+			for i in n:
+				g = min(g, lp.distance_to(Geometry2D.get_closest_point_to_segment(lp, d[0][i], d[0][(i + 1) % n])))
+		else:
+			g = lp.distance_to(Geometry2D.get_closest_point_to_segment(lp, d[0], d[1])) - d[2]
+		if g < cap:
+			cap = max(g, 0.0)
+			if g <= 0.0:
+				return 0.0
+	return min(best, cap * k)
+
+# The point of the boss's body nearest to a global point (the point itself
+# when it is inside). Melee strikes land here.
+func nearest_point(p: Vector2) -> Vector2:
+	var best := INF
+	var at := global_position
+	for part in hurt_parts():
+		var g = p.distance_to(part[0]) - part[1]
+		if g < best:
+			best = g
+			at = p if g <= 0.0 else part[0] + (p - part[0]).normalized() * part[1]
+	if best <= 0.0:
+		return p
+	var lp: Vector2 = to_local(p)
+	var k: float = max(absf(global_scale.x), 0.001)
+	var cap: float = best / k
+	var hit = null
+	var hp: Array = hit_pieces()
+	if lp.length() - hp[1] > cap:
+		return at
+	for d in hp[0]:
+		var q: Vector2
+		var g: float
+		if d[0] is PackedVector2Array:
+			if lp.distance_to(d[1]) - d[2] > cap:
+				continue
+			if Geometry2D.is_point_in_polygon(lp, d[0]):
+				return p
+			g = INF
+			var n = d[0].size()
+			for i in n:
+				var c = Geometry2D.get_closest_point_to_segment(lp, d[0][i], d[0][(i + 1) % n])
+				if lp.distance_to(c) < g:
+					g = lp.distance_to(c)
+					q = c
+		else:
+			var c = Geometry2D.get_closest_point_to_segment(lp, d[0], d[1])
+			g = lp.distance_to(c) - d[2]
+			if g <= 0.0:
+				return p
+			q = c + (lp - c).normalized() * d[2]
+		if g < cap:
+			cap = g
+			hit = q
+	return to_global(hit) if hit != null else at
 
 # ── Tells ──
 # Every attack wind-up (a state ending in "_wind") flashes ink marks over
@@ -246,6 +395,20 @@ func set_hit_circles(points: Array, radii: Array):
 			cs.shape.radius = radii[i]
 		else:
 			cs.disabled = true
+
+# Every hit circle of the drawn body, as [global centre, radius]: the main
+# CollisionShape2D first, then the extra circles along tails, shells and
+# limbs. Player weapons and blasts measure to these, so any drawn part can
+# be hit (Player.reach_dist, Tear.gd).
+func hurt_parts() -> Array:
+	var out: Array = []
+	var cs = get_node_or_null("CollisionShape2D")
+	var k: float = max(absf(global_scale.x), absf(global_scale.y))
+	out.append([global_position, (cs.shape.radius if cs else 60.0) * k])
+	for e in hit_shapes:
+		if not e.disabled:
+			out.append([e.global_position, e.shape.radius * k])
+	return out
 
 func spawn_hazard(kind: String, pos: Vector2, params: Dictionary) -> Node2D:
 	var h = hazard_script.new()
@@ -397,6 +560,8 @@ static func star_shaped(pts: PackedVector2Array) -> bool:
 func shape(pts: PackedVector2Array, fill: Color, width: float = 3.0) -> bool:
 	if pts.size() < 3 or Geometry2D.triangulate_polygon(pts).is_empty():
 		return false
+	if fill.a >= PEN_SOLID or width > 0:
+		_pen_poly(pts)
 	if fill.a > 0.8 and star_shaped(pts):
 		Shading.lit_poly(get_canvas_item(), pts, fill, light_dir())
 	else:
@@ -412,6 +577,10 @@ func oval(c: Vector2, rx: float, ry: float, rot: float, fill: Color, width: floa
 
 func limb(pts: PackedVector2Array, w: float, col: Color, outline: bool = true):
 	var ink = Shading.ink(col)
+	for i in pts.size() - 1:
+		_pen_seg(pts[i], pts[i + 1], (w + (4.0 if outline else 0.0)) * 0.5)
+	if pts.size() == 1:
+		_pen_seg(pts[0], pts[0], (w + (4.0 if outline else 0.0)) * 0.5)
 	if outline:
 		draw_polyline(pts, ink, w + 4.0, true)
 		for p in pts:
@@ -442,6 +611,8 @@ func tube_pts(spine: Array, widths: Array) -> PackedVector2Array:
 func tube(spine: Array, widths: Array, fill: Color, width: float = 3.0):
 	if fill.a > 0.8 and spine.size() >= 2:
 		Shading.lit_tube(get_canvas_item(), spine, widths, fill, light_dir())
+		for i in spine.size() - 1:
+			_pen_seg(spine[i], spine[i + 1], (widths[i] + widths[i + 1]) * 0.5)
 		if width > 0:
 			var loop := tube_pts(spine, widths)
 			loop.append(loop[0])

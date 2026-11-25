@@ -171,4 +171,4 @@ func draw_teeth(snout: Vector2):
 	if snap > 0.0:
 		for k in 6:
 			var a = TAU * k / 6.0
-			draw_line(snout + Vector2(36, 0) + Vector2.from_angle(a) * 16.0, snout + Vector2(36, 0) + Vector2.from_angle(a) * (16.0 + 30.0 * snap), Color(1, 1, 1, snap), 3.0, true)
+			pen_line(snout + Vector2(36, 0) + Vector2.from_angle(a) * 16.0, snout + Vector2(36, 0) + Vector2.from_angle(a) * (16.0 + 30.0 * snap), Color(1, 1, 1, snap), 3.0, true)

@@ -144,6 +144,15 @@ func update_streak():
     streak.scale = Vector2(length / STREAK_W, 1.1)
 
 func _physics_process(delta: float):
+    # A boss is hit wherever it is drawn: tail, shell, sail or limb, not only
+    # where its round collision circles are (bosses/BossBase.gd gap_to)
+    if not is_enemy_tear:
+        var reach = 14.0 * absf(base_scale.x)
+        for b in get_tree().get_nodes_in_group("bosses"):
+            if is_instance_valid(b) and not b.dead and not hit_bosses.has(b) and b.gap_to(global_position, reach + 1.0) <= reach:
+                _on_body_entered(b)
+                if is_queued_for_deletion():
+                    return
     if is_homing and not is_enemy_tear:
         var enemies = get_tree().get_nodes_in_group("enemies")
         var closest: Node2D = null
@@ -204,6 +213,7 @@ func _physics_process(delta: float):
 @export var knockback_force: float = 0.0
 @export var is_blinding: bool = false # spitting venom: the enemy can't aim for a while
 var has_split: bool = false
+var hit_bosses: Array = []
 var initial_lifetime: float = 0.85
 
 func _on_body_entered(body: Node):
@@ -225,6 +235,12 @@ func _on_body_entered(body: Node):
         elif body.is_in_group("obstacles") or body.is_in_group("walls"):
             destroy_tear()
     else:
+        if body.is_in_group("bosses"):
+            # Once per boss: its body is many pieces, a piercing shot
+            # passing along it still lands one hit
+            if hit_bosses.has(body) or body.dead:
+                return
+            hit_bosses.append(body)
         if body.is_in_group("enemies") and body.has_method("take_damage"):
             var flight = velocity.normalized()
             var punch = clamp(damage / 3.5, 0.7, 1.8)
@@ -332,11 +348,18 @@ func spawn_caustic_pool(pos: Vector2):
     var tw = get_tree().create_timer(pool_lifetime)
     tw.timeout.connect(pool.queue_free)
 
+# Distance to an animal's nearest drawn part, so a blast by a boss's tail
+# hurts it like one by its head (bosses/BossBase.gd gap_to)
+func reach_dist(e: Node2D) -> float:
+    if not e.has_method("gap_to"):
+        return e.global_position.distance_to(global_position)
+    return e.gap_to(global_position) + e.hurt_parts()[0][1]
+
 func trigger_electric_arc(source_enemy: Node):
     var enemies = get_tree().get_nodes_in_group("enemies")
     for enemy in enemies:
         if enemy != source_enemy and is_instance_valid(enemy) and not enemy.get("dead") and not (enemy.has_method("is_burrowed") and enemy.is_burrowed()):
-            if enemy.global_position.distance_to(global_position) < 260.0:
+            if reach_dist(enemy) < 260.0:
                 enemy.take_damage(2.5)
                 # Visual electric spark line
                 var line = Line2D.new()
@@ -366,7 +389,7 @@ func trigger_explosion():
     var enemies = get_tree().get_nodes_in_group("enemies")
     for enemy in enemies:
         if is_instance_valid(enemy):
-            if enemy.global_position.distance_to(global_position) < 140.0:
+            if reach_dist(enemy) < 140.0:
                 enemy.take_damage(damage * 1.4)
     var p = CPUParticles2D.new()
     p.position = global_position

@@ -179,7 +179,7 @@ func draw_body():
 		# Only a dark shape and a few bubbles mark where it is
 		for i in 8:
 			var p = fmod(t * 1.3 + i / 8.0, 1.0)
-			draw_circle(Vector2(sin(i * 2.4) * 60.0, cos(i * 1.7) * 40.0) - Vector2(0, p * 80.0), 3.0 + 4.0 * p, Color(0.85, 0.95, 1.0, 0.5 * (1.0 - p)), true, -1.0, true)
+			pen_circle(Vector2(sin(i * 2.4) * 60.0, cos(i * 1.7) * 40.0) - Vector2(0, p * 80.0), 3.0 + 4.0 * p, Color(0.85, 0.95, 1.0, 0.5 * (1.0 - p)), true, -1.0, true)
 	draw_shark()
 
 func draw_teeth(snout: Vector2):
@@ -187,13 +187,13 @@ func draw_teeth(snout: Vector2):
 	# It shows below the snout, more of it as the jaw drops.
 	var c = snout + Vector2(-26 + gape * 18.0, 0)
 	var r = 22.0 + gape * 12.0
-	draw_circle(c, r + 4.0, Shading.ink(BODY), true, -1.0, true)
-	draw_circle(c, r, BODY.lightened(0.25), true, -1.0, true)
+	pen_circle(c, r + 4.0, Shading.ink(BODY), true, -1.0, true)
+	pen_circle(c, r, BODY.lightened(0.25), true, -1.0, true)
 	var spiral := PackedVector2Array()
 	for i in 60:
 		var a = i / 59.0 * TAU * 2.6
 		spiral.append(c + Vector2.from_angle(a + spin) * r * (1.0 - a / (TAU * 3.0)))
-	draw_polyline(spiral, Color(Shading.ink(BODY), 0.7), 2.0, true)
+	pen_polyline(spiral, Color(Shading.ink(BODY), 0.7), 2.0, true)
 	# Outer ring of teeth, the biggest and newest
 	var n = 14
 	for i in n:
@@ -202,10 +202,10 @@ func draw_teeth(snout: Vector2):
 		var side = dir.orthogonal()
 		var base = c + dir * r
 		var tooth = PackedVector2Array([base - side * 5.0, base + dir * 12.0 + side * 2.0, base + side * 5.0])
-		draw_colored_polygon(tooth, TOOTH)
+		pen_polygon(tooth, TOOTH)
 		tooth.append(tooth[0])
-		draw_polyline(tooth, OUTLINE, 1.3, true)
+		pen_polyline(tooth, OUTLINE, 1.3, true)
 	# Inner, older teeth rolled into the middle
 	for i in 8:
 		var a = TAU * i / 8.0 + spin * 1.0 + 0.3
-		draw_circle(c + Vector2.from_angle(a) * r * 0.5, 3.0, TOOTH.darkened(0.15), true, -1.0, true)
+		pen_circle(c + Vector2.from_angle(a) * r * 0.5, 3.0, TOOTH.darkened(0.15), true, -1.0, true)

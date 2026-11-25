@@ -235,6 +235,8 @@ func _update_chain(dt: float):
 func _draw():
 	if not FORMS.has(form_id):
 		return
+	hit_segs = []
+	hit_polys = []
 	var spec: Array = FORMS[form_id]
 	# Whole-body motion: lunge into strikes, lag behind acceleration, shake
 	# when hurt
@@ -278,7 +280,23 @@ var _sil := PackedVector2Array()
 var _hull := PackedVector2Array()
 var _parts_pass: bool = false
 
+# A giant drawn boss (bosses/DrawnBoss.gd) is hit wherever it is drawn: the
+# outline hull plus every leg, antenna and stroke, as [a, b, half width] in
+# the space hit_xf() maps to this node
+var hit_segs: Array = []
+var hit_polys: Array = []
+
+func hit_xf() -> Transform2D:
+	return Transform2D(_radial_rot, _stretch, 0.0, _draw_off)
+
+func _hit_add(pts: PackedVector2Array, half_w: float):
+	if foe and not halo_pass:
+		for i in pts.size() - 1:
+			hit_segs.append([pts[i], pts[i + 1], half_w])
+
 func _sil_add(pts: PackedVector2Array):
+	if foe and not halo_pass:
+		hit_polys.append(pts)
 	if not halo_pass and not _parts_pass:
 		_sil.append_array(pts)
 
@@ -574,6 +592,8 @@ func lit_tube(spine: Array, widths: Array, col: Color):
 func fill(pts: PackedVector2Array, col: Color):
 	if halo_pass or pts.size() < 3 or Geometry2D.triangulate_polygon(pts).is_empty():
 		return
+	if foe and col.a >= 0.6:
+		hit_polys.append(pts)
 	draw_colored_polygon(pts, col)
 	# A hairline in the same colour smooths the polygon's jagged edge
 	var loop := pts.duplicate()
@@ -593,6 +613,7 @@ func disc(c: Vector2, r: float, col: Color, w: float = OW):
 		return
 	if w > 0:
 		draw_circle(c, r + w * 0.5, ink(col), true, -1.0, true)
+	_hit_add(PackedVector2Array([c, c]), r + max(w, 0.0) * 0.5)
 	if col.a > 0.8 and r > 2.5:
 		var circ = ellipse_pts(c, r, r, 0.0, 18)
 		if w > 0:
@@ -602,14 +623,18 @@ func disc(c: Vector2, r: float, col: Color, w: float = OW):
 		draw_circle(c, r, col, true, -1.0, true)
 
 func dot(c: Vector2, r: float, col: Color):
+	if col.a >= 0.6:
+		_hit_add(PackedVector2Array([c, c]), r)
 	if not halo_pass:
 		draw_circle(c, r, col, true, -1.0, true)
 
 func line(a: Vector2, b: Vector2, col: Color, w: float = 1.5):
+	_hit_add(PackedVector2Array([a, b]), w * 0.5)
 	if not halo_pass:
 		draw_line(a, b, col, w, true)
 
 func pline(pts: PackedVector2Array, col: Color, w: float = 1.5):
+	_hit_add(pts, w * 0.5)
 	if not halo_pass and pts.size() > 1:
 		draw_polyline(pts, col, w, true)
 
@@ -617,6 +642,7 @@ func pline(pts: PackedVector2Array, col: Color, w: float = 1.5):
 func limb(pts: PackedVector2Array, w: float, col: Color, outline: bool = true):
 	if pts.size() < 2:
 		return
+	_hit_add(pts, (w + 3.0) * 0.5)
 	if halo_pass:
 		if not outline:
 			return
@@ -639,6 +665,7 @@ func taper(pts: PackedVector2Array, w0: float, w1: float, col: Color, outline: b
 	var n = pts.size()
 	if n < 2:
 		return
+	_hit_add(pts, (max(w0, w1) + 3.0) * 0.5)
 	if halo_pass:
 		if not outline:
 			return

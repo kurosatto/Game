@@ -219,7 +219,7 @@ func draw_body():
 	if state != "detach":
 		for k in 5:
 			var ang = PI * 0.5 + (k - 2) * 0.45
-			draw_line(spine[0], spine[0] + Vector2.RIGHT.rotated(ang) * 22.0, shade(BODY, 0.6), 3.0, true)
+			pen_line(spine[0], spine[0] + Vector2.RIGHT.rotated(ang) * 22.0, shade(BODY, 0.6), 3.0, true)
 
 	# Trumpet-shaped body: thin foot widening to the crown; a contracted
 	# Stentor is almost a ball
@@ -242,7 +242,7 @@ func draw_body():
 			var b: Vector2 = spine[min(i + 1, spine.size() - 1)]
 			var tn = (b - a).normalized()
 			line.append(spine[i] + Vector2(-tn.y, tn.x) * widths[i] * k)
-		draw_polyline(line, Color(STRIPE.r, STRIPE.g, STRIPE.b, 0.55 * (1.0 - abs(k))), 2.0)
+		pen_polyline(line, Color(STRIPE.r, STRIPE.g, STRIPE.b, 0.55 * (1.0 - abs(k))), 2.0)
 
 	# Moniliform macronucleus: a chain of beads down the body
 	for i in 7:
@@ -250,12 +250,12 @@ func draw_body():
 		var idx = f * (spine.size() - 1)
 		var p: Vector2 = spine[int(idx)].lerp(spine[min(int(idx) + 1, spine.size() - 1)], idx - int(idx))
 		p += perp * sin(i * 1.7) * widths[int(idx)] * 0.3
-		draw_circle(p, 7.0 + contraction * 3.0, OUTLINE, true, -1.0, true)
-		draw_circle(p, 5.0 + contraction * 3.0, Color(0.95, 0.75, 0.95), true, -1.0, true)
+		pen_circle(p, 7.0 + contraction * 3.0, OUTLINE, true, -1.0, true)
+		pen_circle(p, 5.0 + contraction * 3.0, Color(0.95, 0.75, 0.95), true, -1.0, true)
 
 	# Contractile vacuole fills and empties
 	var vac = spine[int(spine.size() * 0.7)] - perp * widths[int(spine.size() * 0.7)] * 0.4
-	draw_circle(vac, 6.0 + 6.0 * abs(sin(t * 1.6)), Color(0.85, 1.0, 1.0, 0.6), true, -1.0, true)
+	pen_circle(vac, 6.0 + 6.0 * abs(sin(t * 1.6)), Color(0.85, 1.0, 1.0, 0.6), true, -1.0, true)
 
 	# Crown (peristome) seen at an angle, with the oral groove spiralling in
 	var u = perp
@@ -271,10 +271,10 @@ func draw_body():
 		var a = f * PI * 1.6
 		var r = cr * (0.92 - f * 0.65)
 		groove.append(u * cos(a) * r + v * sin(a) * r * 0.42)
-	draw_polyline(groove, shade(BODY, 0.7), 3.0)
+	pen_polyline(groove, shade(BODY, 0.7), 3.0)
 	var mouth_l = groove[groove.size() - 1]
-	draw_circle(mouth_l, 9.0, OUTLINE, true, -1.0, true)
-	draw_circle(mouth_l, 6.0, Color(0.15, 0.25, 0.35), true, -1.0, true)
+	pen_circle(mouth_l, 9.0, OUTLINE, true, -1.0, true)
+	pen_circle(mouth_l, 6.0, Color(0.15, 0.25, 0.35), true, -1.0, true)
 
 	# Membranellar band: cilia beating in a metachronal wave round the rim
 	for i in 40:
@@ -283,4 +283,4 @@ func draw_body():
 		var out = (u * cos(a) + v * sin(a) * 0.6).normalized()
 		var swing = sin(t * beat - i * 0.6) * 0.7
 		var tip = base + out.rotated(swing) * (22.0 if beat > 10.0 else 16.0)
-		draw_line(base, tip, Color(CILIA.r, CILIA.g, CILIA.b, 0.9), 2.5, true)
+		pen_line(base, tip, Color(CILIA.r, CILIA.g, CILIA.b, 0.9), 2.5, true)
