@@ -82,7 +82,7 @@ func run():
 			p.apply_form(form)
 			var tip := far_point(boss)
 			var out: Vector2 = (tip - boss.global_position).normalized()
-			var stand: Vector2 = tip + out * (40.0 if lineages.weapon_stats(weapon).melee else 220.0)
+			var stand: Vector2 = tip + out * (40.0 if lineages.weapon_stats(weapon).melee else 110.0)
 			var room_at: Vector2 = main.current_room_node.global_position
 			stand = stand.clamp(room_at + Vector2(170, 170), room_at + Vector2(1750, 910))
 			p.global_position = stand

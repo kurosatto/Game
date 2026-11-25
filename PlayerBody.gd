@@ -253,6 +253,7 @@ func _draw():
 	pen.flush()
 	if foe and pen.has_method("take_hits"):
 		hits = pen.take_hits()
+		hits_xf = get_global_transform()
 
 func _draw_body():
 	var spec: Array = FORMS[form_id]
@@ -300,6 +301,7 @@ var _sil := PackedVector2Array()
 # A giant drawn boss (bosses/DrawnBoss.gd) draws with a HitPen: the pieces
 # it drew last frame, in this node's space, are where the boss can be hit
 var hits: Array = []
+var hits_xf := Transform2D.IDENTITY # where this node was when they were drawn
 var _hull := PackedVector2Array()
 var _parts_pass: bool = false
 

@@ -424,7 +424,7 @@ var _pieces_r: float = 0.0
 var _pieces_frame: int = -1
 
 func hit_pieces() -> Array:
-	var f = Engine.get_process_frames()
+	var f = Engine.get_frames_drawn()
 	if f != _pieces_frame:
 		_pieces_frame = f
 		_pieces = []
@@ -432,7 +432,8 @@ func hit_pieces() -> Array:
 		for b in bodies:
 			if not b.visible:
 				continue
-			var m: Transform2D = inv * b.get_global_transform()
+			# Where the drawing was on screen, not where the node has moved since
+			var m: Transform2D = inv * b.hits_xf
 			var k: float = m.get_scale().x
 			for d in b.hits:
 				# capsule [a, b, half width] or polygon [points, centre, radius]
