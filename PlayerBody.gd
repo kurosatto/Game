@@ -308,9 +308,6 @@ var _parts_pass: bool = false
 func _sil_add(pts: PackedVector2Array):
 	if not halo_pass and not _parts_pass:
 		_sil.append_array(pts)
-	# Shaded fills go out as raw triangles: note them as solid body too
-	if foe and not halo_pass and pen.has_method("hit_poly"):
-		pen.hit_poly(pts)
 
 func _hull_point(dir: Vector2) -> Vector2:
 	var best = _hull[0]
@@ -597,9 +594,15 @@ func lit(col: Color, n: Vector3) -> Color:
 
 func lit_poly(pts: PackedVector2Array, col: Color):
 	Shading.lit_poly(pen, pts, col, _L)
+	# Shaded fills go out as raw triangles: note them as solid body too
+	if foe and pen.has_method("hit_poly"):
+		pen.hit_poly(pts)
 
 func lit_tube(spine: Array, widths: Array, col: Color):
 	Shading.lit_tube(pen, spine, widths, col, _L)
+	if foe and pen.has_method("hit_seg"):
+		for i in spine.size() - 1:
+			pen.hit_seg(spine[i], spine[i + 1], (widths[i] + widths[i + 1]) * 0.5)
 
 func fill(pts: PackedVector2Array, col: Color):
 	if halo_pass or pts.size() < 3 or Geometry2D.triangulate_polygon(pts).is_empty():
