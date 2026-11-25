@@ -2,6 +2,9 @@
 extends Node
 
 var sound_streams: Dictionary = {}
+# Extra takes of a sound (name_2.wav, name_3.wav...): each play picks one at
+# random so a fight isn't the same knock over and over
+var sound_takes: Dictionary = {}
 var player_pool: Array[AudioStreamPlayer] = []
 var pool_size: int = 16  # Larger pool for fast-fire without stealing
 
@@ -27,21 +30,19 @@ const SOUND_VOLUMES: Dictionary = {
     # sense first picks up an animal hidden in the dark (SenseHints.gd)
     "sense_smell": -10.0, "sense_chemical": -10.0, "sense_electric": -12.0,
     "sense_lateral": -9.0, "sense_vibration": -8.0, "sense_touch": -10.0,
-    # Combat (generate_combat_sfx.py): one attack sound per weapon...
-    # (generate_combat_sfx.py normalises their loudness on what a phone
-    # speaker can play, so they sit evenly here)
-    "atk_vesicle": -2.0, "atk_jet": -2.0, "atk_spit": -2.0, "atk_harpoon": -2.0,
-    "atk_slime": -2.0, "atk_silk": -3.0, "atk_spray": -3.0, "atk_engulf": -2.0,
-    "atk_clamp": -2.0, "atk_bite": -1.0, "atk_rasp": -3.0, "atk_pincer": -2.0,
-    "atk_claw": -2.0, "atk_lash": -2.0, "atk_sting": -2.0, "atk_arms": -2.0,
-    "atk_tongue": -2.0, "atk_spines": -2.0, "atk_smash": -1.0,
-    # ...hits that sound like what they struck, and kills to match
-    # (full volume: they're the feedback that a blow landed, so they have to
-    # cut through the attack sound and the music on a phone speaker)
-    "hit_soft": 0.0, "hit_shell": 0.0, "hit_flesh": 0.0, "hit_crit": -1.0,
-    "hit_glance": -5.0, "parry": -4.0,
+    # Combat (generate_combat_sfx.py, softened by tools/build_combat_sfx.py C): one attack sound per
+    # weapon, hits that sound like what they struck, and kills to match. The
+    # build already sets their loudness (attacks under hits, kills a touch
+    # over, enemy moves quieter), so they all sit at 0 here.
+    "atk_vesicle": 0.0, "atk_jet": 0.0, "atk_spit": 0.0, "atk_harpoon": 0.0,
+    "atk_slime": 0.0, "atk_silk": 0.0, "atk_spray": 0.0, "atk_engulf": 0.0,
+    "atk_clamp": 0.0, "atk_bite": 0.0, "atk_rasp": 0.0, "atk_pincer": 0.0,
+    "atk_claw": 0.0, "atk_lash": 0.0, "atk_sting": 0.0, "atk_arms": 0.0,
+    "atk_tongue": 0.0, "atk_spines": 0.0, "atk_smash": 0.0,
+    "hit_soft": 0.0, "hit_shell": 0.0, "hit_flesh": 0.0, "hit_crit": 0.0,
+    "hit_glance": 0.0, "parry": 0.0,
     "kill_soft": 0.0, "kill_shell": 0.0, "kill_flesh": 0.0,
-    "enemy_lunge": -9.0, "enemy_spit": -7.0, "hurt_thud": -1.0,
+    "enemy_lunge": 0.0, "enemy_spit": 0.0, "hurt_thud": 0.0,
 }
 
 # The same sound fired twice within this many seconds plays once: a spray of
@@ -113,6 +114,14 @@ func load_sounds():
         # file "doesn't exist" there and every sound was skipped
         if ResourceLoader.exists(path):
             sound_streams[s_name] = load(path)
+            var takes: Array = [sound_streams[s_name]]
+            for i in range(2, 6):
+                var take = "res://assets/sfx/%s_%d.wav" % [s_name, i]
+                if not ResourceLoader.exists(take):
+                    break
+                takes.append(load(take))
+            if takes.size() > 1:
+                sound_takes[s_name] = takes
         else:
             push_warning("SoundManager: missing sound " + path)
     for t in MUSIC.TRACKS:
@@ -302,6 +311,8 @@ func play_sfx(s_name: String, pitch_scale: float = 1.0, volume_db: float = 0.0):
     var final_vol = base_vol + volume_db
 
     var stream = sound_streams[s_name]
+    if sound_takes.has(s_name):
+        stream = sound_takes[s_name].pick_random()
 
     # Find a free player
     for ap in player_pool:
