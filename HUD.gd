@@ -137,44 +137,7 @@ func _ready():
     # No shop, so no coin counter; kills leave elements to grow parts from
     $HUDPanel/MarginContainer/HBoxContainer/Counters/Coins.visible = false
     _setup_element_bar()
-    _make_quest_mark()
 
-# ---- Floor quests (Main.field_event, data/FieldNotes.gd) ----
-# They are read on the era page; during play only this small mark under the
-# map counts them, and it pops when one is done. No text over the room.
-var quest_mark: Label = null
-
-func _make_quest_mark():
-    quest_mark = Label.new()
-    quest_mark.name = "QuestMark"
-    quest_mark.mouse_filter = Control.MOUSE_FILTER_IGNORE
-    quest_mark.anchor_left = 1.0
-    quest_mark.anchor_right = 1.0
-    quest_mark.offset_left = -210.0
-    quest_mark.offset_right = -30.0
-    quest_mark.offset_top = 228.0
-    quest_mark.offset_bottom = 256.0
-    quest_mark.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-    quest_mark.add_theme_font_size_override("font_size", 19)
-    quest_mark.add_theme_color_override("font_color", UI.CREAM)
-    quest_mark.add_theme_color_override("font_outline_color", Color(UI.INK, 0.8))
-    quest_mark.add_theme_constant_override("outline_size", 5)
-    add_child(quest_mark)
-
-func update_quests(done: int, total: int, pop: bool = false):
-    if quest_mark == null:
-        return
-    quest_mark.visible = total > 0
-    quest_mark.text = "QUESTS %s %d/%d" % ["✓" if done >= total else "✎", done, total]
-    quest_mark.add_theme_color_override("font_color", UI.LEAF if done >= total else UI.CREAM)
-    if pop:
-        # A quick, light pop: grows, flashes sunny, settles in under a second
-        quest_mark.pivot_offset = quest_mark.size / 2.0
-        quest_mark.scale = Vector2.ONE * 1.7
-        quest_mark.modulate = Color(1.6, 1.4, 0.8)
-        var tw = quest_mark.create_tween().set_parallel(true)
-        tw.tween_property(quest_mark, "scale", Vector2.ONE, 0.45).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-        tw.tween_property(quest_mark, "modulate", Color.WHITE, 0.8)
 
 func setup_settings_ui():
     settings_btn.pressed.connect(toggle_settings)
@@ -1886,6 +1849,9 @@ func show_pause_info():
             var body = form.fact
             if w.get("special", "") != "":
                 body += "\nAttack: %s. %s" % [player.current_weapon_name, w.special]
+            var twist: Array = lineages.fan_twist(player.current_character_id)
+            if not twist.is_empty():
+                body += "\n%s: %s." % [twist[1], twist[2]]
             # Forms drawn in code (PlayerBody.gd) have no sprite texture; their
             # sheet in assets/lineages is rendered from the same drawing
             var tex: Texture2D = spr.texture
@@ -1971,20 +1937,6 @@ func show_pause_info():
     if not last_banner.is_empty() and last_banner[0] != "WILDLIFE OF THIS ERA" and last_banner[1] != "":
         pause_info_title.text = "Last discovery: " + last_banner[0]
         pause_info_body.text = last_banner[1]
-    # Floor quests, with the fossil fact of each one done
-    var m = get_tree().get_first_node_in_group("main")
-    if m and m.get("field_notes"):
-        var lines: Array = ["Floor quests:"]
-        var list: Array = m.field_notes.for_floor(m.floor_number)
-        for i in list.size():
-            var n = list[i]
-            var got = int(m.notes_progress.get(i, 0))
-            if got >= n.need:
-                lines.append("✓ %s. %s" % [n.text, n.fact])
-            else:
-                lines.append("– %s%s" % [n.text, (" (%d/%d)" % [got, n.need]) if n.need > 1 else ""])
-        var notes = "\n".join(lines)
-        pause_info_body.text = notes if pause_info_body.text == "" else pause_info_body.text + "\n\n" + notes
 
 # ---- Adaptations ----
 # Shown when the biomass bar fills: three traits from data/Adaptations.gd.
@@ -2155,13 +2107,6 @@ func show_era_card(floor_num: int, form: Dictionary):
         var tex: Texture2D = load(p) if ResourceLoader.exists(p) else null
         var frames = int(round(tex.get_width() / float(tex.get_height()))) if tex else 1
         _quiet_tile(flow, PauseTile.new().setup(tex, frames, disc, a.name))
-    var main = get_tree().get_first_node_in_group("main")
-    if main and "field_notes" in main:
-        # The floor's quests are read here, once; play only shows a small count
-        var notes = main.field_notes.describe(floor_num, main.notes_progress, "\n")
-        if notes != "":
-            wild.add_child(_card_label("FLOOR QUESTS  (+1 heart and elements each)", 20, UI.LEAF))
-            wild.add_child(_card_label(notes, 20, UI.CREAM))
 
     if not rows.is_empty():
         vbox.add_child(HSeparator.new())

@@ -80,6 +80,16 @@ func set_sense(rating: int, new_kind: String, new_profile: Dictionary = {}):
 	profile = new_profile.duplicate() if not new_profile.is_empty() else {kind: sense}
 	announced.clear() # a new form's senses announce themselves again
 
+# Forms with no eyes (VisionFog.set_vision(0)): every sense reaches this much
+# further, touch feels twice as far round the body, and the chemical sense
+# tastes every animal in the water, not only wounded ones. Mirrored by
+# EYELESS_SENSE in tools/balance_report.py.
+const EYELESS_REACH := 1.4
+const EYELESS_TOUCH := 2.0
+
+func _eyeless() -> bool:
+	return fog != null and bool(fog.get("eyeless"))
+
 func level(k: String) -> int:
 	return int(profile.get(k, 0))
 
@@ -105,7 +115,7 @@ func _process(delta: float):
 	if sample:
 		trail_clock = 0.0
 	var trail_len = 4 + level("Smell") * 2
-	var touch_reach = 50.0 + level("Touch") * 12.0
+	var touch_reach = (50.0 + level("Touch") * 12.0) * (EYELESS_TOUCH if _eyeless() else 1.0)
 	for e in enemies:
 		var id = e.get_instance_id()
 		ids[id] = true
@@ -197,8 +207,11 @@ func _draw():
 	var world_to_screen = to_local * player.get_canvas_transform()
 	var center = world_to_screen * player.drawn_position()
 	var radius: float = fog.light_radius()
-	# With no light at all the senses are all you have, and they reach further
+	# With no light at all the senses are all you have, and they reach further.
+	# An eyeless form lives like that all the time.
 	var boost: float = 1.0 + 0.3 * fog.pitch
+	if _eyeless():
+		boost = max(boost, EYELESS_REACH)
 	var enemies = _alive_enemies()
 
 	# ── Smell: scent trails, and where a keen nose says it's going ──
@@ -259,14 +272,19 @@ func _draw():
 		for e in enemies:
 			var mh = e.get("max_health")
 			var hp = e.get("health")
-			if mh == null or hp == null or mh <= 0.0 or hp >= mh:
+			if mh == null or hp == null or mh <= 0.0:
+				continue
+			# Unhurt animals only leak a taste an eyeless body can pick up,
+			# the way a cell or a tube foot tastes prey in the water
+			var unhurt = hp >= mh
+			if unhurt and not _eyeless():
 				continue
 			var pos = world_to_screen * e.global_position
 			var past = center.distance_to(pos) - radius
-			if past > reach:
+			if past > reach * (0.65 if unhurt else 1.0):
 				continue
-			var hurt = clamp(1.0 - hp / mh, 0.15, 1.0)
-			var k = _falloff(max(0.0, past), reach) * (0.6 + ch * 0.045)
+			var hurt = 0.0 if unhurt else clamp(1.0 - hp / mh, 0.15, 1.0)
+			var k = _falloff(max(0.0, past), reach) * (0.6 + ch * 0.045) * (0.6 if unhurt else 1.0)
 			if past < -radius * 0.2:
 				k *= 0.5
 			var spread = 26.0 + hurt * 46.0 + ch * 2.0

@@ -122,6 +122,7 @@ func setup_room(data, floor_number: int):
     if room_data.type == 1 and room_data.special == "" and room_data.lair == "":
         spawn_hazards(floor_number)
         spawn_covers(floor_number)
+        spawn_prey_swarm(floor_number)
 
     # 8. Restore or Initialize Contents based on Persistence State
     if room_data.has_initialized_contents:
@@ -270,7 +271,7 @@ func add_clutch():
     add_child(c)
 
 # ---- Special rooms (data/SpecialRooms.gd, rooms/SpecialRoom.gd) ----
-const OPEN_SPECIALS = ["vent", "dig", "extinction", "nest", "symbiont"]
+const OPEN_SPECIALS = ["vent", "dig", "extinction", "nest"]
 var special_node: Node2D = null
 
 func start_special(layout: Dictionary, floor_number: int, first: bool):
@@ -432,7 +433,6 @@ func spawn_door_at(pos: Vector2, d_dir: Vector2i, rot: float):
     door.rotation = rot
     door.direction = d_dir
     door.era_dir = era_dir()
-    door.open_light = era_look.get_look(current_floor).door_light
     
     var neighbor_pos = room_data.connections[d_dir]
     var parent = get_parent()
@@ -869,6 +869,41 @@ func spawn_tactical_enemies(layout: Dictionary, floor_number: int):
         spawn_enemy(cand_pos, roll_enemy_type("fly" if randf() < 0.55 else "pacer", floor_number), floor_number)
 
     maybe_promote_elder(floor_number)
+
+# A scattering of small prey in some fight rooms: the era's swarming animal
+# (SpecialRooms.FRENZY), harmless and quick to bolt when you come near, a
+# snack to chase down. They don't hold the doors shut: the room clears on
+# its real fights alone, and any left over are still there to catch.
+const SWARM_CHANCE := 0.4
+
+func spawn_prey_swarm(floor_number: int):
+    var st: Dictionary = room_data.special_state
+    if not st.has("swarm"):
+        var rng = RandomNumberGenerator.new()
+        rng.seed = int(room_data.grid_pos.x * 7919 + room_data.grid_pos.y * 104729 + floor_number * 31)
+        st["swarm"] = rng.randi_range(6, 9) if rng.randf() < SWARM_CHANCE else 0
+    var n: int = int(st.swarm)
+    if n <= 0:
+        return
+    var SR = preload("res://data/SpecialRooms.gd")
+    var era = preload("res://data/Worlds.gd").era(floor_number)
+    if not SR.FRENZY.has(era):
+        return
+    var species: String = SR.FRENZY[era].species
+    # A loose bunch somewhere away from the doors
+    var area = interior_rect(220.0)
+    var centre = free_spot(Vector2(randf_range(area.position.x, area.end.x), randf_range(area.position.y, area.end.y)), 60.0)
+    for i in n:
+        var at = free_spot(centre + Vector2.from_angle(TAU * i / n + randf() * 0.4) * randf_range(40.0, 120.0), 26.0)
+        spawn_enemy(at, "skittish@" + species, floor_number)
+        var e = active_enemies.back()
+        active_enemies.erase(e) # not part of the fight
+        e.speed *= 0.6
+        e.damage = 0
+        e.max_health = 2.0 + floor_number * 0.6
+        e.health = e.max_health
+        e.set_meta("swarm_prey", true)
+        e.enemy_died.connect(func(): st["swarm"] = max(0, int(st.get("swarm", 0)) - 1))
 
 # From the second era on, a fight room may hold one big old animal
 # (Enemy.make_elder): tougher, circled in ink, and it always leaves a pickup

@@ -53,7 +53,7 @@ const LIST = [
 		"effect": "Each kill freezes animals nearby for 1.2 s", "mods": {"alarm": 1.2}},
 	{"id": "headshield", "name": "Bony Head Shield",
 		"fact": "Jawless fishes like Cephalaspis wore a solid shield of bone over the head, hundreds of millions of years before jaws.",
-		"effect": "Dashing rams animals for 1.5x damage", "mods": {"ram": 1.5}},
+		"effect": "Dashing rams animals for 1.5x damage (an escape move hits everything close)", "mods": {"ram": 1.5}},
 	{"id": "lateral_line", "name": "Lateral Line",
 		"fact": "A row of hair cells along a fish's flank feels the water move, so it can dodge a strike it never saw.",
 		"effect": "Dash or escape recharges 30% faster, +2 sense", "mods": {"dash_cd": 0.3, "sense": 2}},

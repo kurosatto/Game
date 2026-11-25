@@ -149,58 +149,14 @@ var progress = preload("res://data/Progress.gd")
 var hit_this_floor: bool = false
 var hit_this_room: bool = false
 
-# ---- Field notes: two fixed goals per era (data/FieldNotes.gd) ----
-var field_notes = preload("res://data/FieldNotes.gd")
-var notes_progress: Dictionary = {} # note index -> count, this floor only
-
+# Lifetime counts that open GROW parts (data/Unlocks.gd). The floor quests
+# that used to hang off these events were removed (kuro: too much going on).
 func field_event(event: String, amount: int = 1):
-    # Lifetime counts that open GROW parts (data/Unlocks.gd)
     if event.begins_with("eat:"):
         tally(event, amount)
         tally("eat_all", amount)
     elif event == "seep":
         tally("seep", amount)
-    if player == null or player.health <= 0:
-        return
-    var notes = field_notes.for_floor(floor_number)
-    for i in notes.size():
-        var n = notes[i]
-        var got = int(notes_progress.get(i, 0))
-        if n.event != event or got >= n.need:
-            continue
-        notes_progress[i] = got + amount
-        if notes_progress[i] >= n.need:
-            _field_note_done(n)
-        elif n.need > 1:
-            player.popup_text(player.global_position + Vector2(0, -70), "%d/%d" % [notes_progress[i], n.need], Color(0.98, 0.76, 0.38))
-
-func _field_note_done(n: Dictionary):
-    var els = preload("res://MineralSeep.gd").era_elements(floor_number)
-    els.shuffle()
-    els = els.slice(0, 2)
-    for i in field_notes.REWARD_ORBS:
-        var orb = preload("res://BiomassOrb.gd").new()
-        orb.value = field_notes.REWARD_UNITS / field_notes.REWARD_ORBS
-        orb.element = els[i % els.size()]
-        orb.position = current_room_node.to_local(player.global_position) + Vector2.from_angle(TAU * i / field_notes.REWARD_ORBS) * 70.0
-        current_room_node.add_child(orb)
-    if player.has_method("heal"):
-        player.heal(field_notes.REWARD_HEAL)
-    SoundManager.play_sfx("level_up", 1.1, -4.0)
-    # No banner over the room: a short tag rises off you and the quest mark
-    # under the map pops; the fact waits on the pause screen
-    player.popup_text(player.global_position + Vector2(0, -90), "QUEST ✓", Color(0.98, 0.76, 0.38))
-    _update_quest_mark(true)
-    hud.last_banner = ["QUEST: " + n.text, n.fact]
-    hud.note_journal("QUEST: " + n.text, n.fact)
-
-func _update_quest_mark(pop: bool = false):
-    var notes = field_notes.for_floor(floor_number)
-    var done = 0
-    for i in notes.size():
-        if int(notes_progress.get(i, 0)) >= notes[i].need:
-            done += 1
-    hud.update_quests(done, notes.size(), pop)
 
 func start_new_game():
     floor_number = 1
@@ -284,8 +240,6 @@ func generate_floor():
     if player.keys > 0:
         player.keys = 0
         player.stats_changed.emit(player.dna_biomass, 0)
-    notes_progress = {}
-    _update_quest_mark()
     hud.update_floor(floor_number)
     if floor_number == 1:
         SoundManager.new_run()
@@ -317,7 +271,7 @@ func generate_floor():
     
     load_room(current_room_pos)
     hud.update_minimap(dungeon_rooms, current_room_pos)
-    # The era page (HUD.show_era_card) shows the wildlife and field notes now;
+    # The era page (HUD.show_era_card) shows the wildlife now;
     # this note stays for the pause screen's "last discovery"
     hud.last_banner = ["WILDLIFE OF THIS ERA", fauna.describe_floor(floor_number, true)]
     if floor_number >= 3:
