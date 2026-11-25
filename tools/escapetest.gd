@@ -42,7 +42,10 @@ func run():
 		else:
 			check(p.dash_label() == lineages.ESCAPE_STYLES[style].label, "%s button says %s" % [form.id, p.dash_label()])
 			check(p.invincibility_time > 0.0, "%s untouchable during %s" % [form.id, style])
-			if style != "ink":
+			if style == "crawl":
+				for i in 30: await physics_frame
+				check(p.global_position.distance_to(start) > 80.0, "%s crawls off (%.0f px)" % [form.id, p.global_position.distance_to(start)])
+			elif style != "ink":
 				check(p.global_position.distance_to(start) < 1.0, "%s holds still" % form.id)
 			check(p.max_dash_cooldown == lineages.ESCAPE_STYLES[style].cooldown, "%s recharge %.1fs" % [form.id, p.max_dash_cooldown])
 		await wait(70)

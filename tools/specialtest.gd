@@ -672,8 +672,18 @@ func t_fire():
 		check(w != null, "the fire feature is there (era %d)" % f)
 		check(w.state.dir < 0.0, "it starts on the side away from you")
 		check(not w.lit(), "not lit at first")
-		await frames(200, Vector2(300, 540))
+		await frames(5, Vector2(300, 540))
+		var sign = null
+		for c in main.get_node("VisionFog").get_children():
+			if c.get_script() and c.get_script().resource_path.ends_with("FireSign.gd"):
+				sign = c
+		check(sign != null, "an oxygen warning sign shows on entry (era %d)" % f)
+		check(main.hud.item_banner.visible and main.hud.item_title.text == "WILDFIRE WARNING", "the warning banner shows")
+		await frames(90, Vector2(300, 540))
+		await snap("12_fire_warning_era%d" % f, true)
+		await frames(170, Vector2(300, 540))
 		check(w.lit(), "lightning lights it")
+		check(not is_instance_valid(sign), "the warning sign goes once it strikes")
 		var hp0 = 0
 		var burnt_any = false
 		var start_hp = {}

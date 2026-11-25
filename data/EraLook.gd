@@ -13,7 +13,6 @@
 #               opacity, scale, whether it turns to face its path, and the
 #               turn that does it (PI/2 head first, -PI/2 tail first, like a
 #               nautiloid jetting backwards)
-#   door_light  glow of an open door
 extends RefCounted
 
 const ERAS = [
@@ -23,7 +22,6 @@ const ERAS = [
 		"motes": Color(0.6, 1.0, 0.9, 0.28), "mote_kind": "plankton",
 		"shafts": Color(0.75, 1.0, 0.95, 0.07), "bubbles": true,
 		"shadow_time": 40.0, "shadow_alpha": 0.12, "shadow_scale": 4.0, "shadow_facing": 0.0, "shadow_turns": false,
-		"door_light": Color(0.5, 1.0, 0.85),
 	},
 	{ # 2 Cambrian: sunlit sand, turquoise water, colourful sponges
 		"tint": Color(0.95, 1.0, 1.0), "ink_light": 0.72, "boss_tint": Color(0.70, 0.90, 0.95),
@@ -31,7 +29,6 @@ const ERAS = [
 		"motes": Color(0.9, 1.0, 0.85, 0.26), "mote_kind": "plankton",
 		"shafts": Color(1.0, 0.97, 0.85, 0.08), "bubbles": true,
 		"shadow_time": 26.0, "shadow_alpha": 0.2, "shadow_scale": 3.6, "shadow_facing": PI / 2, "shadow_turns": true,
-		"door_light": Color(1.0, 0.95, 0.75),
 	},
 	{ # 3 Ordovician: deep blue reef with pink and cream corals
 		"tint": Color(0.84, 0.90, 1.0), "ink_light": 0.47, "boss_tint": Color(0.70, 0.86, 0.90),
@@ -39,7 +36,6 @@ const ERAS = [
 		"motes": Color(0.75, 0.85, 1.0, 0.28), "mote_kind": "plankton",
 		"shafts": Color(0.65, 0.8, 1.0, 0.07), "bubbles": true,
 		"shadow_time": 32.0, "shadow_alpha": 0.2, "shadow_scale": 4.4, "shadow_facing": -PI / 2, "shadow_turns": true,
-		"door_light": Color(0.75, 0.8, 1.0),
 	},
 	{ # 4 Carboniferous: peat swamp under tree ferns, golden light
 		"tint": Color(0.92, 0.94, 0.86), "ink_light": 0.22, "boss_tint": Color(0.80, 0.88, 0.70),
@@ -47,7 +43,6 @@ const ERAS = [
 		"motes": Color(0.85, 1.0, 0.6, 0.26), "mote_kind": "spores",
 		"shafts": Color(1.0, 0.9, 0.6, 0.06), "bubbles": false,
 		"shadow_time": 14.0, "shadow_alpha": 0.14, "shadow_scale": 2.6, "shadow_facing": PI / 2, "shadow_turns": true,
-		"door_light": Color(1.0, 0.9, 0.55),
 	},
 	{ # 5 End-Permian: red beds, ash and distant volcanic glow
 		"tint": Color(0.96, 0.88, 0.86), "ink_light": 0.47, "boss_tint": Color(1.0, 0.76, 0.64),
@@ -55,7 +50,6 @@ const ERAS = [
 		"motes": Color(0.85, 0.8, 0.78, 0.3), "mote_kind": "ash",
 		"shafts": Color(1.0, 0.7, 0.45, 0.06), "bubbles": false,
 		"shadow_time": 50.0, "shadow_alpha": 0.16, "shadow_scale": 6.0, "shadow_facing": 0.0, "shadow_turns": false,
-		"door_light": Color(1.0, 0.65, 0.4),
 	},
 	{ # 6 Carboniferous seas: warm, clear lagoon over crinoid meadows
 		"tint": Color(0.88, 0.97, 0.98), "ink_light": 0.6, "boss_tint": Color(0.70, 0.86, 0.92),
@@ -63,7 +57,6 @@ const ERAS = [
 		"motes": Color(0.85, 1.0, 0.92, 0.26), "mote_kind": "plankton",
 		"shafts": Color(0.85, 1.0, 0.95, 0.08), "bubbles": true,
 		"shadow_time": 22.0, "shadow_alpha": 0.2, "shadow_scale": 4.6, "shadow_facing": PI / 2, "shadow_turns": true,
-		"door_light": Color(0.7, 1.0, 0.9),
 	},
 	{ # 7 Permian seas: sponge reefs under a hot sun, fading toward the Great Dying
 		"tint": Color(0.94, 0.95, 0.9), "ink_light": 0.55, "boss_tint": Color(0.86, 0.80, 0.72),
@@ -71,7 +64,6 @@ const ERAS = [
 		"motes": Color(0.95, 0.92, 0.8, 0.26), "mote_kind": "plankton",
 		"shafts": Color(1.0, 0.92, 0.75, 0.07), "bubbles": true,
 		"shadow_time": 30.0, "shadow_alpha": 0.2, "shadow_scale": 5.0, "shadow_facing": PI / 2, "shadow_turns": true,
-		"door_light": Color(1.0, 0.9, 0.7),
 	},
 ]
 

@@ -42,7 +42,11 @@ for name, body in re.findall(r'"(\w+)": \{("melee".*?)\},?\n', section("const WE
 
 ESCAPES = dict(re.findall(r'"(\w+)": \["(\w+)"', section("const ESCAPES =", "const ESCAPE_STYLES")))
 # Forms without a dash: how much each escape is worth (toughness, attack)
-ESCAPE_VALUE = {"withdraw": (1.25, 1.0), "bristle": (1.1, 1.1), "tubules": (1.15, 1.05), "ink": (1.15, 1.05)}
+ESCAPE_VALUE = {"withdraw": (1.25, 1.0), "bristle": (1.1, 1.1), "tubules": (1.15, 1.05), "ink": (1.15, 1.05),
+                "crawl": (1.1, 1.0)}
+# Crinoid fan twists (Lineages.FAN_TWISTS): (toughness, attack) multipliers
+FAN_TWIST_VALUE = {"isocrinid_sea_lily": (1.0, 1.0), "endoxocrinus": (1.12, 1.0), "metacrinus": (1.15, 1.08),
+                   "feather_star": (1.0, 1.08), "rosy_feather_star": (1.0, 1.08), "reef_feather_star": (1.0, 1.08)}
 
 FORMS = {}
 for path, body in re.findall(r'\n    "([\d,]*)": \{(.*?)\n    \}', section("const TREE =", "const VISION ="), re.S):
@@ -114,9 +118,21 @@ def move(body):
     dash_px = 200.0 / dash_cooldown(speed)
     return (speed + 0.5 * dash_px) / (BASE_SPEED + 0.5 * 200.0 / dash_cooldown(BASE_SPEED))
 
+# Eyeless forms (vision 0) see only a hand's width past their body, but their
+# other senses reach further (SenseHints.EYELESS_REACH) and pitch-dark rooms
+# cost them nothing, so their best sense counts for a little more.
+EYELESS_SENSE = 1.4
+# Sight shrinks from 220 px (blind) to 110 px, so you meet animals much closer
+# before you can aim at them. Worth more than the 0.3 power on senses shows,
+# so eyeless forms carry a flat cost the form's own stats have to pay back.
+EYELESS_COST = 0.87
+
 def senses(body):
     i = text(body, "id")
-    return (VISION.get(i, 1) + 0.5 * SENSES.get(i, 1)) / 3.0
+    other = SENSES.get(i, 1)
+    if VISION.get(i, 1) == 0:
+        return 0.5 * other * EYELESS_SENSE / 3.0
+    return (VISION.get(i, 1) + 0.5 * other) / 3.0
 
 base = FORMS[""]
 ref = (attack(base), toughness("", base))
@@ -128,9 +144,14 @@ for path, body in FORMS.items():
         tv, av = ESCAPE_VALUE[ESCAPES[text(body, "id")]]
         t *= tv
         a *= av
+    tv, av = FAN_TWIST_VALUE.get(text(body, "id"), (1.0, 1.0))
+    t *= tv
+    a *= av
     m = move(body)
     s = senses(body)
     score = a * t ** 0.8 * m * s ** 0.3
+    if VISION.get(text(body, "id"), 1) == 0:
+        score *= EYELESS_COST
     depth = 0 if path == "" else len(path.split(","))
     rows.append((depth, path, text(body, "id"), int(num(body, "speed")), a, t, m, s, score))
 
@@ -144,6 +165,7 @@ for depth in sorted({r[0] for r in rows}):
         off = r[8] / median - 1.0
         flag = "  <-- %+d%%" % round(off * 100) if abs(off) > 0.15 else ""
         bad += 1 if flag else 0
-        print("  %-9s %-24s %5d %6.2f %6.2f %6.2f %6.2f %6.2f%s" % (r[1] or "(start)", r[2], r[3], r[4], r[5], r[6], r[7], r[8], flag))
+        eyeless = "  (eyeless)" if VISION.get(r[2], 1) == 0 else ""
+        print("  %-9s %-24s %5d %6.2f %6.2f %6.2f %6.2f %6.2f%s%s" % (r[1] or "(start)", r[2], r[3], r[4], r[5], r[6], r[7], r[8], flag, eyeless))
 print("\n%d form(s) more than 15%% off their step" % bad)
 sys.exit(0)

@@ -17,9 +17,6 @@ uniform vec3 fog_color : source_color = vec3(0.0, 0.0, 0.0);
 uniform vec3 rim_color : source_color = vec3(0.55, 0.42, 0.3);
 float hash(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
 // Doorways stay visible even to a nearly blind form, so exits can be found
-uniform vec2 doors[8];
-uniform int door_count = 0;
-uniform float door_radius = 150.0;
 // Glowing animals in a dark cave (rooms/GlowCritter.gd): x, y, radius
 uniform vec3 lights[12];
 uniform int light_count = 0;
@@ -31,9 +28,6 @@ uniform float cave_alpha = 0.97;
 void fragment() {
 	vec2 p = UV * rect_size;
 	float a = smoothstep(radius, radius + softness, distance(p, center));
-	for (int i = 0; i < door_count; i++) {
-		a = min(a, smoothstep(door_radius * 0.6, door_radius, distance(p, doors[i])));
-	}
 	for (int i = 0; i < light_count; i++) {
 		a = min(a, smoothstep(lights[i].z * 0.35, lights[i].z, distance(p, lights[i].xy)));
 	}
@@ -60,7 +54,13 @@ var pitch: float = 0.0 # 1 in a pitch-dark room (data/SpecialRooms.gd "dark")
 
 # How far you actually see this frame: a cave closes the light in, and a
 # pitch-dark room leaves only a glimmer around your own body
+const EYELESS_RADIUS := 110.0
+var eyeless: bool = false
+
 func light_radius() -> float:
+	# Eyeless forms never used light, so a dark room takes nothing from them
+	if eyeless:
+		return radius
 	return radius * (1.0 - 0.3 * cave - 0.32 * pitch)
 
 func _ready():
@@ -98,13 +98,15 @@ func apply_style(id: String):
 func set_sense(rating: int, kind: String, profile: Dictionary = {}):
 	hints.set_sense(rating, kind, profile)
 
-# rating: 1 (blind) to 10 (best eyes alive)
+# rating: 0 (eyeless) to 10 (best eyes alive)
 func set_vision(rating: int, instant: bool = false):
 	var r = clamp(rating, 0, 10)
-	# Kept tight so sight matters: a cell sees a little past its own body and
-	# relies on its other senses (SenseHints.gd), while even the best eyes
-	# leave the far corners of the room in shadow.
-	target_radius = 180.0 + r * 40.0       # 180 px eyeless, 220 px for a cell, 580 px for a dragonfly
+	# Kept tight so sight matters: even the best eyes leave the far corners of
+	# the room in shadow. Forms with no eyes at all (the cell, crinoids, urchins,
+	# sea cucumbers, burrowing bivalves) see only a hand's width past their
+	# body and live by their other senses, which reach further (SenseHints.gd).
+	eyeless = r == 0
+	target_radius = EYELESS_RADIUS if eyeless else 180.0 + r * 40.0 # 220 px blind, 580 px for a dragonfly
 	# Past the soft edge it is solid black, whatever the eyes
 	target_darkness = 1.0
 	if instant:
@@ -153,16 +155,5 @@ func _process(delta: float):
 	# Pitch dark has a hard edge: the glimmer stops close to your body
 	mat.set_shader_parameter("softness", radius * 0.6 * (1.0 - 0.55 * pitch))
 	mat.set_shader_parameter("darkness", darkness)
-	var door_pts := PackedVector2Array()
-	for door in get_tree().get_nodes_in_group("doors"):
-		if door_pts.size() >= 8:
-			break
-		if door.is_queued_for_deletion():
-			continue
-		# A point just inside the doorway, so the doorway and its key badge show
-		var inside = door.get_global_transform_with_canvas() * Vector2(0, 90)
-		door_pts.append(rect.get_global_transform_with_canvas().affine_inverse() * inside)
-	var padded = door_pts.duplicate()
-	padded.resize(8)
-	mat.set_shader_parameter("doors", padded)
-	mat.set_shader_parameter("door_count", door_pts.size())
+	# No lit patch around doorways (kuro: no lights on doors): the inked
+	# DoorMarks are drawn above the fog, so exits still show in the dark

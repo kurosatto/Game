@@ -639,13 +639,12 @@ def door_frame(era, rng, state):
     img = Image.new("RGBA", (64, 64), (0, 0, 0, 0))
     d = ImageDraw.Draw(img)
     floor_mid = look["floor"][1][1]
-    # Passage: lit floor at the room edge, deep in the middle, a glimmer beyond
+    # Passage: lit floor at the room edge, deep in the middle. No glimmer or
+    # glow at the far end (kuro: no lights on doors)
     for y in range(64):
         t = y / 63
         k = np.clip((t - 0.25) / 0.75, 0, 1)
         col = np.array(look["deep"]) * (1 - k) + np.array(floor_mid) * k * 0.9
-        if state == "open" and y < 14:
-            col = col + np.array(shade_rgb(floor_mid, 1.3)) * (1 - y / 14) * 0.5
         d.line((14, y, 50, y), fill=tuple(int(v) for v in col) + (255,))
     if state != "open":
         barrier(era, d, rng, look)
