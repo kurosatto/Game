@@ -127,8 +127,13 @@ func _note(id: String):
 	if main and main.has_method("note_new_trace"):
 		main.note_new_trace(id)
 
+# Every track in one draw call (InkBatch.gd)
+var pen = preload("res://InkBatch.gd").new()
+
 func _draw():
+	pen.begin(self)
 	for m in marks:
 		var age = time - m[5]
 		var a = clamp((m[6] - age) / FADE, 0.0, 1.0)
-		Traces.draw_mark(self, m[7], m[0], m[1], m[2], m[3], m[4], a)
+		Traces.draw_mark(pen, m[7], m[0], m[1], m[2], m[3], m[4], a)
+	pen.flush()

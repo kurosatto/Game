@@ -151,7 +151,7 @@ static func all_ids() -> Array:
 # One mark in the sediment at `pos`, heading `angle`; `side` alternates +1/-1
 # from mark to mark (left and right feet), `phase` is the distance walked
 # (wavy fin lines), `s` the animal's size and `a` the fade.
-static func draw_mark(ci: CanvasItem, id: String, pos: Vector2, angle: float, side: float, phase: float, s: float, a: float):
+static func draw_mark(ci, id: String, pos: Vector2, angle: float, side: float, phase: float, s: float, a: float):
 	if not TRACES.has(id) or a <= 0.01:
 		return
 	var t: Dictionary = TRACES[id]
