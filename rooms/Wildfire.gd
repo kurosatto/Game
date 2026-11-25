@@ -12,7 +12,7 @@ extends Node2D
 const SR = preload("res://data/SpecialRooms.gd")
 const HitFX = preload("res://HitFX.gd")
 const INK = Color(0.24, 0.15, 0.08)
-const DELAY := 3.0        # seconds from walking in to the lightning strike
+const DELAY := 4.0        # seconds from walking in to the lightning strike (the warning shows meanwhile)
 const SPEED := 95.0       # px/s the front moves
 const BAND := 190.0       # depth of the burning band behind the front
 const HURT_EVERY := 1.1   # player: one hit per this long in the flames
@@ -44,6 +44,18 @@ func _ready():
 		_char_all()
 	elif not first:
 		_burn_out.call_deferred()
+	else:
+		_add_sign()
+
+# The warning sign goes on the fog layer, so the dark can't hide it
+func _add_sign():
+	var fog = get_tree().get_first_node_in_group("main").get_node_or_null("VisionFog") if get_tree().get_first_node_in_group("main") else null
+	var sign = preload("res://rooms/FireSign.gd").new()
+	sign.fire = self
+	if fog:
+		fog.add_child(sign)
+	else:
+		add_child(sign)
 
 func left_edge() -> float:
 	return -room.side_margin
@@ -204,3 +216,4 @@ func _draw():
 		draw_circle(ember, 3.0, Color(0.5, 0.22, 0.08, 0.9))
 		y += 40.0
 		i += 1
+
