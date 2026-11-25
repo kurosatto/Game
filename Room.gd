@@ -682,6 +682,8 @@ func spawn_layout_obstacles(layout: Dictionary):
         var gx = obs["gx"]
         var gy = obs["gy"]
         var pos = Vector2(gx * 128 + 64, gy * 128 + 64 + 28)
+        # Designed layouts nudge pieces off the grid (RoomLayouts.designed_layouts)
+        pos += Vector2(obs.get("dx", 0), obs.get("dy", 0))
         var raw_type = obs.get("type", "rock")
         var resolved_type = bio_obstacle_map.get(raw_type, raw_type)
         # Ediacaran fronds (Charnia) are animals, not scenery: set aside
@@ -816,6 +818,7 @@ func add_rubble(from: Vector2, to: Vector2, thickness: float = 40.0):
     rb.set_script(preload("res://Rubble.gd"))
     rb.name = "Rubble"
     add_child(rb)
+    rb.set_theme(ERA_ART[Worlds.era(current_floor) - 1])
     rb.setup(from - dir * 6.0, to + dir * 6.0, thickness)
 
 func spawn_tactical_enemies(layout: Dictionary, floor_number: int):

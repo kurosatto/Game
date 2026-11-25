@@ -17,7 +17,7 @@ import os
 import numpy as np
 from PIL import Image, ImageDraw, ImageFilter
 
-from generate_room_art import ERA_LOOK, ERAS, shade_rgb
+from generate_room_art import ERA_LOOK, ERAS, THEMES, shade_rgb
 
 SIZE = 160
 K = 4                      # supersampling
@@ -32,11 +32,48 @@ def pts_k(pts):
     return [P(x, y) for x, y in pts]
 
 
+# Each floor's quiet two-tone theme (keep in step with data/SceneryTheme.gd):
+# [dark tone, pale tone, glow tint]. kuro (2026-11-25): obstacles were too
+# loud and too crude, so every piece is now pen-and-ink (hatched shading,
+# stipple, a wobbly ink line heavier on the shadow side, a hatched cast
+# shadow) and recoloured into its floor's theme. Some of the drawing's own
+# hue stays (HUE_KEEP) so a sponge still reads as a sponge.
+HUE_KEEP = 0.22
+HATCH = 15          # 4x px between hatch lines (about 3.7 px on screen)
+
+
+def _grid():
+    n = SIZE * K
+    yy, xx = np.mgrid[0:n, 0:n].astype(np.float32)
+    return yy, xx
+
+
+_YY, _XX = _grid()
+# Diagonal hatching (down-right strokes), cross-hatching, and the flat
+# hatching used for cast shadows; each line wobbles a little like a pen
+_WOB = np.sin(_YY * 0.045) * 2.2 + np.sin(_XX * 0.031 + 1.3) * 1.6
+_HATCH_A = (((_XX + _YY + _WOB) % HATCH) < 3.6).astype(np.float32)
+_HATCH_B = (((_XX - _YY + _WOB * 0.7) % HATCH) < 3.2).astype(np.float32)
+_HATCH_H = ((((_YY + _WOB * 0.6) % 13)) < 3.2).astype(np.float32)
+
+
+def _shift(a, dx, dy):
+    out = np.zeros_like(a)
+    h, w = a.shape
+    xs0, xs1 = max(0, dx), min(w, w + dx)
+    ys0, ys1 = max(0, dy), min(h, h + dy)
+    out[ys0:ys1, xs0:xs1] = a[ys0 - dy:ys1 - dy, xs0 - dx:xs1 - dx]
+    return out
+
+
 class Canvas:
     def __init__(self, era):
         self.era = era
-        self.ol = ERA_LOOK[era]["outline"]
+        self.theme = THEMES[era]
+        self.ink = tuple(int(v * 0.42) for v in self.theme[0])
+        self.ol = self.ink
         self.img = Image.new("RGBA", (SIZE * K, SIZE * K), (0, 0, 0, 0))
+        self.rng = np.random.default_rng(len(era) * 7)
 
     # ── building blocks ──
     def mask(self, fn):
@@ -44,45 +81,78 @@ class Canvas:
         fn(ImageDraw.Draw(m))
         return m
 
+    def _layer(self, rgb, alpha):
+        out = np.dstack([np.clip(rgb, 0, 255) * np.ones(alpha.shape + (3,), np.float32),
+                         np.clip(alpha, 0, 1) * 255]).astype(np.uint8)
+        self.img = Image.alpha_composite(self.img, Image.fromarray(out, "RGBA"))
+
     def shadow(self, rx, ry, cx=BX, cy=BY + 4, alpha=95):
-        m = self.mask(lambda d: d.ellipse((*P(cx - rx, cy - ry), *P(cx + rx, cy + ry)), fill=alpha))
-        m = m.filter(ImageFilter.GaussianBlur(3 * K))
-        layer = Image.new("RGBA", self.img.size, (0, 0, 0, 255))
-        layer.putalpha(m)
-        self.img = Image.alpha_composite(self.img, layer)
+        """A cast shadow drawn the engraver's way: flat hatching, fading out."""
+        m = self.mask(lambda d: d.ellipse((*P(cx - rx, cy - ry), *P(cx + rx, cy + ry)), fill=255))
+        m = m.filter(ImageFilter.GaussianBlur(2 * K))
+        a = np.asarray(m, np.float32) / 255
+        ink = np.array(self.ink, np.float32)
+        # (kept under the alpha tools/scenery_footprints.py counts as solid)
+        self._layer(ink, a * _HATCH_H * 0.14 + a * 0.08)
+        # A few pebbles and grit at the foot, so it sits on the ground
+        d = ImageDraw.Draw(self.img)
+        dk = tuple(self.theme[0])
+        for _ in range(int(rx / 6)):
+            ang = self.rng.uniform(0, math.tau)
+            px = cx + math.cos(ang) * rx * self.rng.uniform(0.75, 1.0)
+            py = cy + math.sin(ang) * ry * self.rng.uniform(0.6, 1.0) + 1
+            r = self.rng.uniform(0.8, 2.2)
+            d.ellipse((*P(px - r, py - r * 0.7), *P(px + r, py + r * 0.7)),
+                      fill=tuple(int(v * 1.9) if v * 1.9 < 255 else 255 for v in dk) + (255,),
+                      outline=self.ink + (255,), width=K)
 
     def solid(self, m, col, outline=True, light=1.25, dark=0.62, rim=True, tex=None):
-        """Fill a mask with a lit-from-top-left gradient, dark outline, rim light."""
-        if outline:
-            o = m.filter(ImageFilter.MaxFilter(2 * K + 1))
-            ol = Image.new("RGBA", self.img.size, self.ol + (255,))
-            ol.putalpha(o)
-            self.img = Image.alpha_composite(self.img, ol)
+        """Fill a mask as an ink drawing: a pale wash, hatched shade on the
+        side away from the light, stipple, and a wobbly ink outline."""
         a = np.asarray(m, dtype=np.float32) / 255
         ys, xs = np.nonzero(a > 0.5)
         if len(xs) == 0:
             return
         x0, x1, y0, y1 = xs.min(), xs.max(), ys.min(), ys.max()
-        yy, xx = np.mgrid[0:a.shape[0], 0:a.shape[1]].astype(np.float32)
-        t = ((yy - y0) / max(1, y1 - y0)) * 0.75 + ((xx - x0) / max(1, x1 - x0)) * 0.25
+        # Light from the top left: a gradient over the shape...
+        t = ((_YY - y0) / max(1, y1 - y0)) * 0.7 + ((_XX - x0) / max(1, x1 - x0)) * 0.3
         t = np.clip(t, 0, 1)
-        lit = np.array(shade_rgb(col, light), np.float32)
-        mid = np.array(col[:3], np.float32)
-        drk = np.array(shade_rgb(col, dark), np.float32)
-        rgb = np.where(t[..., None] < 0.45,
-                       lit + (mid - lit) * (t[..., None] / 0.45),
-                       mid + (drk - mid) * ((t[..., None] - 0.45) / 0.55))
+        # ...plus the turning-away edges on the shadow side
+        inner = np.asarray(m.filter(ImageFilter.GaussianBlur(5 * K)), np.float32) / 255
+        lit_edge = _shift(a, 3 * K, 3 * K)  # where the shape is, seen from the light
+        away = np.clip(a - np.minimum(a, lit_edge * 0.0 + inner * 1.15), 0, 1)
+        shade = np.clip(t * 0.75 + away * 0.9 - (dark - 0.62) * 0.8, 0, 1)
+        # Wash: the colour, lightened, with paper grain
+        base = np.array(col[:3], np.float32)
+        wash = base + (255 - base) * 0.18
+        rgb = np.ones(a.shape + (3,), np.float32) * wash
         if tex is not None:
             rgb = rgb * tex[..., None]
-        if rim:
-            # Bright lip along the upper-left edge
-            sh = np.zeros_like(a)
-            s = 3 * K
-            sh[s:, s:] = a[:-s, :-s]
-            edge = np.clip(a - sh, 0, 1)
-            rgb = rgb + (255 - rgb) * edge[..., None] * 0.45
-        out = np.dstack([np.clip(rgb, 0, 255), a * 255]).astype(np.uint8)
-        self.img = Image.alpha_composite(self.img, Image.fromarray(out, "RGBA"))
+        rgb = rgb * (1.0 - 0.18 * shade[..., None])
+        self._layer(rgb, a)
+        # Hatching where it turns from the light, cross-hatching deeper in
+        ink = np.array(self.ink, np.float32)
+        h1 = np.clip((shade - 0.32) * 4.0, 0, 1) * _HATCH_A
+        h2 = np.clip((shade - 0.62) * 4.0, 0, 1) * _HATCH_B
+        self._layer(ink, a * np.clip(h1 * 0.72 + h2 * 0.6, 0, 0.9))
+        # Stipple in the half-shade
+        n = int(a.sum() / (K * K) * 0.05)
+        if n:
+            idx = self.rng.integers(0, len(xs), n)
+            sx, sy = xs[idx], ys[idx]
+            keep = shade[sy, sx] > self.rng.uniform(0.25, 0.9, n)
+            d = ImageDraw.Draw(self.img)
+            for x, y in zip(sx[keep], sy[keep]):
+                d.ellipse((x - 2, y - 2, x + 2, y + 2), fill=self.ink + (150,))
+        if outline:
+            # Ink line: thin on the lit side, heavier where the shadow falls,
+            # with a faint second stroke slightly off, like a quick sketch
+            grown = np.asarray(m.filter(ImageFilter.MaxFilter(K + 1)), np.float32) / 255
+            heavy = _shift(grown, int(1.2 * K), int(1.2 * K))
+            line = np.clip(np.maximum(grown, heavy) - a, 0, 1)
+            self._layer(ink, line)
+            ghost = np.clip(_shift(grown, -K, int(0.5 * K)) - np.maximum(a, grown), 0, 1)
+            self._layer(ink, ghost * 0.35)
 
     def poly(self, pts, col, **kw):
         self.solid(self.mask(lambda d: d.polygon(pts_k(pts), fill=255)), col, **kw)
@@ -104,14 +174,27 @@ class Canvas:
         fn(self.draw())
 
     def glow(self, cx, cy, r, col, alpha=150):
-        m = self.mask(lambda d: d.ellipse((*P(cx - r, cy - r), *P(cx + r, cy + r)), fill=alpha))
+        # A faint halo only: the floor's glow tint, far softer than before
+        m = self.mask(lambda d: d.ellipse((*P(cx - r, cy - r), *P(cx + r, cy + r)), fill=int(alpha * 0.35)))
         m = m.filter(ImageFilter.GaussianBlur(r * K * 0.5))
-        layer = Image.new("RGBA", self.img.size, col + (255,))
+        layer = Image.new("RGBA", self.img.size, tuple(self.theme[2]) + (255,))
         layer.putalpha(m)
         self.img = Image.alpha_composite(self.img, layer)
 
     def done(self):
-        return self.img.resize((SIZE, SIZE), Image.LANCZOS)
+        """Recolour everything into the floor's theme, then scale down."""
+        arr = np.asarray(self.img, np.float32)
+        rgb, al = arr[..., :3], arr[..., 3:]
+        lum = (rgb @ np.array([0.299, 0.587, 0.114], np.float32)) / 255
+        dk, pl = np.array(self.theme[0], np.float32), np.array(self.theme[1], np.float32)
+        ink = np.array(self.ink, np.float32)
+        # ink-dark -> dark tone -> pale tone across the drawing's values
+        v = np.clip((lum - 0.12) / 0.78, 0, 1)[..., None]
+        low = ink + (dk - ink) * np.clip(lum[..., None] / 0.3, 0, 1)
+        themed = np.where(lum[..., None] < 0.3, low, dk + (pl - dk) * v)
+        out = themed * (1 - HUE_KEEP) + rgb * HUE_KEEP
+        img = Image.fromarray(np.dstack([np.clip(out, 0, 255), al]).astype(np.uint8), "RGBA")
+        return img.resize((SIZE, SIZE), Image.LANCZOS)
 
 
 def blobby(cx, cy, rx, ry, rng, n=14, wob=0.12, flat_bottom=0.0):
