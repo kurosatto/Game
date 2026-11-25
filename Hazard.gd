@@ -78,7 +78,7 @@ func covers(pos: Vector2, pad: float = 0.0) -> bool:
 
 func _physics_process(delta: float):
 	time += delta
-	burst_flash = max(0.0, burst_flash - delta * 3.0)
+	burst_flash = max(0.0, burst_flash - delta * 2.0)
 	queue_redraw()
 	if not player or not is_instance_valid(player) or player.health <= 0:
 		return
@@ -111,8 +111,9 @@ func is_vent() -> bool:
 	return kind == "fumarole" or kind == "euxinic"
 
 func burst():
+	# Drawn as an inked puff of gas in _draw_vent; the old bright additive
+	# glow read as a white camera flash every few seconds through the ink filter
 	burst_flash = 1.0
-	HitFX.pop(get_parent(), global_position, Color(0.55, 0.75, 0.45) if kind == "euxinic" else Color(0.85, 0.6, 0.4), 30.0, VENT_RADIUS * 2.2, 0.35)
 	if player.global_position.distance_to(global_position) < 700.0:
 		var sm = get_node_or_null("/root/SoundManager")
 		if sm:
@@ -189,5 +190,8 @@ func _draw_vent():
 		var r = 5.0 + 12.0 * t + 10.0 * warn
 		draw_arc(Vector2(x, -t * (50.0 + 50.0 * warn)), r, 0, TAU, 14, Color(INK, (0.35 + 0.4 * warn) * (1.0 - t)), 1.6, true)
 	if burst_flash > 0.0:
-		var r = VENT_RADIUS * (1.2 - burst_flash * 0.4)
-		draw_arc(Vector2.ZERO, r, 0, TAU, 32, Color(0.3, 0.45, 0.2, burst_flash) if kind == "euxinic" else Color(0.55, 0.25, 0.1, burst_flash), 4.0, true)
+		# A soft cloud of gas rolling out, then thinning away
+		var r = VENT_RADIUS * (1.25 - burst_flash * 0.55)
+		var gas = Color(0.3, 0.38, 0.22) if kind == "euxinic" else Color(0.42, 0.3, 0.22)
+		draw_circle(Vector2.ZERO, r, Color(gas, 0.22 * burst_flash))
+		draw_arc(Vector2.ZERO, r, 0, TAU, 32, Color(INK, 0.6 * burst_flash), 2.5, true)
