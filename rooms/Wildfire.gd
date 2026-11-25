@@ -187,7 +187,7 @@ func _draw():
 		if not state.get("lit", false) and not state.get("done", false):
 			# Before the strike: a dry crackle in the air, storm light at the far side
 			var side_x = left_edge() if state.dir > 0.0 else right_edge()
-			var flick = 0.5 + 0.5 * sin(time * 23.0) * sin(time * 7.0)
+			var flick = 0.5 + 0.5 * sin(time * 2.2) # a slow glow, not a strobe
 			draw_rect(Rect2(side_x - (0.0 if state.dir > 0.0 else 70.0), top, 70.0, bottom - top), Color(1.0, 0.95, 0.75, 0.08 + 0.1 * flick))
 		return
 	var b = band()
