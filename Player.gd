@@ -552,6 +552,11 @@ func perform_escape():
     SoundManager.play_sfx("dash", 0.7)
     var radius: float = st.get("radius", 0.0)
     var hit: float = damage * st.get("damage", 0.0) + current_dash_perks.get("slam_damage", 0.0)
+    # Ramming items (Bony Head Shield) work through the escape too: the
+    # spines, shell or clamp-down jolt everything close by
+    if ram_mult > 0.0:
+        hit += damage * ram_mult
+        radius = max(radius, 120.0)
     for e in get_tree().get_nodes_in_group("enemies"):
         if not is_instance_valid(e) or global_position.distance_to(e.global_position) > radius:
             continue
