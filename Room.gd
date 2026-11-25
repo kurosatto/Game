@@ -271,7 +271,7 @@ func add_clutch():
     add_child(c)
 
 # ---- Special rooms (data/SpecialRooms.gd, rooms/SpecialRoom.gd) ----
-const OPEN_SPECIALS = ["vent", "dig", "extinction", "nest", "symbiont"]
+const OPEN_SPECIALS = ["vent", "dig", "extinction", "nest"]
 var special_node: Node2D = null
 
 func start_special(layout: Dictionary, floor_number: int, first: bool):
