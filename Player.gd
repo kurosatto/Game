@@ -960,7 +960,9 @@ func shoot_tear(dir: Vector2):
 
 # Shots leave from the front of the body rather than its middle
 func muzzle_distance() -> float:
-    return 24.0
+    # Lysosomes leave from the cell's own membrane, which is wider than the
+    # old sprite
+    return 30.0 if current_weapon == "vesicle" else 24.0
 
 func spawn_tear(dir: Vector2, alpha: bool = false, boomerang: bool = false):
     var tear = tear_scene.instantiate()

@@ -37,7 +37,7 @@ const TREE = {
         "max_health_add": 0,
         "attack_type": "single",
         "weapon": "vesicle",
-        "weapon_name": "Lysosome vesicles",
+        "weapon_name": "Lysosome exocytosis",
         "tear_perks": {},
         "dash_perks": {},
         "passive": "none",
@@ -2090,8 +2090,11 @@ static func describe_sense_kind(kind: String, rating: int) -> String:
 # knockback pulls the target in. A melee swing also swats enemy shots it covers.
 const WEAPONS = {
     # Ranged
-    # The cell's lysosomes: little bags of digestive enzyme thrown a short way
-    "vesicle": {"melee": false, "label": "short-range throw", "speed": 0.85, "life": 0.5, "shot_damage": 1.3},
+    # The cell's lysosomes: membrane sacs of acid hydrolase pushed out through
+    # the membrane (exocytosis). Water is thick at a cell's size, so they slow
+    # to a stop within a few body lengths (Tear.gd VESICLE_DRAG), then fuse
+    # with whatever they touch and keep digesting it (Tear.gd digest)
+    "vesicle": {"melee": false, "label": "very short range, digests", "speed": 1.0, "life": 0.47, "shot_damage": 0.75, "special": "Lysosomes fuse with prey and digest it: damage keeps coming for a second"},
     "jet": {"melee": false, "label": "ranged", "speed": 1.3, "life": 0.65, "special": "Pressure: shots shove enemies back"},
     "spit": {"melee": false, "label": "ranged", "speed": 1.0, "life": 1.0, "special": "Blinding venom: hit enemies can't aim for 2.5 s"},
     "harpoon": {"melee": false, "label": "ranged", "speed": 1.35, "life": 1.0, "special": "Conotoxin: harpoons pass through and paralyse"},
