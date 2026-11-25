@@ -1,11 +1,12 @@
-"""Combat sounds from CC0 OpenGameArt recordings (replaces the synthesised
-generate_combat_sfx.py set, which kuro found harsh: full-scale peaks and a
-lot of hiss above 4 kHz).
+"""Softens the combat sounds, which kuro found harsh (full-scale peaks and a
+lot of hiss above 4 kHz), and can instead build them from CC0 OpenGameArt
+recordings (sets A and B, credit the packs below if one is ever used).
 
-    python3 tools/build_combat_sfx.py A        # bubbles and taps (in the game)
+    python3 tools/build_combat_sfx.py A        # bubbles and taps
     python3 tools/build_combat_sfx.py B        # squish and knock
     python3 generate_combat_sfx.py && python3 tools/build_combat_sfx.py C
-                                               # the old synth set, softened
+                                               # the synth set, softened (in the game:
+                                               # kuro picked it, 2026-11-25)
     python3 tools/build_combat_sfx.py A --out /tmp/setA   # build elsewhere
 
 Downloads the packs listed in PACKS into ~/.cache/evo_sfx, then for every
@@ -15,7 +16,6 @@ fades the tail, matches loudness in the 300-3000 Hz band a phone speaker
 does play, and keeps peaks under -3 dBFS. Hits and kills get extra takes
 (name_2.wav, name_3.wav) that SoundManager picks between at random, so the
 same knock doesn't repeat all fight long. Needs ffmpeg, numpy and py7zr.
-Credits: data/SoundCredits.gd (shown on the main menu credits page).
 """
 import os, sys, glob, json, wave, zipfile, subprocess, urllib.request
 import numpy as np
@@ -167,7 +167,8 @@ def write(path, x):
         w.writeframes((np.clip(x, -1, 1) * 32767).astype(np.int16).tobytes())
 
 def build(set_name, out):
-    fetch()
+    if set_name != "C":
+        fetch()
     os.makedirs(out, exist_ok=True)
     for name, v in SETS[set_name].items():
         for old in glob.glob(os.path.join(out, name + "_[0-9].wav")):

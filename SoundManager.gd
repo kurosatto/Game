@@ -30,7 +30,7 @@ const SOUND_VOLUMES: Dictionary = {
     # sense first picks up an animal hidden in the dark (SenseHints.gd)
     "sense_smell": -10.0, "sense_chemical": -10.0, "sense_electric": -12.0,
     "sense_lateral": -9.0, "sense_vibration": -8.0, "sense_touch": -10.0,
-    # Combat (tools/build_combat_sfx.py, CC0 recordings): one attack sound per
+    # Combat (generate_combat_sfx.py, softened by tools/build_combat_sfx.py C): one attack sound per
     # weapon, hits that sound like what they struck, and kills to match. The
     # build already sets their loudness (attacks under hits, kills a touch
     # over, enemy moves quieter), so they all sit at 0 here.

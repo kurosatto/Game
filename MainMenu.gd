@@ -7,7 +7,6 @@ extends Control
 var lineages = preload("res://data/Lineages.gd")
 var codex = preload("res://data/Codex.gd")
 var music_credits = preload("res://data/MusicCredits.gd")
-var sound_credits = preload("res://data/SoundCredits.gd")
 var progress = preload("res://data/Progress.gd")
 var adaptations = preload("res://data/Adaptations.gd")
 var endgame = preload("res://data/Endgame.gd")
@@ -495,13 +494,6 @@ func show_music_credits():
 	for t in music_credits.TRACKS:
 		row(list, "#%d  %s  ·  \"%s\"" % [t.get("num", 0), POOL_NAMES.get(t.pool, t.pool), t.title],
 			"by %s  ·  %s\n%s" % [t.artist, t.license, t.url], ACCENT)
-	list.add_child(HSeparator.new())
-	var sfx = label("Combat sounds are CC0 recordings from OpenGameArt.org, softened for the game:", 22, SOFT)
-	sfx.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-	sfx.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	list.add_child(sfx)
-	for p in sound_credits.PACKS:
-		row(list, "🔊  " + p.title, "by %s  ·  %s\n%s" % [p.artist, p.license, p.url], ACCENT)
 	var note = label("CC-BY 4.0: creativecommons.org/licenses/by/4.0  ·  CC0: public domain", 18, UI.MUTED)
 	note.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	list.add_child(note)

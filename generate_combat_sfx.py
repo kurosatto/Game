@@ -1,5 +1,5 @@
-"""(Superseded: the game now uses tools/build_combat_sfx.py. Kept so set C,
-the old sounds softened, can be rebuilt from these originals.)
+"""(After running this, run `python3 tools/build_combat_sfx.py C`: it softens
+these into the sounds the game uses, quieter and without the harsh highs.)
 
 Combat sound effects (numpy + scipy), all synthesised, nothing sampled.
 

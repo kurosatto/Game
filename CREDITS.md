@@ -47,25 +47,3 @@ must keep this credit wherever the game is shipped.
 
 The old procedural soundtrack can still be rebuilt with `generate_soundtrack.py`
 (it now writes to `assets/music_procedural/`, which the game does not load).
-
-## Combat sounds
-
-Attack, hit and kill sounds are CC0 recordings from [OpenGameArt.org](https://opengameart.org),
-trimmed, softened (rumble and harsh highs cut) and loudness-matched by
-`tools/build_combat_sfx.py`. The same list is shown in-game on the credits page
-(`data/SoundCredits.gd`).
-
-| Pack | Artist | Licence | Source |
-|---|---|---|---|
-| 40 CC0 water / splash / slime SFX | rubberduck | CC0 | https://opengameart.org/content/40-cc0-water-splash-slime-sfx |
-| 25 CC0 mud SFX | rubberduck | CC0 | https://opengameart.org/content/25-cc0-mud-sfx |
-| 100 CC0 SFX | rubberduck | CC0 | https://opengameart.org/content/100-cc0-sfx |
-| 75 CC0 breaking / falling / hit SFX | rubberduck | CC0 | https://opengameart.org/content/75-cc0-breaking-falling-hit-sfx |
-| 80 CC0 creature SFX #2 | rubberduck | CC0 | https://opengameart.org/content/80-cc0-creture-sfx-2 |
-| Swishes sound pack | artisticdude | CC0 | https://opengameart.org/content/swishes-sound-pack |
-| Bubble sound effects | bmaczero | CC0 | https://opengameart.org/content/bubble-sound-effects |
-| Pop sounds | cogitollc | CC0 | https://opengameart.org/content/pop-sounds |
-| Crunchy bite | fvcalderan | CC0 | https://opengameart.org/content/crunchy-bite |
-| 7 eating crunches | StarNinjas | CC0 | https://opengameart.org/content/7-eating-crunches |
-| 37 hits / punches | Independent.nu (qubodup) | CC0 | https://opengameart.org/content/37-hitspunches |
-| 8 wet squish / slurp impacts | Independent.nu (qubodup) | CC0 | https://opengameart.org/content/8-wet-squish-slurp-impacts |
