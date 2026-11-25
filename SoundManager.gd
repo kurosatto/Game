@@ -67,6 +67,8 @@ var floor_tracks: Dictionary = {} # "explore_<floor>" / "boss_<floor>" -> id, th
 var now_playing_label: Label
 var now_playing_box: PanelContainer
 var now_playing_tween: Tween
+var music_badge: PanelContainer
+var music_badge_label: Label
 # Browsers keep audio locked until the player first taps, clicks or presses
 # a key, and a track started before then stays silent. On the web the music
 # waits for that first input, then starts.
@@ -202,12 +204,12 @@ func boss_music_for_floor(floor_num: int) -> String:
         floor_tracks[key] = random_track("boss")
     return floor_tracks[key]
 
-# "Title · Artist" of the track playing now (pause screen), or ""
+# "#12 Title · Artist" of the track playing now (pause screen), or ""
 func now_playing() -> String:
     var t = track_info.get(current_track, {})
     if t.is_empty():
         return ""
-    return "%s · %s" % [t.title, t.artist]
+    return "#%d %s · %s" % [t.get("num", 0), t.title, t.artist]
 
 # The track name fades in at the bottom of the screen for a few seconds when it starts,
 # so kuro can tell which tracks they like
@@ -234,7 +236,24 @@ func _show_now_playing():
         now_playing_label.add_theme_font_size_override("font_size", 22)
         now_playing_label.add_theme_color_override("font_color", Color(0.98, 0.93, 0.8))
         now_playing_box.add_child(now_playing_label)
-    now_playing_label.text = "Music: " + text
+        # The track's number stays in the top-left corner the whole time it
+        # plays, just under the hearts, so a favourite is easy to note
+        music_badge = PanelContainer.new()
+        var bb = bg.duplicate()
+        bb.set_content_margin_all(6)
+        bb.content_margin_left = 12
+        bb.content_margin_right = 12
+        music_badge.add_theme_stylebox_override("panel", bb)
+        music_badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
+        music_badge.position = Vector2(16, 84)
+        layer.add_child(music_badge)
+        music_badge_label = Label.new()
+        music_badge_label.add_theme_font_size_override("font_size", 20)
+        music_badge_label.add_theme_color_override("font_color", Color(0.98, 0.93, 0.8))
+        music_badge.add_child(music_badge_label)
+    music_badge_label.text = "MUSIC #%d" % track_info[current_track].get("num", 0)
+    music_badge.reset_size()
+    now_playing_label.text = "Music " + text
     # bottom middle (clear of the touch sticks in the corners), sized to the text
     now_playing_box.reset_size()
     var vp = now_playing_box.get_viewport_rect().size
