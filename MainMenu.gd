@@ -500,7 +500,7 @@ func show_music_credits():
 	list.add_child(intro)
 	list.add_child(HSeparator.new())
 	for t in music_credits.TRACKS:
-		row(list, "%s  ·  \"%s\"" % [POOL_NAMES.get(t.pool, t.pool), t.title],
+		row(list, "#%d  %s  ·  \"%s\"" % [t.get("num", 0), POOL_NAMES.get(t.pool, t.pool), t.title],
 			"by %s  ·  %s\n%s" % [t.artist, t.license, t.url], ACCENT)
 	var note = label("CC-BY 4.0: creativecommons.org/licenses/by/4.0  ·  CC0: public domain", 18, UI.MUTED)
 	note.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
