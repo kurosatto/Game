@@ -46,6 +46,7 @@ func begin(first: bool):
 		"treefall": _treefall(first)
 		"brachiopods": _brachiopods()
 		"current": _current(first)
+		"cupreef": _cupreef()
 	if first and kind != "ambush":
 		introduce()
 
@@ -400,3 +401,8 @@ func _brachiopods():
 func _current(first: bool):
 	fight(first)
 	add_feature("Current.gd", {"room": room, "state": state})
+
+# ---- Cup reef: Marrella dart between archaeocyath cups ----
+func _cupreef():
+	peaceful()
+	add_feature("CupReef.gd", {"room": room, "state": state})

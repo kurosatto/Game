@@ -102,7 +102,7 @@ func _initialize():
 	for i in 20:
 		await process_frame
 	p = main.player
-	var tests = ["vent", "tar", "dig", "frenzy", "extinction", "nest", "tide", "symbiont", "ambush", "glow", "dark", "fire", "molt", "procession", "meadow", "mat", "drought", "treefall", "brachiopods", "current", "deal", "run"]
+	var tests = ["vent", "tar", "dig", "frenzy", "extinction", "nest", "tide", "symbiont", "ambush", "glow", "dark", "fire", "molt", "procession", "meadow", "mat", "drought", "treefall", "brachiopods", "current", "cupreef", "deal", "run"]
 	for t in tests:
 		if only != "" and t != only:
 			continue
@@ -429,6 +429,35 @@ func t_current():
 		await kill_all()
 	await frames(40)
 	check(d.cleared, "the room clears")
+
+func t_cupreef():
+	var d = await setup("cupreef", 2)
+	var g = feature("CupReef.gd")
+	check(g != null, "the cup reef is there")
+	check(not main.in_combat(), "cup reef room has open doors")
+	check(g.cups.size() >= 6, "a reef of cups (%d)" % g.cups.size())
+	await frames(20, Vector2(250, 250))
+	check(g.hidden_count() == g.HIDERS, "they all hide in the cups (%d)" % g.hidden_count())
+	var h = g.hiders[0]
+	var e = h.e
+	check(not e.is_in_group("enemies") and not e.visible, "inside a cup it is out of reach")
+	# Walk up to its cup: it bolts
+	var cup_pos = room().global_position + g.cups[h.cup].pos
+	await frames(6, cup_pos + Vector2(0, 90))
+	check(h.cup == -1 and e.visible and e.is_in_group("enemies"), "come close and it darts out")
+	if out != "":
+		await frames(4, cup_pos + Vector2(0, 90))
+		await snap("21_cupreef_era2", true)
+	# Caught in the open
+	e.take_damage(9999.0)
+	await frames(5, cup_pos + Vector2(0, 90))
+	check(not is_instance_valid(e) or e.dead, "caught in the open it can be eaten")
+	await frames(60, Vector2(250, 250))
+	check(g.hiders.filter(func(x): return is_instance_valid(x.e) and not x.e.dead).all(func(x): return x.cup >= 0), "the others are back in cups")
+	main.load_room(main.current_room_pos)
+	await frames(10, Vector2(250, 250))
+	var g2 = feature("CupReef.gd")
+	check(g2 != null and g2.hiders.size() == 5, "one fewer on a revisit (%d)" % (g2.hiders.size() if g2 else -1))
 
 func t_procession():
 	var d = await setup("procession", 3)
