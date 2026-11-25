@@ -118,9 +118,21 @@ def move(body):
     dash_px = 200.0 / dash_cooldown(speed)
     return (speed + 0.5 * dash_px) / (BASE_SPEED + 0.5 * 200.0 / dash_cooldown(BASE_SPEED))
 
+# Eyeless forms (vision 0) see only a hand's width past their body, but their
+# other senses reach further (SenseHints.EYELESS_REACH) and pitch-dark rooms
+# cost them nothing, so their best sense counts for a little more.
+EYELESS_SENSE = 1.4
+# Sight shrinks from 220 px (blind) to 110 px, so you meet animals much closer
+# before you can aim at them. Worth more than the 0.3 power on senses shows,
+# so eyeless forms carry a flat cost the form's own stats have to pay back.
+EYELESS_COST = 0.87
+
 def senses(body):
     i = text(body, "id")
-    return (VISION.get(i, 1) + 0.5 * SENSES.get(i, 1)) / 3.0
+    other = SENSES.get(i, 1)
+    if VISION.get(i, 1) == 0:
+        return 0.5 * other * EYELESS_SENSE / 3.0
+    return (VISION.get(i, 1) + 0.5 * other) / 3.0
 
 base = FORMS[""]
 ref = (attack(base), toughness("", base))
@@ -138,6 +150,8 @@ for path, body in FORMS.items():
     m = move(body)
     s = senses(body)
     score = a * t ** 0.8 * m * s ** 0.3
+    if VISION.get(text(body, "id"), 1) == 0:
+        score *= EYELESS_COST
     depth = 0 if path == "" else len(path.split(","))
     rows.append((depth, path, text(body, "id"), int(num(body, "speed")), a, t, m, s, score))
 
@@ -151,6 +165,7 @@ for depth in sorted({r[0] for r in rows}):
         off = r[8] / median - 1.0
         flag = "  <-- %+d%%" % round(off * 100) if abs(off) > 0.15 else ""
         bad += 1 if flag else 0
-        print("  %-9s %-24s %5d %6.2f %6.2f %6.2f %6.2f %6.2f%s" % (r[1] or "(start)", r[2], r[3], r[4], r[5], r[6], r[7], r[8], flag))
+        eyeless = "  (eyeless)" if VISION.get(r[2], 1) == 0 else ""
+        print("  %-9s %-24s %5d %6.2f %6.2f %6.2f %6.2f %6.2f%s%s" % (r[1] or "(start)", r[2], r[3], r[4], r[5], r[6], r[7], r[8], flag, eyeless))
 print("\n%d form(s) more than 15%% off their step" % bad)
 sys.exit(0)
