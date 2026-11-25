@@ -432,7 +432,6 @@ func spawn_door_at(pos: Vector2, d_dir: Vector2i, rot: float):
     door.rotation = rot
     door.direction = d_dir
     door.era_dir = era_dir()
-    door.open_light = era_look.get_look(current_floor).door_light
     
     var neighbor_pos = room_data.connections[d_dir]
     var parent = get_parent()
