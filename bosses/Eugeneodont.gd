@@ -71,7 +71,7 @@ func body_hit_circles():
 	set_hit_circles(out, [52.0, 44.0, 30.0])
 
 func draw_shark():
-	pen_xf(Vector2.ZERO, facing.angle(), Vector2.ONE)
+	pen.draw_set_transform(Vector2.ZERO, facing.angle(), Vector2.ONE)
 	light_rot = facing.angle()
 	var pts = spine_pts()
 	shadow(Vector2(-LENGTH * 0.15, 18), LENGTH * 0.5, GIRTH * 1.3)
@@ -111,16 +111,16 @@ func draw_shark():
 	for k in 5:
 		var gp: Vector2 = pts[2].lerp(pts[3], k / 4.0)
 		for s in [-1.0, 1.0]:
-			pen_line(gp + Vector2(0, s * GIRTH * 0.55), gp + Vector2(-6, s * GIRTH * 0.85), Color(Shading.ink(BODY), 0.8), 2.0, true)
+			pen.draw_line(gp + Vector2(0, s * GIRTH * 0.55), gp + Vector2(-6, s * GIRTH * 0.85), Color(Shading.ink(BODY), 0.8), 2.0, true)
 	# Eyes
 	var head: Vector2 = pts[0]
 	for s in [-1.0, 1.0]:
 		var eye = head + Vector2(-34, s * GIRTH * 0.42)
-		pen_circle(eye, 7.0, OUTLINE, true, -1.0, true)
-		pen_circle(eye, 5.0, Color(0.85, 0.8, 0.55), true, -1.0, true)
-		pen_circle(eye + Vector2(1.5, 0), 2.6, Color(0.05, 0.05, 0.08), true, -1.0, true)
+		pen.draw_circle(eye, 7.0, OUTLINE, true, -1.0, true)
+		pen.draw_circle(eye, 5.0, Color(0.85, 0.8, 0.55), true, -1.0, true)
+		pen.draw_circle(eye + Vector2(1.5, 0), 2.6, Color(0.05, 0.05, 0.08), true, -1.0, true)
 	draw_teeth(head)
-	pen_xf(Vector2.ZERO, 0.0, Vector2.ONE)
+	pen.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 	light_rot = 0.0
 
 # Each boss draws its own teeth at the snout (local space, facing +X)
@@ -130,8 +130,8 @@ func draw_teeth(_snout: Vector2):
 # A row of teeth along a path: a jaw blade. side (+1/-1) is the way the
 # teeth point, across the path.
 func tooth_row(path: PackedVector2Array, n: int, tooth_len: float, side: float):
-	pen_polyline(path, Shading.ink(BODY), 10.0, true)
-	pen_polyline(path, BODY.lightened(0.3), 6.0, true)
+	pen.draw_polyline(path, Shading.ink(BODY), 10.0, true)
+	pen.draw_polyline(path, BODY.lightened(0.3), 6.0, true)
 	for i in n:
 		var f = (i + 0.5) / n * (path.size() - 1)
 		var k = mini(int(f), path.size() - 2)
@@ -140,9 +140,9 @@ func tooth_row(path: PackedVector2Array, n: int, tooth_len: float, side: float):
 		var dir = along.orthogonal() * side
 		var tl = tooth_len * (0.6 + 0.6 * float(i) / n)
 		var tooth = PackedVector2Array([base - along * tl * 0.4, base + dir * tl - along * tl * 0.1, base + along * tl * 0.4])
-		pen_polygon(tooth, TOOTH)
+		pen.draw_colored_polygon(tooth, TOOTH)
 		tooth.append(tooth[0])
-		pen_polyline(tooth, OUTLINE, 1.5, true)
+		pen.draw_polyline(tooth, OUTLINE, 1.5, true)
 
 # A curved row of teeth along an arc, for the tooth whorls
 func tooth_arc(center: Vector2, r: float, a0: float, a1: float, n: int, tooth_len: float, outward: bool = true):
@@ -150,14 +150,14 @@ func tooth_arc(center: Vector2, r: float, a0: float, a1: float, n: int, tooth_le
 	for i in 25:
 		var a = lerp(a0, a1, i / 24.0)
 		pts.append(center + Vector2.from_angle(a) * r)
-	pen_polyline(pts, Shading.ink(BODY), 9.0, true)
-	pen_polyline(pts, BODY.lightened(0.2), 5.0, true)
+	pen.draw_polyline(pts, Shading.ink(BODY), 9.0, true)
+	pen.draw_polyline(pts, BODY.lightened(0.2), 5.0, true)
 	for i in n:
 		var a = lerp(a0, a1, (i + 0.5) / n)
 		var dir = Vector2.from_angle(a) * (1.0 if outward else -1.0)
 		var base = center + Vector2.from_angle(a) * r
 		var side = dir.orthogonal()
 		var tooth = PackedVector2Array([base - side * tooth_len * 0.42, base + dir * tooth_len + side * tooth_len * 0.15, base + side * tooth_len * 0.42])
-		pen_polygon(tooth, TOOTH)
+		pen.draw_colored_polygon(tooth, TOOTH)
 		tooth.append(tooth[0])
-		pen_polyline(tooth, OUTLINE, 1.5, true)
+		pen.draw_polyline(tooth, OUTLINE, 1.5, true)

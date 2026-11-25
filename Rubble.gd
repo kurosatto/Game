@@ -5,12 +5,20 @@
 # It blocks bodies but is low, so shots fly over it.
 extends StaticBody2D
 
-const INK = Color(0.24, 0.15, 0.08)
-const FILL = Color(0.62, 0.53, 0.42)
-const SHADE = Color(0.45, 0.36, 0.27)
+# Painted in the floor's scenery theme (data/SceneryTheme.gd) by Room.add_rubble
+var INK = Color(0.24, 0.15, 0.08)
+var FILL = Color(0.62, 0.53, 0.42)
+var SHADE = Color(0.45, 0.36, 0.27)
+
+func set_theme(era_name: String):
+    var T = preload("res://data/SceneryTheme.gd")
+    INK = T.dark(era_name).darkened(0.35)
+    FILL = T.tone(era_name, 0.72)
+    SHADE = T.tone(era_name, 0.42)
 var a := Vector2.ZERO
 var b := Vector2.ZERO
 var stones: Array = [] # [outline points, centre, radius]
+var pen = preload("res://InkBatch.gd").new() # all the pebbles in one draw call
 
 func setup(from: Vector2, to: Vector2, thickness: float = 40.0):
     a = from
@@ -49,16 +57,18 @@ func setup(from: Vector2, to: Vector2, thickness: float = 40.0):
     queue_redraw()
 
 func _draw():
+    pen.begin(self)
     for s in stones:
         var pts: PackedVector2Array = s[0]
-        draw_colored_polygon(pts, FILL)
+        pen.draw_colored_polygon(pts, FILL)
         # shaded underside, two hatch strokes, then the ink outline
         var c: Vector2 = s[1]
         var h: float = s[2]
-        draw_circle(c + Vector2(0, h * 0.4), h * 0.5, SHADE)
+        pen.draw_circle(c + Vector2(0, h * 0.4), h * 0.5, SHADE)
         for k in 2:
             var x = (k - 0.5) * h * 0.7
-            draw_line(c + Vector2(x - h * 0.25, h * 0.1), c + Vector2(x + h * 0.25, h * 0.6), INK, 1.2, true)
+            pen.draw_line(c + Vector2(x - h * 0.25, h * 0.1), c + Vector2(x + h * 0.25, h * 0.6), INK, 1.2, true)
         var ring := pts.duplicate()
         ring.append(pts[0])
-        draw_polyline(ring, INK, 2.2, true)
+        pen.draw_polyline(ring, INK, 2.2, true)
+    pen.flush()

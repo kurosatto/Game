@@ -7,6 +7,9 @@ extends RefCounted
 const OBSTACLE_TYPES = ["rock", "coral_spire", "biocrystal", "fossil_bone", "stromatolite", "ediacaran_frond", "hydrothermal_vent", "calcified_sponge"]
 
 static func get_normal_layouts() -> Array:
+    return base_layouts() + designed_layouts()
+
+static func base_layouts() -> Array:
     return [
         # Layout 1: The Four Monoliths (Quad Pillars)
         {
@@ -492,6 +495,108 @@ static func get_normal_layouts() -> Array:
                 {"gx": 7, "gy": 3, "type": "fly"},
             ]
         },
+    ]
+
+# ─────────────────────────────────────────────────────────
+# DESIGNED LAYOUTS (kuro, 2026-11-25: "too default")
+# Shaped arrangements instead of grid blocks: a reef crescent, a scree slope,
+# a ring of mounds, a ridge with two gaps, twin groves, a vent chain, a
+# fossil bed and a colonnade. Pieces sit off the grid by dx/dy pixels (kept
+# under half a cell, so door safety still works by cell). Gaps too narrow
+# to walk get pebbles (Room.close_tight_gaps); tools/gaptest.gd checks them.
+# ─────────────────────────────────────────────────────────
+
+static func ob(gx: int, gy: int, type: String, dx: int = 0, dy: int = 0) -> Dictionary:
+    return {"gx": gx, "gy": gy, "type": type, "dx": dx, "dy": dy}
+
+# Cells the door filter lets animals start in, best first; the first free
+# ones (no scenery on the cell) become the layout's spawns
+const SPAWN_CELLS = [
+    [4, 1, "pacer"], [10, 6, "pacer"], [10, 1, "fly"], [4, 6, "fly"],
+    [5, 3, "pacer"], [9, 4, "fly"], [4, 4, "fly"], [10, 3, "pacer"],
+    [2, 1, "fly"], [12, 6, "fly"], [12, 1, "pacer"], [2, 6, "pacer"],
+]
+
+static func designed(id: String, name: String, obstacles: Array, n_spawns: int = 5) -> Dictionary:
+    var used := {}
+    for o in obstacles:
+        used[Vector2i(o.gx, o.gy)] = true
+    var spawns: Array = []
+    for c in SPAWN_CELLS:
+        if spawns.size() >= n_spawns:
+            break
+        if not used.has(Vector2i(c[0], c[1])):
+            spawns.append({"gx": c[0], "gy": c[1], "type": c[2]})
+    return {"id": id, "name": name, "obstacles": obstacles, "decals": [], "enemy_spawns": spawns}
+
+# A ring of pieces around the middle, left open on the four door lines
+static func ring_pieces(types: Array) -> Array:
+    var out: Array = []
+    var cx = 7 * 128 + 64
+    var cy = 3.5 * 128 + 64
+    var angles = [28, 62, 118, 152, 208, 242, 298, 332]
+    for i in angles.size():
+        var a = deg_to_rad(angles[i])
+        var x = cx + cos(a) * 3.3 * 128
+        var y = cy + sin(a) * 2.25 * 128
+        var gx = int(round((x - 64) / 128.0))
+        var gy = int(round((y - 64) / 128.0))
+        out.append(ob(gx, gy, types[i % types.size()], int(x - (gx * 128 + 64)), int(y - (gy * 128 + 64))))
+    return out
+
+static func designed_layouts() -> Array:
+    return [
+        # A crescent of reef cupped round the left half, boulders and old
+        # bones to the right
+        designed("reef_crescent", "The Reef Crescent", [
+            ob(5, 1, "stromatolite", 30, 20), ob(4, 2, "calcified_sponge", 0, 10),
+            ob(3, 2, "coral_spire", -30, -20), ob(4, 5, "calcified_sponge", 0, -10),
+            ob(5, 6, "stromatolite", 30, -20), ob(3, 5, "coral_spire", -30, 20),
+            ob(10, 2, "rock", 10, 40), ob(11, 6, "fossil_bone", 0, -10), ob(11, 1, "fossil_bone", -20, 10),
+        ]),
+        # A scree of boulders tumbling out of the top-left corner, and a
+        # smaller fall in the bottom-right
+        designed("boulder_scree", "The Boulder Scree", [
+            ob(2, 1, "rock", -10, 0), ob(3, 1, "rock", 20, 20), ob(2, 2, "rock", 20, 30),
+            ob(4, 2, "rock", 30, 50), ob(5, 1, "fossil_bone", 30, 10),
+            ob(12, 6, "rock", 10, 0), ob(11, 5, "rock", -10, 40), ob(10, 5, "fossil_bone", -20, 10),
+        ]),
+        # A ring of mounds round the middle, open on every door line
+        designed("mound_ring", "The Mound Ring", ring_pieces(["stromatolite", "calcified_sponge", "stromatolite", "rock"])),
+        # A ridge running corner to corner, broken in the middle
+        designed("broken_ridge", "The Broken Ridge", [
+            ob(2, 1, "rock", 0, 20), ob(3, 1, "stromatolite", 20, 50), ob(4, 2, "rock", 20, 20),
+            ob(5, 2, "calcified_sponge", 30, 50),
+            ob(9, 5, "calcified_sponge", -30, -50), ob(10, 5, "rock", -20, -20),
+            ob(11, 6, "stromatolite", -20, -50), ob(12, 6, "rock", 0, -20),
+        ]),
+        # Two thick groves in opposite corners, a lone stone in the others
+        designed("twin_groves", "The Twin Groves", [
+            ob(2, 1, "coral_spire", 10, 10), ob(3, 1, "stromatolite", 30, 20), ob(2, 2, "calcified_sponge", 30, 30),
+            ob(4, 2, "coral_spire", 0, -10),
+            ob(12, 6, "coral_spire", -10, -10), ob(11, 6, "stromatolite", -30, -20), ob(12, 5, "calcified_sponge", -30, -30),
+            ob(10, 5, "coral_spire", 0, 10),
+            ob(12, 1, "rock", -20, 20), ob(2, 6, "fossil_bone", 20, -20),
+        ]),
+        # A chain of vents zigzagging along the top and bottom
+        designed("vent_chain", "The Vent Chain", [
+            ob(2, 2, "hydrothermal_vent", 20, 0), ob(4, 1, "rock", 0, 40), ob(5, 2, "hydrothermal_vent", 0, 30),
+            ob(9, 5, "hydrothermal_vent", 0, -30), ob(10, 6, "rock", 0, -40), ob(12, 5, "hydrothermal_vent", -20, 0),
+            ob(10, 2, "stromatolite", 0, 0), ob(4, 5, "stromatolite", 0, 0),
+        ]),
+        # A bed of fossils washed out in a band, a few rocks above it
+        designed("fossil_bed", "The Fossil Bed", [
+            ob(2, 5, "fossil_bone", 20, 30), ob(4, 5, "fossil_bone", -20, 50), ob(5, 4, "fossil_bone", 10, 30),
+            ob(9, 3, "fossil_bone", -10, -30), ob(10, 2, "fossil_bone", 20, -50), ob(12, 2, "fossil_bone", -20, -30),
+            ob(3, 1, "rock", 0, 30), ob(11, 6, "rock", 0, -30),
+        ]),
+        # Two staggered rows of tall growth, like an avenue
+        designed("colonnade", "The Colonnade", [
+            ob(2, 2, "coral_spire", 0, -20), ob(3, 2, "coral_spire", 20, 20), ob(4, 2, "coral_spire", 40, -20),
+            ob(10, 2, "coral_spire", -40, -20), ob(11, 2, "coral_spire", -20, 20), ob(12, 2, "coral_spire", 0, -20),
+            ob(2, 5, "coral_spire", 0, 20), ob(3, 5, "coral_spire", 20, -20), ob(4, 5, "coral_spire", 40, 20),
+            ob(10, 5, "coral_spire", -40, 20), ob(11, 5, "coral_spire", -20, -20), ob(12, 5, "coral_spire", 0, 20),
+        ]),
     ]
 
 # ─────────────────────────────────────────────────────────

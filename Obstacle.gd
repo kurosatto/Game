@@ -4,6 +4,14 @@ extends StaticBody2D
 @export var obstacle_type: String = "rock"
 
 var light_node: PointLight2D = null
+const SceneryTheme = preload("res://data/SceneryTheme.gd")
+# The art is already drawn in its floor's two tones (generate_scenery_art.py);
+# the shader pulls it a little further in (1 = fully), and can soften its
+# light/dark contrast (1 = not at all)
+const THEME_STRENGTH = 0.3
+const THEME_SOFTEN = 1.0
+# Sway and glow are calmer than they were (kuro, 2026-11-25: distracting)
+const SWAY_SCALE = 0.6
 
 # Layout obstacle types map onto the five art slots each era has
 const ERA_SLOT = {
@@ -39,6 +47,10 @@ uniform float phase = 0.0;
 uniform float flash = 0.0;
 uniform float push = 0.0;   // a body brushing past bends it (Obstacle._process)
 uniform float gust_x = 0.0; // world x, so gusts roll across the room
+uniform vec3 theme_dark = vec3(0.3);
+uniform vec3 theme_pale = vec3(0.75);
+uniform float theme_amount = 0.0;
+uniform float theme_soften = 1.0;
 void vertex() {
     // The top of the sprite sways, the base (footprint) stays put. A slow
     // swell, a quicker flutter on top, and now and then a gust of current
@@ -54,6 +66,12 @@ void fragment() {
     float tip = clamp(1.0 - UV.y, 0.0, 1.0);
     vec2 uv = UV + vec2(sin(UV.y * 38.0 + TIME * 2.6 + phase) * 0.0035 * amount * 10.0 * tip * tip, 0.0);
     vec4 c = texture(TEXTURE, clamp(uv, vec2(0.0), vec2(1.0))) * COLOR;
+    // The floor's theme: keep the drawing's light and dark, swap its own
+    // colours for the floor's two tones, and soften the contrast a little
+    float lum = dot(c.rgb, vec3(0.299, 0.587, 0.114));
+    lum = mix(0.5, lum, theme_soften);
+    vec3 themed = mix(theme_dark, theme_pale, smoothstep(0.08, 0.92, lum));
+    c.rgb = mix(c.rgb, themed, theme_amount);
     COLOR = vec4(mix(c.rgb, vec3(1.0), flash), c.a);
 }
 """
@@ -62,76 +80,76 @@ void fragment() {
 # in world px. Rocks and fossils are solid over their whole body; fronds,
 # stems and trees only at the base, so a gap that looks open is open.
 const FOOTPRINT = {
-    "cambrian/fossil": [2, -5, 49, 27],
-    "cambrian/fossil_2": [-1, -4, 48, 28],
-    "cambrian/glow": [-1, -12, 26, 21],
-    "cambrian/glow_2": [-1, -12, 26, 21],
-    "cambrian/mound": [-1, -11, 27, 21],
-    "cambrian/mound_2": [-1, -11, 27, 21],
-    "cambrian/rock": [-2, -13, 46, 29],
-    "cambrian/rock_2": [1, -13, 46, 28],
-    "cambrian/tall": [0, -11, 39, 25],
-    "cambrian/tall_2": [0, -11, 39, 25],
+    "cambrian/fossil": [3, -5, 48, 27],
+    "cambrian/fossil_2": [-1, -3, 48, 28],
+    "cambrian/glow": [0, -23, 21, 21],
+    "cambrian/glow_2": [0, -23, 21, 21],
+    "cambrian/mound": [-1, -40, 30, 36],
+    "cambrian/mound_2": [-1, -23, 11, 21],
+    "cambrian/rock": [-3, -13, 45, 27],
+    "cambrian/rock_2": [2, -14, 45, 27],
+    "cambrian/tall": [-2, -50, 36, 43],
+    "cambrian/tall_2": [-2, -50, 36, 43],
     "carboniferous/fossil": [-1, -4, 48, 29],
     "carboniferous/fossil_2": [-1, -6, 48, 29],
-    "carboniferous/glow": [1, -16, 46, 34],
-    "carboniferous/glow_2": [1, -16, 46, 34],
-    "carboniferous/mound": [-1, -22, 40, 32],
-    "carboniferous/mound_2": [1, -19, 39, 30],
-    "carboniferous/rock": [-1, -13, 45, 29],
-    "carboniferous/rock_2": [1, -13, 46, 28],
-    "carboniferous/tall": [-1, -14, 34, 25],
-    "carboniferous/tall_2": [0, -17, 16, 25],
-    "ediacaran/fossil": [1, -5, 49, 27],
-    "ediacaran/fossil_2": [-1, -7, 49, 28],
-    "ediacaran/glow": [5, -11, 43, 23],
-    "ediacaran/glow_2": [-2, -10, 45, 21],
-    "ediacaran/mound": [1, -14, 44, 27],
-    "ediacaran/mound_2": [1, -14, 44, 27],
-    "ediacaran/rock": [-1, -13, 45, 28],
-    "ediacaran/rock_2": [1, -12, 46, 27],
-    "ediacaran/tall": [-1, -17, 27, 25],
-    "ediacaran/tall_2": [-3, -17, 27, 25],
-    "ordovician/fossil": [1, -6, 49, 27],
-    "ordovician/fossil_2": [-1, -7, 49, 28],
-    "ordovician/glow": [-1, -21, 37, 36],
-    "ordovician/glow_2": [-1, -21, 37, 36],
-    "ordovician/mound": [-1, -24, 42, 35],
-    "ordovician/mound_2": [-1, -24, 42, 35],
-    "ordovician/rock": [-2, -14, 46, 30],
-    "ordovician/rock_2": [-1, -12, 45, 27],
-    "ordovician/tall": [-1, -18, 12, 25],
-    "ordovician/tall_2": [-1, -18, 12, 25],
-    "permian/fossil": [-1, -6, 48, 29],
-    "permian/fossil_2": [0, -7, 49, 27],
-    "permian/glow": [1, -15, 45, 42],
-    "permian/glow_2": [-1, -15, 45, 42],
-    "permian/mound": [-1, -28, 32, 36],
-    "permian/mound_2": [-1, -28, 32, 36],
-    "permian/rock": [0, -11, 45, 25],
-    "permian/rock_2": [0, -13, 45, 27],
-    "permian/tall": [-1, -14, 31, 25],
-    "permian/tall_2": [-1, -14, 31, 25],
+    "carboniferous/glow": [2, -9, 46, 23],
+    "carboniferous/glow_2": [2, -9, 46, 23],
+    "carboniferous/mound": [1, -31, 41, 25],
+    "carboniferous/mound_2": [2, -27, 37, 22],
+    "carboniferous/rock": [-2, -14, 44, 28],
+    "carboniferous/rock_2": [2, -12, 44, 29],
+    "carboniferous/tall": [0, -14, 33, 25],
+    "carboniferous/tall_2": [-1, -32, 14, 25],
     "carboniferous_sea/fossil": [-1, -6, 48, 29],
-    "carboniferous_sea/fossil_2": [-1, -4, 48, 28],
-    "carboniferous_sea/glow": [-1, -21, 37, 36],
-    "carboniferous_sea/glow_2": [-1, -21, 37, 36],
-    "carboniferous_sea/mound": [-1, -12, 24, 21],
-    "carboniferous_sea/mound_2": [-1, -12, 24, 21],
-    "carboniferous_sea/rock": [1, -13, 46, 28],
-    "carboniferous_sea/rock_2": [0, -13, 43, 27],
-    "carboniferous_sea/tall": [-1, -18, 12, 25],
-    "carboniferous_sea/tall_2": [-1, -18, 12, 25],
-    "permian_sea/fossil": [-2, -6, 48, 29],
-    "permian_sea/fossil_2": [0, -4, 49, 28],
-    "permian_sea/glow": [-1, -12, 26, 21],
-    "permian_sea/glow_2": [-1, -12, 26, 21],
-    "permian_sea/mound": [-5, -29, 41, 37],
-    "permian_sea/mound_2": [-3, -29, 40, 37],
-    "permian_sea/rock": [-1, -14, 46, 29],
-    "permian_sea/rock_2": [-1, -11, 43, 25],
-    "permian_sea/tall": [-1, -17, 15, 25],
-    "permian_sea/tall_2": [-1, -17, 18, 25],
+    "carboniferous_sea/fossil_2": [-1, -4, 48, 29],
+    "carboniferous_sea/glow": [0, -16, 37, 28],
+    "carboniferous_sea/glow_2": [0, -16, 37, 27],
+    "carboniferous_sea/mound": [0, -23, 23, 21],
+    "carboniferous_sea/mound_2": [0, -23, 23, 21],
+    "carboniferous_sea/rock": [3, -13, 45, 26],
+    "carboniferous_sea/rock_2": [-1, -14, 44, 25],
+    "carboniferous_sea/tall": [-1, -24, 12, 25],
+    "carboniferous_sea/tall_2": [-1, -24, 12, 25],
+    "ediacaran/fossil": [1, -4, 48, 27],
+    "ediacaran/fossil_2": [-1, -7, 49, 28],
+    "ediacaran/glow": [5, -11, 43, 22],
+    "ediacaran/glow_2": [-1, -8, 44, 20],
+    "ediacaran/mound": [1, -17, 44, 24],
+    "ediacaran/mound_2": [1, -17, 44, 24],
+    "ediacaran/rock": [-2, -13, 45, 27],
+    "ediacaran/rock_2": [2, -13, 45, 27],
+    "ediacaran/tall": [-1, -20, 28, 25],
+    "ediacaran/tall_2": [-2, -20, 28, 25],
+    "ordovician/fossil": [1, -6, 49, 27],
+    "ordovician/fossil_2": [-1, -6, 48, 29],
+    "ordovician/glow": [0, -17, 37, 27],
+    "ordovician/glow_2": [0, -17, 37, 27],
+    "ordovician/mound": [-1, -30, 42, 30],
+    "ordovician/mound_2": [-1, -30, 42, 30],
+    "ordovician/rock": [-2, -14, 45, 29],
+    "ordovician/rock_2": [-1, -11, 45, 27],
+    "ordovician/tall": [-1, -24, 12, 25],
+    "ordovician/tall_2": [-1, -24, 12, 25],
+    "permian/fossil": [-1, -5, 48, 29],
+    "permian/fossil_2": [1, -7, 48, 28],
+    "permian/glow": [2, -11, 45, 24],
+    "permian/glow_2": [-1, -10, 45, 22],
+    "permian/mound": [0, -35, 33, 30],
+    "permian/mound_2": [0, -35, 33, 30],
+    "permian/rock": [1, -11, 45, 25],
+    "permian/rock_2": [1, -14, 45, 25],
+    "permian/tall": [-1, -29, 10, 25],
+    "permian/tall_2": [-1, -29, 10, 25],
+    "permian_sea/fossil": [-1, -6, 48, 29],
+    "permian_sea/fossil_2": [-1, -4, 48, 29],
+    "permian_sea/glow": [0, -23, 21, 21],
+    "permian_sea/glow_2": [0, -23, 21, 21],
+    "permian_sea/mound": [-5, -34, 41, 32],
+    "permian_sea/mound_2": [-4, -34, 40, 32],
+    "permian_sea/rock": [0, -14, 45, 27],
+    "permian_sea/rock_2": [0, -11, 43, 24],
+    "permian_sea/tall": [-2, -27, 14, 25],
+    "permian_sea/tall_2": [0, -27, 18, 25],
 }
 # Fallback for the old generic art: the original 44 px circle
 var foot_c := Vector2.ZERO
@@ -200,8 +218,9 @@ func setup_obstacle(type_name: String = "rock", era_dir: String = ""):
             slot += "_2"
         tex_path = era_dir + slot + ".png"
         var l = ERA_LIGHT.get(slot.trim_suffix("_2"), [Color(0, 0, 0), 0.0])
-        light_color = GLOW_COLORS.get(era_name, l[0]) if slot.begins_with("glow") else l[0]
-        light_energy = l[1]
+        # Lights take the floor's quiet glow tint, at about half the old strength
+        light_color = SceneryTheme.glow(era_name)
+        light_energy = l[1] * 0.5
         # Newer 160 px scenery has its footprint 20 px below the middle
         if load(tex_path).get_width() == 160:
             sprite.offset = Vector2(0, -20)
@@ -209,7 +228,9 @@ func setup_obstacle(type_name: String = "rock", era_dir: String = ""):
         sprite.flip_h = randf() < 0.5 and not slot.begins_with("fossil")
         slot_name = slot
         set_footprint(era_name + "/" + slot, sprite.flip_h)
-        setup_sway(sprite, SWAY.get(era_name + "/" + slot, SWAY.get(era_name + "/" + slot.trim_suffix("_2"), 0.0)))
+        # Every piece gets the shader for the floor's colour theme; only
+        # plants actually sway
+        setup_sway(sprite, SWAY_SCALE * SWAY.get(era_name + "/" + slot, SWAY.get(era_name + "/" + slot.trim_suffix("_2"), 0.0)))
     sprite.texture = load(tex_path)
     
     if light_energy > 0:
@@ -263,6 +284,11 @@ func setup_sway(sprite: Sprite2D, amount: float):
     mat.set_shader_parameter("amount", amount)
     mat.set_shader_parameter("phase", position.x * 0.013 + position.y * 0.007)
     mat.set_shader_parameter("gust_x", position.x)
+    var th = SceneryTheme.get_theme(era_name)
+    mat.set_shader_parameter("theme_dark", Vector3(th[0].r, th[0].g, th[0].b))
+    mat.set_shader_parameter("theme_pale", Vector3(th[1].r, th[1].g, th[1].b))
+    mat.set_shader_parameter("theme_amount", THEME_STRENGTH)
+    mat.set_shader_parameter("theme_soften", THEME_SOFTEN)
     sprite.material = mat
     sway_mat = mat
 
@@ -303,12 +329,12 @@ func _process(delta: float):
         update_push(delta)
     if light_node and base_energy > 0.0 and slot_name.begins_with("glow"):
         glow_phase += delta
-        light_node.energy = base_energy * (0.85 + 0.15 * sin(glow_phase * 1.7) + (0.12 * sin(glow_phase * 7.3) if era_name == "permian" else 0.0))
+        light_node.energy = base_energy * (0.94 + 0.06 * sin(glow_phase * 1.2) + (0.04 * sin(glow_phase * 7.3) if era_name == "permian" else 0.0))
 
 func add_glow_particles():
     var p = CPUParticles2D.new()
     p.position = Vector2(0, -10)
-    p.amount = 5
+    p.amount = 3
     p.lifetime = 2.4
     p.preprocess = 2.4
     p.emission_shape = CPUParticles2D.EMISSION_SHAPE_RECTANGLE
@@ -321,11 +347,11 @@ func add_glow_particles():
     p.scale_amount_min = 2.0
     p.scale_amount_max = 4.5
     var fade = Gradient.new()
-    var col: Color = GLOW_COLORS.get(era_name, Color(0.7, 1.0, 0.9))
+    var col: Color = SceneryTheme.glow(era_name)
     match era_name:
         "ediacaran", "cambrian", "ordovician", "carboniferous_sea", "permian_sea":
             # Bubbles rising through the water
-            col = Color(0.85, 1.0, 1.0)
+            col = SceneryTheme.glow(era_name).lerp(Color.WHITE, 0.4)
         "carboniferous":
             # Drifting spores
             p.initial_velocity_min = 6.0
@@ -333,12 +359,11 @@ func add_glow_particles():
             p.spread = 60.0
         "permian":
             # Embers from the lava
-            col = Color(1.0, 0.6, 0.2)
-            p.amount = 7
+            p.amount = 4
             p.lifetime = 1.4
             p.initial_velocity_max = 50.0
     fade.set_color(0, Color(col.r, col.g, col.b, 0.0))
-    fade.add_point(0.2, Color(col.r, col.g, col.b, 0.75))
+    fade.add_point(0.2, Color(col.r, col.g, col.b, 0.4))
     fade.set_color(1, Color(col.r, col.g, col.b, 0.0))
     p.color_ramp = fade
     add_child(p)

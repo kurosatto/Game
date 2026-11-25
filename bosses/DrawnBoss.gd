@@ -106,6 +106,7 @@ func setup():
 		pivot.add_child(holder)
 		var b = PlayerBody.new()
 		b.foe = true
+		b.pen = preload("res://HitPen.gd").new()
 		b.player = self
 		b.set_form(spec.form)
 		b.scale = Vector2.ONE * S
@@ -415,9 +416,9 @@ func update_hits():
 			radii.append(14.0 * S * (1.0 - abs(k) * 0.6))
 	set_hit_circles(pts, radii)
 
-# The giant drawings are child nodes, drawn after the boss: read their
-# outline hull and strokes when asked, so the hit test matches the picture
-# on screen (BossBase.gap_to)
+# The giant drawings are child nodes, drawn after the boss with their own
+# HitPen: read what they drew when asked, so the hit test matches the
+# picture on screen (BossBase.gap_to)
 var _pieces: Array = []
 var _pieces_r: float = 0.0
 var _pieces_frame: int = -1
@@ -426,20 +427,16 @@ func hit_pieces() -> Array:
 	var f = Engine.get_process_frames()
 	if f != _pieces_frame:
 		_pieces_frame = f
-		_pen_next = []
+		_pieces = []
 		var inv = get_global_transform().affine_inverse()
 		for b in bodies:
-			if not b.visible or b._hull.size() < 3:
+			if not b.visible:
 				continue
-			_pen_xf = inv * b.get_global_transform() * b.hit_xf()
-			_pen_poly(b._hull)
-			for poly in b.hit_polys:
-				_pen_poly(poly)
-			for sg in b.hit_segs:
-				_pen_seg(sg[0], sg[1], sg[2])
-		_pen_xf = Transform2D.IDENTITY
-		_pieces = _pen_next
-		_pen_next = []
+			var m: Transform2D = inv * b.get_global_transform()
+			var k: float = m.get_scale().x
+			for d in b.hits:
+				# capsule [a, b, half width] or polygon [points, centre, radius]
+				_pieces.append([m * d[0], m * d[1], d[2] * k])
 		_pieces_r = bound_of(_pieces)
 	return [_pieces, _pieces_r]
 
@@ -463,12 +460,12 @@ func draw_body():
 			for k in 4:
 				var f = fmod(t * 1.6 + k * 0.25, 1.0)
 				var rr = lerp(420.0, 30.0, f)
-				draw_arc(mouth, rr, facing.angle() - 0.9, facing.angle() + 0.9, 24, Color(WARN.r, WARN.g, WARN.b, 0.5 * f), 3.0, true)
+				pen.draw_arc(mouth, rr, facing.angle() - 0.9, facing.angle() + 0.9, 24, Color(WARN.r, WARN.g, WARN.b, 0.5 * f), 3.0, true)
 		"ring_wind", "burst_wind", "stir_wind":
 			var k = clamp(state_time / 0.6, 0.0, 1.0)
-			draw_arc(Vector2.ZERO, r * (1.0 + 0.4 * k), 0, TAU, 48, Color(WARN.r, WARN.g, WARN.b, 0.3 + 0.4 * k), 4.0, true)
+			pen.draw_arc(Vector2.ZERO, r * (1.0 + 0.4 * k), 0, TAU, 48, Color(WARN.r, WARN.g, WARN.b, 0.3 + 0.4 * k), 4.0, true)
 		"dive", "surface":
 			# A ripple on the surface where it swims
 			for k in 3:
 				var f = fmod(t * 1.2 + k / 3.0, 1.0)
-				draw_arc(Vector2.ZERO, 30.0 + f * 90.0, 0, TAU, 32, Color(0.2, 0.15, 0.1, 0.5 * (1.0 - f)), 3.0, true)
+				pen.draw_arc(Vector2.ZERO, 30.0 + f * 90.0, 0, TAU, 32, Color(0.2, 0.15, 0.1, 0.5 * (1.0 - f)), 3.0, true)

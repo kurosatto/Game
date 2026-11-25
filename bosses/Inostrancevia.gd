@@ -231,12 +231,12 @@ func draw_body():
 	if state == "rush_wind":
 		warn_line(facing * 100.0, facing * (100.0 + RUSH_SPEED), 130.0)
 
-	pen_xf(Vector2.ZERO, facing.angle(), Vector2.ONE)
+	pen.draw_set_transform(Vector2.ZERO, facing.angle(), Vector2.ONE)
 	light_rot = facing.angle()
 	# Its shadow drops away below it in a leap
 	shadow(Vector2(-20, 14 + air * 40.0), 180 * (1.0 - air * 0.25), 60 * (1.0 - air * 0.25))
 	var lift = 1.0 + air * 0.18
-	pen_xf(Vector2.ZERO, facing.angle(), Vector2(lift, lift))
+	pen.draw_set_transform(Vector2.ZERO, facing.angle(), Vector2(lift, lift))
 
 	# Legs held more under the body than Dimetrodon's: knees in, feet close
 	for leg in [[60.0, 0.0, 1.0], [-80.0, PI, 0.9]]:
@@ -256,8 +256,8 @@ func draw_body():
 			limb(PackedVector2Array([hip, knee, foot]), 22.0 * leg[2], shade(SKIN, 0.85))
 			for toe in 5:
 				var ta = (toe - 2) * 0.28
-				pen_line(foot, foot + Vector2(12, 0).rotated(ta), OUTLINE, 4.5, true)
-				pen_line(foot, foot + Vector2(11, 0).rotated(ta), TOOTH, 2.0, true)
+				pen.draw_line(foot, foot + Vector2(12, 0).rotated(ta), OUTLINE, 4.5, true)
+				pen.draw_line(foot, foot + Vector2(11, 0).rotated(ta), TOOTH, 2.0, true)
 
 	# Body and short tail along the spine
 	var spine := []
@@ -272,10 +272,10 @@ func draw_body():
 		var p: Vector2 = spine[i]
 		var w: float = widths[i]
 		for s in [-1.0, 1.0]:
-			pen_circle(p + Vector2(0, s * w * 0.55), 6.0 + (i % 2) * 2.0, Color(SADDLE, 0.6), true, -1.0, true)
+			pen.draw_circle(p + Vector2(0, s * w * 0.55), 6.0 + (i % 2) * 2.0, Color(SADDLE, 0.6), true, -1.0, true)
 
 	draw_head()
-	pen_xf(Vector2.ZERO, 0.0, Vector2.ONE)
+	pen.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 	light_rot = 0.0
 
 func draw_head():
@@ -289,7 +289,7 @@ func draw_head():
 		# The jaws part around a hinge far back (drawn apart, as the other
 		# bosses are): a deep red gape with the sabres bared at the front
 		var mouth := PackedVector2Array([hinge + Vector2(6, 0), hinge + Vector2(108, -2).rotated(-open * 0.5), hinge + Vector2(108, 2).rotated(open * 0.5)])
-		pen_polygon(mouth, MOUTH)
+		pen.draw_colored_polygon(mouth, MOUTH)
 		for jaw in [-1.0, 1.0]:
 			var rot = jaw * open * 0.5
 			var pts := PackedVector2Array()
@@ -300,33 +300,33 @@ func draw_head():
 			# blade inward across the gape
 			var root = hinge + Vector2(84, jaw * 8).rotated(rot)
 			var tip = root + Vector2(10, -jaw * (26.0 + gape * 10.0)).rotated(rot)
-			pen_line(root, tip, OUTLINE, 9.0, true)
-			pen_line(root, tip, TOOTH, 5.0, true)
+			pen.draw_line(root, tip, OUTLINE, 9.0, true)
+			pen.draw_line(root, tip, TOOTH, 5.0, true)
 			for k in 4:
 				var tp = hinge + Vector2(40 + k * 10, jaw * 6).rotated(rot)
-				pen_line(tp, tp - Vector2(0, jaw * 6).rotated(rot), OUTLINE, 4.0, true)
-				pen_line(tp, tp - Vector2(0, jaw * 6).rotated(rot), TOOTH, 2.0, true)
+				pen.draw_line(tp, tp - Vector2(0, jaw * 6).rotated(rot), OUTLINE, 4.0, true)
+				pen.draw_line(tp, tp - Vector2(0, jaw * 6).rotated(rot), TOOTH, 2.0, true)
 			var eye = hinge + Vector2(32, jaw * 27).rotated(rot)
-			pen_circle(eye, 7.0, OUTLINE, true, -1.0, true)
-			pen_circle(eye, 5.0, Color(1.0, 0.72, 0.25), true, -1.0, true)
-			pen_circle(eye + Vector2(1, 0), 2.2, OUTLINE, true, -1.0, true)
+			pen.draw_circle(eye, 7.0, OUTLINE, true, -1.0, true)
+			pen.draw_circle(eye, 5.0, Color(1.0, 0.72, 0.25), true, -1.0, true)
+			pen.draw_circle(eye + Vector2(1, 0), 2.2, OUTLINE, true, -1.0, true)
 		return
 	shape(skull, shade(SKIN, 1.06), 3.0)
-	pen_line(hinge + Vector2(12, 0), hinge + Vector2(90, 0), shade(SKIN, 0.78), 2.0, true)
+	pen.draw_line(hinge + Vector2(12, 0), hinge + Vector2(90, 0), shade(SKIN, 0.78), 2.0, true)
 	# The sabres: long upper canines that hang below the snout either side,
 	# longer and bared when it gapes
 	for side in [-1.0, 1.0]:
 		var root = hinge + Vector2(80, side * 28)
 		var tip = root + Vector2(-6 + gape * 6.0, side * (20.0 + gape * 16.0))
-		pen_line(root, tip, OUTLINE, 8.0, true)
-		pen_line(root, tip, TOOTH, 4.5, true)
+		pen.draw_line(root, tip, OUTLINE, 8.0, true)
+		pen.draw_line(root, tip, TOOTH, 4.5, true)
 		# A few smaller incisors at the front
 		for k in 3:
 			var ip = hinge + Vector2(94 - k * 3, side * (6 + k * 4))
-			pen_line(ip, ip + Vector2(4, side * 5), OUTLINE, 3.5, true)
-			pen_line(ip, ip + Vector2(4, side * 5), TOOTH, 1.8, true)
+			pen.draw_line(ip, ip + Vector2(4, side * 5), OUTLINE, 3.5, true)
+			pen.draw_line(ip, ip + Vector2(4, side * 5), TOOTH, 1.8, true)
 		var eye = hinge + Vector2(32, side * 27)
-		pen_circle(eye, 7.0, OUTLINE, true, -1.0, true)
-		pen_circle(eye, 5.0, Color(1.0, 0.72, 0.25), true, -1.0, true)
-		pen_circle(eye + Vector2(1, 0), 2.2, OUTLINE, true, -1.0, true)
-		pen_circle(hinge + Vector2(96, side * 4), 2.0, OUTLINE, true, -1.0, true)
+		pen.draw_circle(eye, 7.0, OUTLINE, true, -1.0, true)
+		pen.draw_circle(eye, 5.0, Color(1.0, 0.72, 0.25), true, -1.0, true)
+		pen.draw_circle(eye + Vector2(1, 0), 2.2, OUTLINE, true, -1.0, true)
+		pen.draw_circle(hinge + Vector2(96, side * 4), 2.0, OUTLINE, true, -1.0, true)

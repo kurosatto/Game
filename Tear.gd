@@ -25,6 +25,18 @@ var velocity: Vector2 = Vector2.ZERO
 var base_scale: Vector2 = Vector2.ONE
 var age: float = 0.0
 const HitFX = preload("res://HitFX.gd")
+# Lysosomes (the cell's "vesicle" shots) are drawn here in code as membrane
+# sacs, not from a picture. At a cell's size water is thick as syrup (low
+# Reynolds number), so a released sac coasts only a short way and stops:
+# speed falls by e every 1/VESICLE_DRAG s. On contact it fuses with the
+# prey's surface and its hydrolases keep digesting: DIGEST_TICKS more bites
+# of DIGEST_SHARE of the hit each, DIGEST_GAP s apart.
+const VESICLE_DRAG := 5.0
+const DIGEST_TICKS := 3
+const DIGEST_SHARE := 0.35
+const DIGEST_GAP := 0.32
+var is_vesicle: bool = false
+var _wob: float = 0.0
 
 func _ready():
     add_to_group("tears")
@@ -64,7 +76,16 @@ func _ready():
             if has_node("TrailParticles"):
                 $TrailParticles.color = Color(glow.r, glow.g, glow.b, 0.5)
 
-    if has_node("TrailParticles"):
+    is_vesicle = projectile_kind == "vesicle" and not is_enemy_tear
+    if is_vesicle:
+        # No comet tail and no glow sprite: a sac drifting through water
+        $Sprite2D.visible = false
+        if has_node("TrailParticles"):
+            $TrailParticles.emitting = false
+        if has_node("PointLight2D"):
+            $PointLight2D.energy = 0.5
+        _wob = randf() * TAU
+    elif has_node("TrailParticles"):
         setup_trail($TrailParticles)
 
     if velocity == Vector2.ZERO:
@@ -167,6 +188,10 @@ func _physics_process(delta: float):
             var target_dir = (closest.global_position - global_position).normalized()
             velocity = velocity.lerp(target_dir * speed, delta * 7.5)
 
+    if is_vesicle:
+        velocity *= exp(-VESICLE_DRAG * delta)
+        _wob += delta * 9.0
+        queue_redraw()
     position += velocity * delta
     update_streak()
     if projectile_kind in POINTED and not is_enemy_tear:
@@ -249,6 +274,8 @@ func _on_body_entered(body: Node):
             # The shot's own splash: a burst vesicle, a splash of venom, a harpoon's puncture
             HitFX.strike(get_parent(), global_position, flight, projectile_kind, shot_color(), 13.0 + 6.0 * punch)
             body.take_damage(damage)
+            if is_vesicle:
+                digest(body)
 
             if knockback_force > 0 and body.has_method("apply_knockback"):
                 body.apply_knockback(flight * knockback_force, 0.3)
@@ -305,6 +332,56 @@ func _on_body_entered(body: Node):
             if is_explosive:
                 trigger_explosion()
             destroy_tear()
+
+# A lysosome sac: a lipid bilayer (two thin rings) round acid hydrolases,
+# wobbling as it drifts, squashed along its way while it still moves fast
+func _draw():
+    if not is_vesicle:
+        return
+    var spd = velocity.length()
+    var stretch = 1.0 + clamp(spd / 900.0, 0.0, 0.35)
+    var r = 6.2
+    var pts := PackedVector2Array()
+    for i in 18:
+        var a = TAU * i / 18.0
+        var k = 1.0 + 0.07 * sin(3.0 * a + _wob) + 0.04 * sin(5.0 * a - _wob * 1.3)
+        pts.append(Vector2(cos(a) * r * k * stretch, sin(a) * r * k / stretch).rotated(velocity.angle()))
+    draw_colored_polygon(pts, Color(0.86, 0.5, 0.58, 0.9))
+    var loop := pts.duplicate()
+    loop.append(pts[0])
+    draw_polyline(loop, Color(0.16, 0.07, 0.1, 0.95), 1.4, true)
+    var inner := PackedVector2Array()
+    for q in loop:
+        inner.append(q * 0.78)
+    draw_polyline(inner, Color(0.16, 0.07, 0.1, 0.45), 0.7, true)
+    # Enzyme granules inside
+    for j in 4:
+        var g = _wob * 0.3 + j * 1.9
+        draw_circle(Vector2(cos(g), sin(g)) * (1.2 + j * 0.7), 0.9, Color(0.3, 0.1, 0.16, 0.85), true, -1.0, true)
+
+# The sac fuses with the prey and its enzymes go on digesting it: a few
+# smaller bites over the next second, each leaving a little dissolving mark.
+# Timers are bound to the prey, so they drop out if it dies or leaves.
+func digest(body: Node):
+    if not body.has_method("take_damage_if_alive"):
+        return
+    # Weak references: the prey, the room or this sac may all be gone by the
+    # time a tick fires, and a lambda holding a freed object errors
+    var prey_ref = weakref(body)
+    var room_ref = weakref(get_parent())
+    var per_tick = damage * DIGEST_SHARE
+    var col = shot_color()
+    for i in DIGEST_TICKS:
+        var timer = get_tree().create_timer(DIGEST_GAP * (i + 1))
+        timer.timeout.connect(func():
+            var prey = prey_ref.get_ref()
+            if prey == null or prey.get("dead"):
+                return
+            prey.take_damage_if_alive(per_tick)
+            var room = room_ref.get_ref()
+            if room != null and is_instance_valid(prey):
+                HitFX.strike(room, prey.global_position + Vector2(randf_range(-10, 10), randf_range(-10, 10)), Vector2.from_angle(randf() * TAU), "vesicle", col, 8.0)
+        )
 
 func spawn_caustic_pool(pos: Vector2):
     var pool = Area2D.new()

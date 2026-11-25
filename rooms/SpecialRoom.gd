@@ -33,7 +33,6 @@ func begin(first: bool):
 		"extinction": _extinction()
 		"nest": _nest()
 		"tide": _tide(first)
-		"symbiont": _symbiont()
 		"ambush": _ambush()
 		"glow": _glow(first)
 		"dark": fight(first)
@@ -57,6 +56,13 @@ func introduce():
 	if main == null or not main.get("hud"):
 		return
 	var key = "special_" + kind
+	if kind == "fire":
+		# Oxygen-rich air: warn every time, not just the first (kuro). The
+		# room also draws an inked fire sign where the lightning will land
+		main.set_meta(key, true)
+		var warn = "HIGH OXYGEN. Fire is coming: keep ahead of the flames or dash through"
+		main.hud.show_item_banner("WILDFIRE WARNING", SR.fact(kind, floor_num) + "\n" + SR.how(kind, floor_num), true, 3.6, warn)
+		return
 	if main.has_meta(key):
 		if player:
 			player.popup_text(player.global_position + Vector2(0, -90), SR.title(kind, floor_num), Color(0.98, 0.82, 0.5))
@@ -151,7 +157,7 @@ func _tar(first: bool):
 	for i in state.pools.size():
 		var props = {"position": state.pools[i].pos, "size": state.pools[i].size, "seed_val": i * 97 + floor_num}
 		if i == 0 and not state.get("freed", false):
-			props["trapped_species"] = SR.TRAPPED[preload("res://data/Worlds.gd").era(floor_num)]
+			props["trapped_species"] = SR.trapped_for(floor_num)
 			props["on_freed"] = func(): state["freed"] = true
 		add_feature("MudPool.gd", props)
 
@@ -241,17 +247,6 @@ func _tide(first: bool):
 	var t = add_feature("TideChannel.gd", {"room": room})
 	t.clear_obstacles()
 	fight(first)
-
-# ---- 8. Symbiont: a follower that hunts beside you for this era ----
-func _symbiont():
-	peaceful()
-	if state.get("joined", false):
-		return
-	var c = preload("res://rooms/Companion.gd").new()
-	c.floor_num = floor_num
-	c.position = Vector2(960, 520)
-	c.on_joined = func(): state["joined"] = true
-	room.add_child(c)
 
 # ---- 9. Predator ambush: a quiet room with an elder hiding in it ----
 func _ambush():

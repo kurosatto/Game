@@ -67,7 +67,7 @@ static func thumb_path(id: String) -> String:
 const PRELUDE = """
 shader_type canvas_item;
 render_mode unshaded;
-uniform sampler2D screen_tex : hint_screen_texture, filter_linear_mipmap;
+uniform sampler2D screen_tex : hint_screen_texture, filter_linear;
 uniform float dark_lum = 0.05;
 uniform float light_lum = 0.45;
 
@@ -132,13 +132,16 @@ uniform float edge_threshold = 0.12;
 uniform float edge_gain = 3.0;
 uniform float wash = 0.14;
 uniform float hatch_scale = 0.62;
-uniform float boil_rate = 6.0;
 uniform float wobble = 1.5;
+// Which redraw of the wobbly line this is, counted by InkFilter.gd and
+// wrapped small: built from TIME the noise inputs grew past float accuracy
+// over a long run, and on phones the lines then jittered wildly by the last era
+uniform float boil_step = 0.0;
 
 void fragment() {
 	vec2 px = SCREEN_PIXEL_SIZE;
 	vec2 fc = FRAGCOORD.xy;
-	float boil = floor(TIME * boil_rate) * 17.0;
+	float boil = boil_step * 17.0;
 	vec2 w = vec2(vnoise(fc / 40.0 + boil), vnoise(fc / 40.0 + vec2(7.0, 3.0) + boil)) - 0.5;
 	vec2 uv = SCREEN_UV + w * wobble * 2.0 * px;
 	vec3 c = tex(SCREEN_UV);

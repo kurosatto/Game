@@ -12,7 +12,7 @@ extends Node2D
 const SR = preload("res://data/SpecialRooms.gd")
 const HitFX = preload("res://HitFX.gd")
 const INK = Color(0.24, 0.15, 0.08)
-const DELAY := 3.0        # seconds from walking in to the lightning strike
+const DELAY := 4.0        # seconds from walking in to the lightning strike (the warning shows meanwhile)
 const SPEED := 95.0       # px/s the front moves
 const BAND := 190.0       # depth of the burning band behind the front
 const HURT_EVERY := 1.1   # player: one hit per this long in the flames
@@ -44,6 +44,18 @@ func _ready():
 		_char_all()
 	elif not first:
 		_burn_out.call_deferred()
+	else:
+		_add_sign()
+
+# The warning sign goes on the fog layer, so the dark can't hide it
+func _add_sign():
+	var fog = get_tree().get_first_node_in_group("main").get_node_or_null("VisionFog") if get_tree().get_first_node_in_group("main") else null
+	var sign = preload("res://rooms/FireSign.gd").new()
+	sign.fire = self
+	if fog:
+		fog.add_child(sign)
+	else:
+		add_child(sign)
 
 func left_edge() -> float:
 	return -room.side_margin
@@ -175,7 +187,7 @@ func _draw():
 		if not state.get("lit", false) and not state.get("done", false):
 			# Before the strike: a dry crackle in the air, storm light at the far side
 			var side_x = left_edge() if state.dir > 0.0 else right_edge()
-			var flick = 0.5 + 0.5 * sin(time * 23.0) * sin(time * 7.0)
+			var flick = 0.5 + 0.5 * sin(time * 2.2) # a slow glow, not a strobe
 			draw_rect(Rect2(side_x - (0.0 if state.dir > 0.0 else 70.0), top, 70.0, bottom - top), Color(1.0, 0.95, 0.75, 0.08 + 0.1 * flick))
 		return
 	var b = band()
@@ -204,3 +216,4 @@ func _draw():
 		draw_circle(ember, 3.0, Color(0.5, 0.22, 0.08, 0.9))
 		y += 40.0
 		i += 1
+

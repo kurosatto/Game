@@ -128,6 +128,7 @@ var shot_counter: int = 0
 var recoil_velocity: Vector2 = Vector2.ZERO
 var shot_kick: float = 0.0
 const HitFX = preload("res://HitFX.gd")
+const Difficulty = preload("res://data/Difficulty.gd")
 const TearScript = preload("res://Tear.gd")
 
 # Bio-Hydro Dash
@@ -214,6 +215,12 @@ func _physics_process(delta: float):
         bite_chain_time -= delta
     if filter_hold > 0.0 or filter_open > 0.0:
         filter_tick(delta)
+    if fan_twist == "shed" and not autotomy_ready:
+        arm_regrow += delta
+        if arm_regrow >= ARM_REGROW_TIME:
+            arm_regrow = 0.0
+            autotomy_ready = true
+            popup_text(global_position, "ARM REGROWN", Color(1.0, 0.8, 0.5))
     if slow_timer > 0:
         slow_timer -= delta
     # Spiny bodies (the spines weapon or the Defensive Spines adaptation)
@@ -291,9 +298,10 @@ func _physics_process(delta: float):
 
     if is_dashing:
         dash_timer -= delta
-        velocity = dash_direction * dash_speed
+        velocity = dash_direction * (lineages.ESCAPE_STYLES.crawl.speed if escape_style == "crawl" else dash_speed)
         move_and_slide()
-        spawn_dash_particles()
+        if escape_style != "crawl":
+            spawn_dash_particles()
         
         # Slipstream shockwave
         if current_dash_perks.get("slipstream", false):
@@ -546,12 +554,29 @@ func perform_bio_dash():
 # threads, a sea hare inks.
 func perform_escape():
     var st: Dictionary = lineages.ESCAPE_STYLES[escape_style]
+    if escape_style == "crawl":
+        # Let go of the sea floor and scramble off on the arms: a short,
+        # slow dart in the stick direction, dragging the stalk
+        is_dashing = true
+        dash_timer = st.time
+        dash_cooldown = max_dash_cooldown
+        ram_hit.clear()
+        invincibility_time = max(invincibility_time, st.invulnerable + iframe_bonus)
+        SoundManager.play_sfx("dash", 0.6)
+        face_dir = dash_direction
+        aim_hold = 0.0
+        return
     dash_cooldown = max_dash_cooldown
     invincibility_time = max(invincibility_time, st.invulnerable + iframe_bonus)
     rooted_time = st.rooted
     SoundManager.play_sfx("dash", 0.7)
     var radius: float = st.get("radius", 0.0)
     var hit: float = damage * st.get("damage", 0.0) + current_dash_perks.get("slam_damage", 0.0)
+    # Ramming items (Bony Head Shield) work through the escape too: the
+    # spines, shell or clamp-down jolt everything close by
+    if ram_mult > 0.0:
+        hit += damage * ram_mult
+        radius = max(radius, 120.0)
     for e in get_tree().get_nodes_in_group("enemies"):
         if not is_instance_valid(e) or reach_dist(e, global_position) > radius:
             continue
@@ -960,7 +985,9 @@ func shoot_tear(dir: Vector2):
 
 # Shots leave from the front of the body rather than its middle
 func muzzle_distance() -> float:
-    return 24.0
+    # Lysosomes leave from the cell's own membrane, which is wider than the
+    # old sprite
+    return 30.0 if current_weapon == "vesicle" else 24.0
 
 func spawn_tear(dir: Vector2, alpha: bool = false, boomerang: bool = false):
     var tear = tear_scene.instantiate()
@@ -1145,20 +1172,26 @@ var filter_dir: Vector2 = Vector2.RIGHT
 var filter_sound_t: float = 0.0
 var filter_marked: Dictionary = {} # animal id -> seconds until its next ink mark
 var filter_node: Node2D = null
+var fan_twist: String = ""      # Lineages.FAN_TWISTS: what this crinoid adds
+var fan_shots_caught: int = 0   # bowl fan: shots caught toward the next meal
+var arm_regrow: float = 0.0     # shed an arm: seconds until a new one is ready
+const ARM_REGROW_TIME := 8.0
 
 func filter_reach() -> float:
     return lineages.weapon_stats("filter").reach * range_mult * (1.0 + 0.35 * filter_open)
 
 func filter_half_arc() -> float:
-    return min(PI, lineages.weapon_stats("filter").arc * 0.5 + melee_arc_bonus + 0.4 * filter_open)
+    var many_arms = 0.3 if fan_twist == "shed" else 0.0
+    return min(PI, lineages.weapon_stats("filter").arc * 0.5 + melee_arc_bonus + many_arms + 0.4 * filter_open)
 
 func filter_tick(delta: float):
     filter_hold = max(0.0, filter_hold - delta)
     filter_sound_t -= delta
     for k in filter_marked.keys():
         filter_marked[k] -= delta
-    # Spread and still, the arms open out; moving or let go, they fold
-    if filter_hold > 0.0 and velocity.length() < 90.0:
+    # Spread and still, the arms open out; moving or let go, they fold.
+    # A feather star swims with its arms, so they stay spread on the move.
+    if filter_hold > 0.0 and (velocity.length() < 90.0 or fan_twist == "swim"):
         filter_open = min(1.0, filter_open + delta * 1.2)
     elif filter_hold > 0.0:
         filter_open = max(0.25, filter_open - delta * 2.0) if filter_open > 0.25 else min(0.25, filter_open + delta * 2.0)
@@ -1202,10 +1235,27 @@ func filter_fan(dir: Vector2):
         e.take_damage(dmg)
         if current_tear_perks.get("vampiric", false) and randf() < 0.04:
             heal(1)
+    # The arms scrape at rock too (fossil slabs: "hit to dig"), a few
+    # scrapes a second rather than every digesting tick
+    for o in get_tree().get_nodes_in_group("obstacles"):
+        if not is_instance_valid(o) or not o.has_method("take_damage") or not in_melee_arc(o.global_position, 40.0, dir, reach, half_arc):
+            continue
+        var okey = "o%d" % o.get_instance_id()
+        if filter_marked.get(okey, 0.0) <= 0.0:
+            filter_marked[okey] = 0.4
+            o.take_damage(dmg)
     # Drifting shots stick in the arms too
     for t in get_tree().get_nodes_in_group("enemy_tears"):
         if is_instance_valid(t) and t.has_method("destroy_tear") and in_melee_arc(t.global_position, 14.0, dir, reach, half_arc):
             t.destroy_tear()
+            # Bowl fan: caught plankton and shots alike are passed to the mouth
+            if fan_twist == "bowl":
+                fan_shots_caught += 1
+                if fan_shots_caught >= 5:
+                    fan_shots_caught = 0
+                    if health < max_health:
+                        heal(1)
+                        popup_text(global_position, "+½ ♥ FED", Color(0.55, 0.95, 0.45))
     if filter_sound_t <= 0.0:
         filter_sound_t = 0.32
         SoundManager.play_attack("lash", 1.25 + randf_range(-0.05, 0.05))
@@ -1714,6 +1764,12 @@ func apply_form(data: Dictionary):
     sense_profile = lineages.sense_profile(data)
 
     escape_style = lineages.get_escape(data)[0]
+    var tw_: Array = lineages.fan_twist(data.id)
+    fan_twist = tw_[0] if not tw_.is_empty() else ""
+    fan_shots_caught = 0
+    arm_regrow = 0.0
+    if fan_twist == "shed":
+        autotomy_ready = true
     rooted_time = 0.0
     form_stats = {
         "speed": data.speed, "damage": data.damage, "fire_delay": data.fire_delay,
@@ -1804,7 +1860,7 @@ func take_damage(amount: int, source: String = ""):
         autotomy_ready = false
         invincibility_time = 1.0
         SoundManager.play_sfx("hit", 0.7)
-        popup_text(global_position, "AUTOTOMY", Color(1.0, 0.8, 0.4))
+        popup_text(global_position, "ARM SHED" if fan_twist == "shed" else "AUTOTOMY", Color(1.0, 0.8, 0.4))
         HitFX.impact(get_parent(), global_position, Vector2.UP, Color(1.0, 0.8, 0.5), 1.2)
         return
     
@@ -1821,7 +1877,7 @@ func take_damage(amount: int, source: String = ""):
     last_hurt_by = source if source != "" else nearest_attacker()
     
     # Invincibility frames (doubled for heavy carapace)
-    invincibility_time = 2.0 if current_passive == "double_iframes" else 1.0
+    invincibility_time = Difficulty.PLAYER_IFRAMES * (2.0 if current_passive == "double_iframes" else 1.0)
     
     SoundManager.play_sfx("player_hurt", 1.0)
     SoundManager.play_sfx("hurt_thud", randf_range(0.9, 1.05))
