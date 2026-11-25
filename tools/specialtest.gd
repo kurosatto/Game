@@ -80,6 +80,7 @@ func feature(script_name: String) -> Node:
 func kill_all():
 	for e in room().active_enemies.duplicate():
 		if is_instance_valid(e) and not e.dead:
+			e.enroll_time = 0.0 # a follower's bite can leave a trilobite rolled up
 			e.take_damage(9999.0)
 	await frames(30)
 
@@ -102,7 +103,7 @@ func _initialize():
 	for i in 20:
 		await process_frame
 	p = main.player
-	var tests = ["vent", "tar", "dig", "frenzy", "extinction", "nest", "tide", "symbiont", "ambush", "glow", "dark", "fire", "molt", "procession", "meadow", "mat", "drought", "treefall", "brachiopods", "current", "cupreef", "deal", "run"]
+	var tests = ["vent", "tar", "dig", "frenzy", "extinction", "nest", "tide", "follower", "ambush", "glow", "dark", "fire", "molt", "procession", "meadow", "mat", "drought", "treefall", "brachiopods", "current", "cupreef", "deal", "run"]
 	for t in tests:
 		if only != "" and t != only:
 			continue
@@ -158,6 +159,10 @@ func t_tar():
 		check(d.special_state.get("freed", false), "standing by it frees the trapped animal")
 		await frames(40, Vector2(300, 540))
 		check(total(p.elements) > els, "freeing it gives elements")
+		var comp = main.get_tree().get_nodes_in_group("companions").filter(func(c): return not c.is_queued_for_deletion())
+		check(comp.size() == 1 and comp[0].get_parent() == main and comp[0].joined, "the freed animal joins you")
+		if f == 5:
+			await snap("02_mud_freed_follows")
 		await kill_all()
 		check(d.cleared and not main.in_combat(), "mud room clears")
 		main.hud.show_grow_screen()
@@ -582,12 +587,15 @@ func t_tide():
 	await kill_all()
 	check(d.cleared, "tide room clears")
 
-func t_symbiont():
-	var d = await setup("symbiont", 4)
-	await frames(10)
-	await snap("08_symbiont", true)
-	await frames(30, Vector2(960, 520))
-	check(d.special_state.get("joined", false), "touching the animal befriends it")
+func t_follower():
+	# Freed from the mud, it hunts beside you until the era ends
+	var d = await setup("tar", 4)
+	var mud = null
+	for c in room().get_children():
+		if c.get_script() and c.get_script().resource_path.ends_with("MudPool.gd") and c.trapped_species != "":
+			mud = c
+	await frames(150, mud.trapped.global_position + Vector2(70, 0))
+	await kill_all()
 	var comp = main.get_tree().get_nodes_in_group("companions")
 	check(comp.size() == 1 and comp[0].get_parent() == main, "the follower travels with you")
 	# Give it something to hunt
