@@ -187,98 +187,81 @@ func build_menu():
 	col.add_child(play)
 	# Parts grown into the lineage for good, from elements banked in runs
 	grow_btn = button("", show_lineage_grow, UI.LEAF)
-	grow_btn.add_theme_font_size_override("font_size", 26)
-	grow_btn.custom_minimum_size = Vector2(600, 70)
+	grow_btn.add_theme_font_size_override("font_size", 28)
+	grow_btn.custom_minimum_size = Vector2(600, 76)
 	col.add_child(grow_btn)
 	_update_grow_text()
-	trait_btn = button("", cycle_trait)
-	trait_btn.add_theme_font_size_override("font_size", 24)
-	col.add_child(trait_btn)
-	trait_info = label("", 19, UI.MUTED)
-	trait_info.custom_minimum_size = Vector2(600, 0)
-	col.add_child(trait_info)
-	update_trait_text()
-	style_btn = button("", show_art_styles)
-	style_btn.add_theme_font_size_override("font_size", 24)
-	col.add_child(style_btn)
-	update_style_text()
-	SettingsManager.art_style_changed.connect(func(_id): update_style_text())
+	SettingsManager.fullscreen_changed.connect(_update_fullscreen_text)
+	# Everything else waits one tap away on the MORE page (kuro: the start
+	# screen had too much to read)
 	var pair = HBoxContainer.new()
 	pair.add_theme_constant_override("separation", 16)
 	col.add_child(pair)
-	# ENDGAME: what a won run opens (data/Endgame.gd)
-	var eg = endgame.unlocked_count()
-	var eg_text = "ENDGAME" if eg > 0 else "🔒 ENDGAME"
-	for b in [button("CHALLENGES", show_challenges), button("CODEX", show_codex), button(eg_text, show_endgame, UI.CORAL if eg > 0 else UI.MEMBRANE)]:
-		b.custom_minimum_size = Vector2(189, 76)
-		b.add_theme_font_size_override("font_size", 22)
-		pair.add_child(b)
+	var small: Array = [button("CODEX", show_codex), button("MORE  ›", show_more)]
 	if not OS.has_feature("mobile") and not OS.has_feature("web"):
-		var row2 = HBoxContainer.new()
-		row2.add_theme_constant_override("separation", 16)
-		col.add_child(row2)
-		# Fullscreen on and off (also F11 or Alt+Enter, and in the pause menu)
-		var fs = button("", SettingsManager.toggle_fullscreen)
-		fullscreen_btn = fs
-		_update_fullscreen_text(SettingsManager.is_fullscreen())
-		SettingsManager.fullscreen_changed.connect(_update_fullscreen_text)
-		var q = button("QUIT", func(): get_tree().quit(), UI.CORAL)
-		for b in [fs, q]:
-			b.custom_minimum_size = Vector2(292, 60)
-			b.add_theme_font_size_override("font_size", 22)
-			row2.add_child(b)
-	var done = progress.completed().size()
-	var stats = label("Codex %d / %d lineages  ·  Fossils %d / 25  ·  Challenges %d / %d" % [
-		codex.load_discovered().size(), lineages.TREE.size(), codex.load_eaten().size(), done, progress.CHALLENGES.size()], 20, UI.MUTED)
-	stats.add_theme_constant_override("outline_size", 6)
-	stats.add_theme_color_override("font_color", TITLE_INK.lerp(PAPER, 0.15))
-	stats.add_theme_color_override("font_outline_color", PAPER)
-	menu_box.add_child(stats)
-	var runs = progress.run_stats()
-	if runs.count > 0:
-		var best = "Furthest: era %d of 5 as %s" % [runs.best_era, runs.best_form.to_lower().capitalize()]
-		var tally = "%d run%s" % [runs.count, "" if runs.count == 1 else "s"]
-		if runs.wins > 0:
-			tally += ", %d survived to the end" % runs.wins
-		# Tap it for the past runs, each with the lineage it walked
-		var run_line = button(best + "  ·  " + tally + "  ›", show_past_runs)
-		run_line.flat = true
-		run_line.custom_minimum_size = Vector2(0, 44)
-		run_line.add_theme_font_size_override("font_size", 20)
-		run_line.add_theme_constant_override("outline_size", 6)
-		for c in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]:
-			run_line.add_theme_color_override(c, TITLE_INK.lerp(PAPER, 0.15) if c == "font_color" else TITLE_INK)
-		run_line.add_theme_color_override("font_outline_color", PAPER)
-		menu_box.add_child(run_line)
-
-	# Music credits sit small in the corner, out of the way of the menu
-	var credits_btn = button("MUSIC CREDITS", show_music_credits)
-	credits_btn.custom_minimum_size = Vector2(230, 52)
-	credits_btn.add_theme_font_size_override("font_size", 18)
-	credits_btn.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT, Control.PRESET_MODE_MINSIZE, 24)
-	credits_btn.grow_horizontal = Control.GROW_DIRECTION_BEGIN
-	credits_btn.grow_vertical = Control.GROW_DIRECTION_BEGIN
-	credits_corner = credits_btn
-	add_child(credits_btn)
-
-	# Sense test: make every fight room pitch dark, to try out the senses.
-	# Bottom left, opposite the credits; saved like the other settings.
-	dark_btn = button("", toggle_dark_rooms)
-	dark_btn.custom_minimum_size = Vector2(300, 52)
-	dark_btn.add_theme_font_size_override("font_size", 18)
-	dark_btn.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_LEFT, Control.PRESET_MODE_MINSIZE, 24)
-	dark_btn.grow_vertical = Control.GROW_DIRECTION_BEGIN
-	add_child(dark_btn)
-	update_dark_text()
+		small.append(button("QUIT", func(): get_tree().quit(), UI.CORAL))
+	for b in small:
+		b.custom_minimum_size = Vector2((600 - 16 * (small.size() - 1)) / small.size(), 70)
+		b.add_theme_font_size_override("font_size", 24)
+		pair.add_child(b)
 
 	# The title drifts gently, like something floating in the shallows
 	var tw = title.create_tween().set_loops().set_trans(Tween.TRANS_SINE)
 	tw.tween_property(title, "position:y", -6.0, 2.2).as_relative()
 	tw.tween_property(title, "position:y", 6.0, 2.2).as_relative()
 
+# ---- MORE: the secondary things, one button each ----
+func show_more():
+	var list = open_overlay("MORE")
+	overlay.set_meta("more", true)
+	var grid = GridContainer.new()
+	grid.columns = 2
+	grid.add_theme_constant_override("h_separation", 18)
+	grid.add_theme_constant_override("v_separation", 18)
+	grid.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	list.add_child(grid)
+	trait_btn = button("", cycle_trait)
+	style_btn = button("", show_art_styles)
+	dark_btn = button("", toggle_dark_rooms)
+	var eg = endgame.unlocked_count()
+	var items: Array = [
+		trait_btn, style_btn,
+		button("CHALLENGES  %d / %d" % [progress.completed().size(), progress.CHALLENGES.size()], show_challenges),
+		button("ENDGAME" if eg > 0 else "🔒  ENDGAME", show_endgame, UI.CORAL if eg > 0 else UI.MEMBRANE),
+	]
+	if progress.run_stats().count > 0:
+		items.append(button("PAST RUNS", show_past_runs))
+	items.append(dark_btn)
+	if not OS.has_feature("mobile") and not OS.has_feature("web"):
+		fullscreen_btn = button("", SettingsManager.toggle_fullscreen)
+		_update_fullscreen_text(SettingsManager.is_fullscreen())
+		items.append(fullscreen_btn)
+	items.append(button("MUSIC CREDITS", show_music_credits))
+	for b in items:
+		b.custom_minimum_size = Vector2(560, 80)
+		b.add_theme_font_size_override("font_size", 24)
+		grid.add_child(b)
+	if PadInput.using_pad:
+		items[0].grab_focus.call_deferred()
+	trait_info = label("", 19, UI.MUTED)
+	list.add_child(trait_info)
+	update_trait_text()
+	update_style_text()
+	update_dark_text()
+	# One quiet line of progress at the bottom
+	var runs = progress.run_stats()
+	var bits: Array = ["Codex %d / %d" % [codex.load_discovered().size(), lineages.TREE.size()],
+		"Fossils %d / 25" % codex.load_eaten().size()]
+	if runs.count > 0:
+		bits.append("Furthest: era %d" % runs.best_era)
+	var stats = label("  ·  ".join(bits), 20, UI.MUTED)
+	list.add_child(stats)
+
 var fullscreen_btn: Button
 
 func _update_fullscreen_text(on: bool):
+	if not is_instance_valid(fullscreen_btn):
+		return
 	fullscreen_btn.text = "FULLSCREEN: " + ("ON" if on else "OFF")
 
 func start_game():
@@ -288,19 +271,21 @@ func start_game():
 
 # ---- Starting trait: one unlocked adaptation to begin a run with ----
 func update_trait_text():
+	if not is_instance_valid(trait_btn):
+		return
 	var current = progress.start_trait()
 	var unlocked = progress.unlocked_traits()
 	if unlocked.is_empty():
-		trait_btn.text = "STARTING TRAIT: complete a challenge"
+		trait_btn.text = "🔒  STARTING TRAIT"
 		trait_btn.disabled = true
-		trait_info.text = "Each challenge unlocks a trait to begin runs with."
+		trait_info.text = "Win a challenge to unlock a starting trait."
 	elif current == "":
-		trait_btn.text = "STARTING TRAIT: none (tap to choose)"
-		trait_info.text = "%d unlocked. Tap to cycle; see CHALLENGES for what each does." % unlocked.size()
+		trait_btn.text = "STARTING TRAIT: none"
+		trait_info.text = "Tap STARTING TRAIT to pick one."
 	else:
 		var a = adaptations.get_adaptation(current)
-		trait_btn.text = "STARTING TRAIT: " + a.name
-		trait_info.text = a.effect + ".  " + a.fact
+		trait_btn.text = "TRAIT: " + a.name
+		trait_info.text = a.name + ": " + a.effect
 
 func cycle_trait():
 	var options: Array = [""] + progress.unlocked_traits()
@@ -313,7 +298,8 @@ func cycle_trait():
 const ArtStyles = preload("res://data/ArtStyles.gd")
 
 func update_style_text():
-	style_btn.text = "🎨  ART STYLE: " + ArtStyles.get_style(SettingsManager.art_style).name
+	if is_instance_valid(style_btn):
+		style_btn.text = "🎨  STYLE: " + ArtStyles.get_style(SettingsManager.art_style).name
 
 func show_art_styles():
 	var area = open_overlay("ART STYLE")
@@ -374,12 +360,12 @@ func open_overlay(title: String, scrolling: bool = true) -> VBoxContainer:
 	var f = get_viewport().gui_get_focus_owner()
 	if f and menu_box.is_ancestor_of(f):
 		menu_focus = f
-	close_overlay()
+	if overlay == null:
+		back_to_more = false
+	elif overlay.get_meta("more", false):
+		back_to_more = true
+	_drop_overlay()
 	menu_box.visible = false
-	if credits_corner:
-		credits_corner.visible = false
-	if dark_btn:
-		dark_btn.visible = false
 	overlay = PanelContainer.new()
 	overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT, Control.PRESET_MODE_MINSIZE, 40)
 	overlay.add_theme_stylebox_override("panel", UI.panel(UI.MEMBRANE, 36, 0.96, 34.0))
@@ -419,18 +405,23 @@ func _notification(what: int):
 		else:
 			get_tree().quit()
 
-func close_overlay():
+# BACK from a page opened on MORE returns to MORE
+var back_to_more := false
+
+func _drop_overlay():
 	if overlay:
 		overlay.queue_free()
 		overlay = null
+
+func close_overlay():
+	if back_to_more and overlay and not overlay.get_meta("more", false):
+		back_to_more = false
+		show_more()
+		return
+	back_to_more = false
+	_drop_overlay()
 	if menu_box:
 		menu_box.visible = true
-		if credits_corner:
-			credits_corner.visible = true
-		if dark_btn:
-			dark_btn.visible = true
-		update_trait_text()
-		update_style_text()
 		_update_grow_text()
 		_refocus_menu.call_deferred()
 
@@ -459,10 +450,11 @@ func row(parent: Container, title: String, body: String, color: Color):
 	parent.add_child(b)
 	parent.add_child(HSeparator.new())
 
-var credits_corner: Control = null
 var dark_btn: Button = null
 
 func update_dark_text():
+	if not is_instance_valid(dark_btn):
+		return
 	dark_btn.text = "DARK ROOMS: " + ("EVERY ROOM" if SettingsManager.dark_rooms_all else "ONE A FLOOR")
 
 func toggle_dark_rooms():
