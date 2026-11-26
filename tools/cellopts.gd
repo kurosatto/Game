@@ -7,7 +7,7 @@ const CELL := 300
 const CROP := 150
 var out := OS.get_environment("SHOT_DIR")
 func _initialize():
-	var ids := ["ancestral_collar_cell", "opt_cell_amoeba", "opt_cell_paramecium", "opt_cell_soft_ciliate"]
+	var ids := ["ancestral_collar_cell", "collar_cell"]
 	for i in 5: await process_frame
 	DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
 	DisplayServer.window_set_size(Vector2i(1920, 1080))

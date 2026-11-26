@@ -22,11 +22,11 @@ extends RefCounted
 const TREE = {
     "": {
         "id": "ancestral_collar_cell",
-        "name": "ANCESTRAL COLLAR CELL",
+        "name": "ANCESTRAL CELL",
         "clade": "Holozoa — Choanoflagellate-like Ancestor",
         "clade_path": "Eukaryota > Opisthokonta > Holozoa",
         "living_example": "choanoflagellates, the closest living relatives of animals",
-        "fact": "A single cell with a collar of microvilli around one whip-like flagellum, the kind of cell animals evolved from.",
+        "fact": "A single cell that crawls by pouring itself into blunt pseudopods. The closest living relatives of animals can drop their whip and crawl like this.",
         "color": Color(0.0, 0.95, 1.0),
         "light_color": Color(0.0, 0.95, 1.0),
         "scale": Vector2(1.0, 1.0),

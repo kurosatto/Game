@@ -229,7 +229,7 @@ const BOSSES = {
 
 # The other boss each era can have instead (bosses/DrawnBoss.gd)
 const ALT_BOSSES = {
-	1: {"name": "Salpingoeca", "form": "ancestral_collar_cell", "fact": "A living choanoflagellate, the closest single-celled relative of animals. Its collar cells stick together into a spinning rosette."},
+	1: {"name": "Salpingoeca", "form": "collar_cell", "fact": "A living choanoflagellate, the closest single-celled relative of animals. Its collar cells stick together into a spinning rosette."},
 	2: {"name": "Sidneyia", "form": "early_arthropod", "fact": "One of the biggest arthropods of the Burgess Shale. Its gut is often found packed with crushed shells, cracked by spiny bases on its legs."},
 	3: {"name": "Pentecopterus", "form": "chelicerate", "fact": "The oldest known big sea scorpion, about 1.7 m long, named after a Greek warship. It swept prey up in a basket of spiny limbs."},
 	4: {"name": "Ophiacodon", "form": "synapsid", "fact": "A synapsid up to 3 m long of the Late Carboniferous and Early Permian, one of the first big hunters on land, and closer kin to mammals than to any reptile."},
