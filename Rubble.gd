@@ -10,7 +10,12 @@ var INK = Color(0.24, 0.15, 0.08)
 var FILL = Color(0.62, 0.53, 0.42)
 var SHADE = Color(0.45, 0.36, 0.27)
 
+var era := ""
+var thick := 40.0
+
 func set_theme(era_name: String):
+    era = era_name
+    queue_redraw()
     var T = preload("res://data/SceneryTheme.gd")
     INK = T.dark(era_name).darkened(0.35)
     FILL = T.tone(era_name, 0.72)
@@ -23,6 +28,7 @@ var pen = preload("res://InkBatch.gd").new() # all the pebbles in one draw call
 func setup(from: Vector2, to: Vector2, thickness: float = 40.0):
     a = from
     b = to
+    thick = thickness
     collision_layer = 4 # the obstacle layer: walkers stop, flyers pass
     collision_mask = 0
     z_index = -1 # tucked under the scenery it joins
@@ -58,6 +64,16 @@ func setup(from: Vector2, to: Vector2, thickness: float = 40.0):
 
 func _draw():
     pen.begin(self)
+    # Relief map look: a low ridge (a long knoll) joining the two pieces
+    if preload("res://Obstacle.gd").RELIEF and era != "":
+        var rr = preload("res://ReliefRim.gd")
+        var lgt := 0.45
+        var main = get_tree().current_scene if is_inside_tree() else null
+        if main and "floor_number" in main:
+            lgt = preload("res://data/EraLook.gd").get_look(main.floor_number).get("ink_light", 0.45)
+        rr.draw_knoll(pen, (a + b) * 0.5, a.distance_to(b) * 0.5 + 12.0, thick * 0.5 + 2.0, a.x * 0.01 + b.y * 0.01, rr.floor_colour(era), lgt, (b - a).angle())
+        pen.flush()
+        return
     for s in stones:
         var pts: PackedVector2Array = s[0]
         pen.draw_colored_polygon(pts, FILL)

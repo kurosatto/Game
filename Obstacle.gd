@@ -12,6 +12,23 @@ const THEME_STRENGTH = 0.3
 const THEME_SOFTEN = 1.0
 # Sway and glow are calmer than they were (kuro, 2026-11-25: distracting)
 const SWAY_SCALE = 0.6
+# Scenery is drawn as relief-map knolls (ReliefRim.draw_knoll)
+const RELIEF = true
+var _knoll_pen = null
+
+func _draw():
+    if not (RELIEF and era_name != ""):
+        return
+    if _knoll_pen == null:
+        _knoll_pen = preload("res://InkBatch.gd").new()
+    var rr = preload("res://ReliefRim.gd")
+    var lgt := 0.45
+    var main = get_tree().current_scene if is_inside_tree() else null
+    if main and "floor_number" in main:
+        lgt = preload("res://data/EraLook.gd").get_look(main.floor_number).get("ink_light", 0.45)
+    _knoll_pen.begin(self)
+    rr.draw_knoll(_knoll_pen, foot_c, foot_a + 3.0, foot_b + 3.0, position.x * 0.013 + position.y * 0.007, rr.floor_colour(era_name), lgt)
+    _knoll_pen.flush()
 
 # Layout obstacle types map onto the five art slots each era has
 const ERA_SLOT = {
@@ -232,6 +249,16 @@ func setup_obstacle(type_name: String = "rock", era_dir: String = ""):
         # plants actually sway
         setup_sway(sprite, SWAY_SCALE * SWAY.get(era_name + "/" + slot, SWAY.get(era_name + "/" + slot.trim_suffix("_2"), 0.0)))
     sprite.texture = load(tex_path)
+    # Relief map look (kuro, 2026-11-26): every piece of scenery is drawn
+    # as a knoll fitted to its solid footprint, flat on the map; no sprite,
+    # sway, light or particles
+    if RELIEF and era_name != "":
+        sprite.visible = false
+        sway_mat = null
+        sprite.material = null
+        z_index = -18
+        queue_redraw()
+        return
     
     if light_energy > 0:
         if not light_node:
