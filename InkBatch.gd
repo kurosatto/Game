@@ -37,9 +37,29 @@ var xf := Transform2D.IDENTITY
 var _ident := true
 var _px := 1.0       # screen pixels per local unit of the item
 var _xf_scale := 1.0 # extra scale of the current draw_set_transform
-# One non-indexed triangle list: three vertices per triangle
+# One indexed triangle list. Strips, line grids and fans share vertices;
+# their indices are cut from long prebuilt patterns (slice + append_array, done
+# in the engine), so the script never loops per triangle
 var verts := PackedVector2Array()
 var cols := PackedColorArray()
+var idx := PackedInt32Array()
+# Prebuilt index patterns, grown on demand:
+#  _ID     0, 1, 2, 3 ...                       (plain triangle lists)
+#  _STRIP  i, i+1, i+2 for each i               (a strip from vertex b is the slice 3b ..)
+#  _GRID   9 quads of a 4x4 grid, every 16 verts (an antialiased line)
+static var _ID := PackedInt32Array()
+static var _STRIP := PackedInt32Array()
+static var _GRID := PackedInt32Array()
+# Antialiased polylines: four vertices per point (A edge, B other edge, C and
+# D the faded outer feathers). Ladders between neighbouring points, by point:
+static var _LAB := PackedInt32Array() # the stroke
+static var _LAC := PackedInt32Array() # feather on the A side
+static var _LBD := PackedInt32Array() # feather on the B side
+const _GRID_QUADS := [
+	[5, 9, 10, 6], [5, 1, 2, 6], [9, 13, 14, 10], [5, 4, 8, 9], [6, 7, 11, 10],
+	[5, 4, 0, 1], [9, 8, 12, 13], [6, 7, 3, 2], [10, 11, 15, 14]]
+# Solid colour runs, by colour
+static var _solid := {}
 var _native_xf := false # a native command set a transform since the last flush
 var _pattern := {}      # feather colour patterns used this frame
 # Time spent drawing (tools/drawcount.gd reads it)
@@ -81,6 +101,7 @@ func begin(target: CanvasItem):
 	_xf_scale = 1.0
 	verts.resize(0)
 	cols.resize(0)
+	idx.resize(0)
 	_native_xf = false
 	_pattern.clear()
 	var t := target.get_viewport().get_final_transform() * target.get_global_transform_with_canvas() if target.is_inside_tree() else Transform2D.IDENTITY
@@ -95,9 +116,10 @@ func flush():
 	if _native_xf:
 		RenderingServer.canvas_item_add_set_transform(ci, Transform2D.IDENTITY)
 		_native_xf = false
-	RenderingServer.canvas_item_add_triangle_array(ci, PackedInt32Array(), verts, cols)
+	RenderingServer.canvas_item_add_triangle_array(ci, idx, verts, cols)
 	verts = PackedVector2Array()
 	cols = PackedColorArray()
+	idx = PackedInt32Array()
 	if _feathers.size() > 6000:
 		_feathers.clear()
 
@@ -111,54 +133,92 @@ func draw_set_transform_matrix(m: Transform2D):
 	_xf_scale = max(abs(sc.x), abs(sc.y))
 
 # ── Low level ──
+static func _grow_patterns(n: int):
+	# n: vertex count the patterns must reach
+	if _ID.size() < n:
+		var m := maxi(n * 2, 4096)
+		var start := _ID.size()
+		_ID.resize(m)
+		for i in range(start, m):
+			_ID[i] = i
+		_STRIP.resize(m * 3)
+		for i in m:
+			_STRIP[i * 3] = i
+			_STRIP[i * 3 + 1] = i + 1
+			_STRIP[i * 3 + 2] = i + 2
+		var pts := m / 4 + 1
+		_LAB.resize(pts * 6)
+		_LAC.resize(pts * 6)
+		_LBD.resize(pts * 6)
+		for i in pts:
+			var v := i * 4
+			var k6 := i * 6
+			# strip order A0 B0 A1 B1 .. as triangles
+			_LAB[k6] = v; _LAB[k6 + 1] = v + 1; _LAB[k6 + 2] = v + 4
+			_LAB[k6 + 3] = v + 1; _LAB[k6 + 4] = v + 4; _LAB[k6 + 5] = v + 5
+			_LAC[k6] = v; _LAC[k6 + 1] = v + 2; _LAC[k6 + 2] = v + 4
+			_LAC[k6 + 3] = v + 2; _LAC[k6 + 4] = v + 4; _LAC[k6 + 5] = v + 6
+			_LBD[k6] = v + 1; _LBD[k6 + 1] = v + 3; _LBD[k6 + 2] = v + 5
+			_LBD[k6 + 3] = v + 3; _LBD[k6 + 4] = v + 5; _LBD[k6 + 5] = v + 7
+		var blocks := m / 16 + 1
+		_GRID.resize(blocks * 54)
+		var k := 0
+		for j in blocks:
+			var o := j * 16
+			for q in _GRID_QUADS:
+				_GRID[k] = o + q[0]
+				_GRID[k + 1] = o + q[1]
+				_GRID[k + 2] = o + q[2]
+				_GRID[k + 3] = o + q[0]
+				_GRID[k + 4] = o + q[2]
+				_GRID[k + 5] = o + q[3]
+				k += 6
+
+# n vertices of one colour
 func _fill(c: Color, n: int):
-	var tmp := PackedColorArray()
-	tmp.resize(n)
-	tmp.fill(c)
-	cols.append_array(tmp)
+	var run: PackedColorArray = _solid.get(c, PackedColorArray())
+	if run.size() < n:
+		run.resize(maxi(n, 256))
+		run.fill(c)
+		_solid[c] = run
+		if _solid.size() > 4000:
+			_solid.clear()
+	cols.append_array(run.slice(0, n) if run.size() != n else run)
+
+# Vertices drawn as a plain triangle list (three per triangle)
+func _list(p: PackedVector2Array):
+	var base := verts.size()
+	var end := base + p.size()
+	if _ID.size() < end:
+		_grow_patterns(end)
+	verts.append_array(p)
+	idx.append_array(_ID.slice(base, end))
 
 # Already-built indexed triangles (Shading.lit_poly / lit_tube)
 func add_triangles(tri: PackedInt32Array, pts: PackedVector2Array, c: PackedColorArray):
-	var p := pts if _ident else xf * pts
+	var base := verts.size()
+	verts.append_array(pts if _ident else xf * pts)
 	if c.size() == pts.size():
-		for i in tri:
-			verts.append(p[i])
-			cols.append(c[i])
+		cols.append_array(c)
+	else:
+		_fill(c[0] if c.size() > 0 else Color.WHITE, pts.size())
+	if base == 0:
+		idx.append_array(tri)
 	else:
 		for i in tri:
-			verts.append(p[i])
-		_fill(c[0] if c.size() > 0 else Color.WHITE, tri.size())
+			idx.append(i + base)
 
-# A Godot quad primitive: triangles 0,1,2 and 0,2,3
-func _quad(p0: Vector2, p1: Vector2, p2: Vector2, p3: Vector2, c0: Color, c1: Color, c2: Color, c3: Color):
-	if not _ident:
-		p0 = xf * p0
-		p1 = xf * p1
-		p2 = xf * p2
-		p3 = xf * p3
-	verts.append(p0)
-	verts.append(p1)
-	verts.append(p2)
-	verts.append(p0)
-	verts.append(p2)
-	verts.append(p3)
-	cols.append(c0)
-	cols.append(c1)
-	cols.append(c2)
-	cols.append(c0)
-	cols.append(c2)
-	cols.append(c3)
-
-# A triangle strip
+# A triangle strip: triangles (i, i+1, i+2)
 func _strip(pts: PackedVector2Array, c: PackedColorArray):
-	var p := pts if _ident else xf * pts
-	for i in p.size() - 2:
-		verts.append(p[i])
-		verts.append(p[i + 1])
-		verts.append(p[i + 2])
-		cols.append(c[i])
-		cols.append(c[i + 1])
-		cols.append(c[i + 2])
+	var m := pts.size()
+	if m < 3:
+		return
+	var base := verts.size()
+	if _ID.size() < base + m:
+		_grow_patterns(base + m)
+	verts.append_array(pts if _ident else xf * pts)
+	cols.append_array(c)
+	idx.append_array(_STRIP.slice(base * 3, (base + m - 2) * 3))
 
 static func _comp_width(w: float) -> float:
 	if w > 0.0:
@@ -189,7 +249,44 @@ func _segments(r: float) -> int:
 
 # ── The CanvasItem draw functions ──
 func draw_circle(pos: Vector2, radius: float, color: Color, filled: bool = true, width: float = -1.0, antialiased: bool = false):
-	draw_ellipse(pos, radius, radius, color, filled, width, antialiased)
+	if not (filled and antialiased):
+		draw_ellipse(pos, radius, radius, color, filled, width, antialiased)
+		return
+	# The common case, inlined: a filled, antialiased disc
+	var q := 20.0 * _px * _xf_scale
+	var r: float = max(0.0, radius - FEATHER * 0.25)
+	if q > 0.0:
+		r = roundf(r * q) / q
+	var entry: Array = _disc_by_r.get(Vector2(r, q), [])
+	if entry.is_empty():
+		var n := _segments(r + FEATHER)
+		_add_ellipse(pos, radius, radius, color, true)
+		var key := Vector4(r, r, n, 1.0)
+		if _discs.has(key):
+			if _disc_by_r.size() > 3000:
+				_disc_by_r.clear()
+			_disc_by_r[Vector2(r, q)] = [_discs[key], n]
+		return
+	var tpl: PackedVector2Array = entry[0]
+	var n: int = entry[1]
+	var base := verts.size()
+	var end := base + tpl.size()
+	if _ID.size() < end:
+		_grow_patterns(end)
+	if _ident:
+		verts.append_array(Transform2D(0.0, pos) * tpl)
+	else:
+		verts.append_array((xf * Transform2D(0.0, pos)) * tpl)
+	idx.append_array(_ID.slice(base, end))
+	var ck := Vector3i(n, color.to_rgba32(), 1)
+	var pat: PackedColorArray = _disc_cols.get(ck, PackedColorArray())
+	if pat.is_empty() or pat[0] != color:
+		_disc_cols.erase(ck)
+		_disc_pattern(n, color, true)
+		pat = _disc_cols[ck]
+	cols.append_array(pat)
+
+static var _disc_by_r := {}
 
 func draw_ellipse(pos: Vector2, major: float, minor: float, color: Color, filled: bool = true, width: float = -1.0, antialiased: bool = false):
 	if filled:
@@ -201,50 +298,71 @@ func draw_ellipse(pos: Vector2, major: float, minor: float, color: Color, filled
 		pts[64] = pts[0]
 		draw_polyline(pts, color, width, antialiased)
 
+# Whole circles (fan + feather) by size, in the circle's own space, and their
+# colour runs by colour. Sizes are rounded to 1/20 of a screen pixel so a leg
+# that swells a little as it lifts still finds its circle already built.
+static var _discs := {}
+static var _disc_cols := {}
+
 func _add_ellipse(pos: Vector2, major: float, minor: float, color: Color, aa: bool):
 	if aa:
 		major = max(0.0, major - FEATHER * 0.25)
 		minor = max(0.0, minor - FEATHER * 0.25)
+	var q := 20.0 * _px * _xf_scale
+	if q > 0.0:
+		major = roundf(major * q) / q
+		minor = roundf(minor * q) / q
 	var n := _segments(max(major, minor) + (FEATHER if aa else 0.0))
-	_unit(n)
+	var key := Vector4(major, minor, n, 1.0 if aa else 0.0)
+	var tpl: PackedVector2Array = _discs.get(key, PackedVector2Array())
+	if tpl.is_empty():
+		_unit(n)
+		tpl = Transform2D(Vector2(major, 0), Vector2(0, minor), Vector2.ZERO) * _fans[n]
+		if aa:
+			var border := FEATHER
+			var max_axis = max(major, minor) * 2.0
+			if 0.0 <= max_axis and max_axis < 1.0:
+				border *= max_axis * 0.5
+			# The feather: a strip from the edge out to a transparent ring
+			var u: PackedVector2Array = _units[n]
+			var inner := Transform2D(Vector2(major, 0), Vector2(0, minor), Vector2.ZERO) * u
+			var outer := Transform2D(Vector2(major + border, 0), Vector2(0, minor + border), Vector2.ZERO) * u
+			for i in n:
+				tpl.append(inner[i])
+				tpl.append(outer[i])
+				tpl.append(inner[i + 1])
+				tpl.append(outer[i])
+				tpl.append(inner[i + 1])
+				tpl.append(outer[i + 1])
+		if _discs.size() > 3000:
+			_discs.clear()
+		_discs[key] = tpl
 	var place := Transform2D(0.0, pos)
 	if not _ident:
 		place = xf * place
-	# The filled fan, all one colour
-	verts.append_array(place * Transform2D(Vector2(major, 0), Vector2(0, minor), Vector2.ZERO) * _fans[n])
-	_fill(color, n * 3)
-	if not aa:
-		return
-	var border := FEATHER
-	var max_axis = max(major, minor) * 2.0
-	if 0.0 <= max_axis and max_axis < 1.0:
-		border *= max_axis * 0.5
-	# The feather: a strip from the edge out to a transparent ring
-	var key := Vector4(major, minor, border, n)
-	var tri: PackedVector2Array = _feathers.get(key, PackedVector2Array())
-	if tri.is_empty():
-		var u: PackedVector2Array = _units[n]
-		var inner := Transform2D(Vector2(major, 0), Vector2(0, minor), Vector2.ZERO) * u
-		var outer := Transform2D(Vector2(major + border, 0), Vector2(0, minor + border), Vector2.ZERO) * u
-		for i in n:
-			tri.append(inner[i])
-			tri.append(outer[i])
-			tri.append(inner[i + 1])
-			tri.append(outer[i])
-			tri.append(inner[i + 1])
-			tri.append(outer[i + 1])
-		_feathers[key] = tri
-	verts.append_array(place * tri)
-	var pk := Vector2i(n, color.to_rgba32()) # colours to 8 bits: only picks the cached copy
-	var pat: PackedColorArray = _pattern.get(pk, PackedColorArray())
+	_list(place * tpl)
+	# The fan in one colour, then the feather fading out
+	var ck := Vector3i(n, color.to_rgba32(), 1 if aa else 0) # 8-bit key: only picks the cached copy
+	var pat: PackedColorArray = _disc_cols.get(ck, PackedColorArray())
 	if pat.is_empty() or pat[0] != color:
-		var tr := Color(color, 0.0)
-		pat = PackedColorArray([color, tr, color, tr, color, tr])
-		while pat.size() < n * 6:
-			pat.append_array(pat)
-		pat.resize(n * 6)
-		_pattern[pk] = pat
+		pat = _disc_pattern(n, color, aa)
 	cols.append_array(pat)
+
+static func _disc_pattern(n: int, color: Color, aa: bool) -> PackedColorArray:
+	var pat := PackedColorArray()
+	pat.resize(n * 3)
+	pat.fill(color)
+	if aa:
+		var tr := Color(color, 0.0)
+		var fe := PackedColorArray([color, tr, color, tr, color, tr])
+		while fe.size() < n * 6:
+			fe.append_array(fe)
+		fe.resize(n * 6)
+		pat.append_array(fe)
+	if _disc_cols.size() > 3000:
+		_disc_cols.clear()
+	_disc_cols[Vector3i(n, color.to_rgba32(), 1 if aa else 0)] = pat
+	return pat
 
 func draw_arc(center: Vector2, radius: float, start_angle: float, end_angle: float, point_count: int, color: Color, width: float = -1.0, antialiased: bool = false):
 	var pts := PackedVector2Array()
@@ -277,27 +395,49 @@ func draw_line(from: Vector2, to: Vector2, color: Color, width: float = -1.0, an
 	if antialiased:
 		width = _comp_width(width)
 	var t := dir * width * 0.5
-	var bl := from + t
-	var br := from - t
-	var el := to + t
-	var er := to - t
-	_quad(bl, br, er, el, color, color, color, color)
-	if antialiased:
-		var bs := FEATHER
-		if 0.0 <= width and width < 1.0:
-			bs *= width
-		var dir2 := diff.normalized()
-		var bo := dir * bs
-		var bo2 := dir2 * bs
+	if not antialiased:
+		var base := verts.size()
+		var q := PackedVector2Array([from + t, from - t, to - t, to + t])
+		verts.append_array(q if _ident else xf * q)
+		_fill(color, 4)
+		idx.append_array(PackedInt32Array([base, base + 1, base + 2, base, base + 2, base + 3]))
+		return
+	var bs := FEATHER
+	if 0.0 <= width and width < 1.0:
+		bs *= width
+	var bo := dir * bs
+	var bo2 := diff.normalized() * bs
+	# A 4x4 grid: rows across the line (outer feather, edge, edge, outer
+	# feather), columns along it (feather beyond `from`, from, to, feather
+	# beyond `to`). The inner four are the line, the rest fade out.
+	var f0 := from + bo2
+	var t3 := to - bo2
+	var a0 := t + bo
+	var a3 := -t - bo
+	var g := PackedVector2Array([
+		f0 + a0, from + a0, to + a0, t3 + a0,
+		f0 + t, from + t, to + t, t3 + t,
+		f0 - t, from - t, to - t, t3 - t,
+		f0 + a3, from + a3, to + a3, t3 + a3])
+	# Start on a multiple of 16 so the prebuilt grid indices fit
+	var base := verts.size()
+	var pad := (16 - (base & 15)) & 15
+	if pad > 0:
+		base += pad
+		verts.resize(base)
+		cols.resize(base)
+	if _ID.size() < base + 16:
+		_grow_patterns(base + 16)
+	verts.append_array(g if _ident else xf * g)
+	var pk := Vector2i(-16, color.to_rgba32())
+	var pat: PackedColorArray = _pattern.get(pk, PackedColorArray())
+	if pat.is_empty() or pat[5] != color:
 		var tr := Color(color, 0.0)
-		_quad(bl, bl + bo, el + bo, el, color, tr, tr, color)
-		_quad(br, br - bo, er - bo, er, color, tr, tr, color)
-		_quad(bl, bl + bo2, br + bo2, br, color, tr, tr, color)
-		_quad(el, el - bo2, er - bo2, er, color, tr, tr, color)
-		_quad(bl, bl + bo2, bl + bo + bo2, bl + bo, color, tr, tr, tr)
-		_quad(br, br + bo2, br - bo + bo2, br - bo, color, tr, tr, tr)
-		_quad(el, el - bo2, el + bo - bo2, el + bo, color, tr, tr, tr)
-		_quad(er, er - bo2, er - bo - bo2, er - bo, color, tr, tr, tr)
+		pat = PackedColorArray([tr, tr, tr, tr, tr, color, color, tr, tr, color, color, tr, tr, tr, tr, tr])
+		_pattern[pk] = pat
+	cols.append_array(pat)
+	var j := base / 16 * 54
+	idx.append_array(_GRID.slice(j, j + 54))
 
 static func _seg_dir(pts: PackedVector2Array, i: int, prev: Vector2) -> Vector2:
 	if i == pts.size() - 1:
@@ -331,6 +471,9 @@ func draw_polyline_colors(points: PackedVector2Array, colors: PackedColorArray, 
 	if width < 0.0:
 		_native_begin()
 		RenderingServer.canvas_item_add_polyline(ci, points, colors, width, antialiased)
+		return
+	if antialiased and colors.size() == 1:
+		_aa_polyline(points, colors[0], width)
 		return
 	var color := Color(1, 1, 1, 1)
 	var loop := points[0].is_equal_approx(points[n - 1])
@@ -467,3 +610,121 @@ func draw_polyline_colors(points: PackedVector2Array, colors: PackedColorArray, 
 	_strip(mp, mc)
 	_strip(lp, lc)
 	_strip(rp, rc)
+
+# Colour runs for _aa_polyline: per point the stroke colour twice, then the
+# faded feather twice
+static var _poly_cols := {}
+
+# One-colour antialiased polyline (width already compensated). The same
+# triangles as Godot's own (the engine's strip and its two feathers, with the
+# end caps as one extra faded point at each end), but every point's four
+# vertices are written once and the triangles come from the prebuilt ladders.
+func _aa_polyline(points: PackedVector2Array, color: Color, width: float):
+	var n := points.size()
+	var bs := FEATHER
+	if width < 1.0:
+		bs *= width
+	var hw := width * 0.5
+	var loop := points[0].is_equal_approx(points[n - 1])
+	var first_dir := Vector2.ZERO
+	var last_dir := Vector2.ZERO
+	for i in range(1, n):
+		first_dir = (points[i] - points[i - 1]).normalized()
+		if not first_dir.is_zero_approx():
+			break
+	for i in range(n - 1, 0, -1):
+		last_dir = (points[i] - points[i - 1]).normalized()
+		if not last_dir.is_zero_approx():
+			break
+	var caps := 0 if loop else 1
+	var count := n + caps * 2 # points, with the cap points
+	var v := PackedVector2Array()
+	v.resize(count * 4)
+	var prev := Vector2.ZERO
+	var j := caps * 4
+	for i in n:
+		var pos := points[i]
+		var seg := prev
+		if i < n - 1:
+			var d := (points[i + 1] - pos).normalized()
+			if not d.is_zero_approx():
+				seg = d
+		var base: Vector2
+		if not loop and i == 0:
+			base = first_dir.orthogonal()
+		elif not loop and i == n - 1:
+			base = last_dir.orthogonal()
+		else:
+			if loop:
+				if i == 0:
+					prev = last_dir
+				elif i == n - 1:
+					prev = first_dir
+			var length := 1.0
+			var bis := (prev * seg.length() - seg * prev.length()).normalized()
+			var sn := sin(atan2(bis.cross(prev), bis.dot(prev)))
+			if not is_zero_approx(sn) and not seg.is_equal_approx(prev):
+				length = clamp(1.0 / sn, -3.0, 3.0)
+			else:
+				bis = seg.orthogonal()
+			if bis.is_zero_approx():
+				bis = seg.orthogonal()
+			base = bis * length
+		var eo := base * hw
+		var bo := base * bs
+		v[j] = pos + eo
+		v[j + 1] = pos - eo
+		v[j + 2] = pos + eo + bo
+		v[j + 3] = pos - eo - bo
+		j += 4
+		prev = seg
+	if caps:
+		# Faded points just beyond each end
+		var bb := -first_dir * bs
+		v[0] = v[4] + bb
+		v[1] = v[5] + bb
+		v[2] = v[6] + bb
+		v[3] = v[7] + bb
+		var eb := prev * bs
+		var e := count * 4 - 4
+		v[e] = v[e - 4] + eb
+		v[e + 1] = v[e - 3] + eb
+		v[e + 2] = v[e - 2] + eb
+		v[e + 3] = v[e - 1] + eb
+	# Start on a multiple of 4 so the ladders fit
+	var vb := verts.size()
+	var pad := (4 - (vb & 3)) & 3
+	if pad > 0:
+		vb += pad
+		verts.resize(vb)
+		cols.resize(vb)
+	if _ID.size() < vb + count * 4 + 8:
+		_grow_patterns(vb + count * 4 + 8)
+	verts.append_array(v if _ident else xf * v)
+	var key := color.to_rgba32()
+	var run: PackedColorArray = _poly_cols.get(key, PackedColorArray())
+	if run.is_empty() or run[0] != color:
+		var tr := Color(color, 0.0)
+		run = PackedColorArray([color, color, tr, tr])
+		while run.size() < 256:
+			run.append_array(run)
+		if _poly_cols.size() > 2000:
+			_poly_cols.clear()
+		_poly_cols[key] = run
+	if run.size() < n * 4:
+		while run.size() < n * 4:
+			run.append_array(run)
+		_poly_cols[key] = run
+	var tr4 := PackedColorArray([Color(color, 0.0), Color(color, 0.0), Color(color, 0.0), Color(color, 0.0)])
+	if caps:
+		cols.append_array(tr4)
+	cols.append_array(run.slice(0, n * 4))
+	if caps:
+		cols.append_array(tr4)
+	var p0 := vb / 4
+	var a := p0 * 6
+	var b := (p0 + count - 1) * 6
+	# Same order as the engine: the stroke, then its two feathers
+	idx.append_array(_LAB.slice(a, b))
+	idx.append_array(_LAC.slice(a, b))
+	idx.append_array(_LBD.slice(a, b))

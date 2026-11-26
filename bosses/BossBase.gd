@@ -148,16 +148,31 @@ func _draw():
 	draw_tell()
 	pen.solid = true
 	pen.flush()
-	drawn = pen.take_hits()
-	drawn_r = bound_of(drawn)
+	_drawn_packed = pen.take_packed()
 
 # ── Hit where it is drawn ──
 # Everything solid the boss draws (HitPen.gd) is kept, in the boss's own
 # space, as capsules and polygons. Shots, bites, stings, blasts and spines
 # measure to them (gap_to, nearest_point), so a tail, shell, sail or limb
 # takes a hit wherever it is drawn this frame, whatever pose the boss is in.
-var drawn: Array = []
-var drawn_r: float = 0.0 # everything drawn lies within this of the centre
+# Packed by HitPen until something asks (most frames nothing does)
+var _drawn_packed: Array = []
+var _drawn: Array = []
+var _drawn_r: float = 0.0
+var drawn: Array:
+	get:
+		_unpack_drawn()
+		return _drawn
+var drawn_r: float: # everything drawn lies within this of the centre
+	get:
+		_unpack_drawn()
+		return _drawn_r
+
+func _unpack_drawn():
+	if not _drawn_packed.is_empty():
+		_drawn = preload("res://HitPen.gd").expand(_drawn_packed)
+		_drawn_r = bound_of(_drawn)
+		_drawn_packed = []
 
 static func bound_of(pieces: Array) -> float:
 	var r := 0.0

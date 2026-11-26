@@ -11,6 +11,7 @@ extends Node2D
 
 # Shared lighting (preloaded: works even before the editor has rescanned)
 const Shading = preload("res://Shading.gd")
+const HitPen = preload("res://HitPen.gd")
 # All of a body's drawing goes out as one draw call (InkBatch.gd)
 var pen = preload("res://HitPen.gd").new() # records the body for fair hits (ArtShape.gd)
 const OUTLINE := Color(0.05, 0.07, 0.12, 1.0)
@@ -201,7 +202,17 @@ func _process(delta: float):
 	# An animal out in the black fog can't be seen: keep its last drawing
 	if foe and pen.hidden_by_fog(global_position, _extent()):
 		return
+	# Redraw at most about 60 times a second. On 90-144 Hz screens (phones,
+	# the Legion Go) the body still glides every frame (its node moves), but
+	# the drawing itself, the costly part, is redone at the physics rate.
+	_since_draw += delta
+	if _since_draw < REDRAW_STEP:
+		return
+	_since_draw = min(_since_draw - REDRAW_STEP, REDRAW_STEP)
 	queue_redraw()
+
+const REDRAW_STEP := 1.0 / 62.0
+var _since_draw: float = 1.0
 
 # How far the drawing reaches from the body's origin, in world px
 func _extent() -> float:
@@ -252,8 +263,8 @@ func _draw():
 	pen.begin(self)
 	_draw_body()
 	pen.flush()
-	if pen.has_method("take_hits"):
-		hits = pen.take_hits()
+	if pen.has_method("take_packed"):
+		_hits_packed = pen.take_packed()
 		hits_xf = get_global_transform()
 
 func _draw_body():
@@ -273,26 +284,69 @@ func _draw_body():
 	var down = Vector2(3, 9).rotated(-global_rotation)
 	_chain_to_draw(off)
 	_draw_off = off
-	pen.draw_set_transform(down + off * 0.6, _radial_rot, _stretch)
-	halo_pass = true
-	shadow_pass = true
-	pen.set("solid", false) # halo and drop shadow are not body (HitPen.gd)
-	if not body_only:
-		_draw_parts()
-		_draw_shadow_pass(spec)
+	# The body is worked out once: the main pass records each outlined part
+	# (_sil_ops), and the drop shadow and the paper rim are drawn from that
+	# record underneath it, instead of running the whole drawing three times
 	pen.draw_set_transform(off, _radial_rot, _stretch)
-	if not foe and not body_only:
-		_draw_parts()
-		_draw_form(spec)
 	halo_pass = false
+	shadow_pass = false
 	pen.set("solid", true)
 	_main_area = 0.0
-	_draw_parts()
 	_sil.resize(0)
+	_sil_ops.clear()
+	_rec = true
+	_draw_parts()
 	_draw_form(spec)
+	_rec = false
 	_draw_eye_parts()
 	if _sil.size() >= 3:
 		_hull = Geometry2D.convex_hull(_sil)
+	if not body_only:
+		_under.begin(self)
+		_under.draw_set_transform(down + off * 0.6, _radial_rot, _stretch)
+		_replay_rims(_under, true)
+		if not foe:
+			_under.draw_set_transform(off, _radial_rot, _stretch)
+			_replay_rims(_under, false)
+		_under.flush()
+
+# Outlined parts of the last main pass: [kind, ...] (see _replay_rims)
+enum { SIL_SHAPE, SIL_DISC, SIL_LIMB, SIL_TAPER, SIL_EYE }
+var _sil_ops: Array = []
+var _rec: bool = false
+var _under = preload("res://InkBatch.gd").new() # shadow and rim, drawn first
+
+# The drop shadow (shadow = true) or the pale paper rim round the outline:
+# what the old halo passes drew, from the recorded parts
+func _replay_rims(p, shadow: bool):
+	var col := Color(0, 0, 0, 0.22) if shadow else HALO
+	var rw := 0.0 if shadow else 2.4
+	for op in _sil_ops:
+		match op[0]:
+			SIL_SHAPE:
+				if shadow:
+					p.draw_colored_polygon(op[1], col)
+				else:
+					var rim: PackedVector2Array = op[1].duplicate()
+					rim.append(op[1][0])
+					p.draw_polyline(rim, col, op[2] + rw, true)
+			SIL_DISC:
+				p.draw_circle(op[1], op[2] + (0.0 if shadow else 2.5), col, true, -1.0, true)
+			SIL_EYE:
+				p.draw_circle(op[1], op[2] + (0.0 if shadow else 2.5), col, true, -1.0, true)
+			SIL_LIMB:
+				var hw: float = op[2] + rw
+				p.draw_polyline(op[1], col, hw, true)
+				for q in op[1]:
+					p.draw_circle(q, hw * 0.5, col, true, -1.0, true)
+			SIL_TAPER:
+				var pts: PackedVector2Array = op[1]
+				var n := pts.size()
+				for i in n - 1:
+					var w: float = lerp(op[2], op[3], i / float(max(n - 2, 1)))
+					p.draw_line(pts[i], pts[i + 1], col, w + 3.0 + rw, true)
+					p.draw_circle(pts[i], (w + 3.0 + rw) * 0.5, col, true, -1.0, true)
+				p.draw_circle(pts[n - 1], (op[3] + 3.0 + rw) * 0.5, col, true, -1.0, true)
 
 # ── Grown parts (data/Biominerals.gd) ──
 # Parts grown on the GROW screen show on the body: keratin horn on the snout,
@@ -303,7 +357,14 @@ var _sil := PackedVector2Array()
 # Every body draws with a HitPen: the pieces drawn last frame, in this
 # node's space, are where a drawn boss can be hit (bosses/DrawnBoss.gd) and
 # where the player and drawn animals touch other things (ArtShape.gd)
-var hits: Array = []
+# The solid pieces of the last drawing (HitPen.gd), cut up only when asked
+var _hits_packed: Array = []
+var hits: Array = []:
+	get:
+		if not _hits_packed.is_empty():
+			hits = HitPen.expand(_hits_packed)
+			_hits_packed = []
+		return hits
 var hits_xf := Transform2D.IDENTITY # where this node was when they were drawn
 var _hull := PackedVector2Array()
 var _parts_pass: bool = false
@@ -564,6 +625,8 @@ func shape(pts: PackedVector2Array, col: Color, w: float = OW) -> bool:
 		else:
 			pen.draw_polyline(rim, HALO, w + _rim_w(), true)
 		return true
+	if _rec and w > 0.0 and col.a >= 0.5:
+		_sil_ops.append([SIL_SHAPE, pts.duplicate(), w])
 	if w > 0 and col.a > 0.8:
 		_sil_add(pts)
 	if col.a > 0.8:
@@ -628,6 +691,8 @@ func disc(c: Vector2, r: float, col: Color, w: float = OW):
 			pen.draw_circle(c, r + w * 0.5 + (0.0 if shadow_pass else 2.5), _rim_col(), true, -1.0, true)
 		return
 	if w > 0:
+		if _rec:
+			_sil_ops.append([SIL_DISC, c, r + w * 0.5])
 		pen.draw_circle(c, r + w * 0.5, ink(col), true, -1.0, true)
 	if col.a > 0.8 and r > 2.5:
 		var circ = ellipse_pts(c, r, r, 0.0, 18)
@@ -662,6 +727,8 @@ func limb(pts: PackedVector2Array, w: float, col: Color, outline: bool = true):
 			pen.draw_circle(p, hw * 0.5, _rim_col(), true, -1.0, true)
 		return
 	if outline:
+		if _rec:
+			_sil_ops.append([SIL_LIMB, pts.duplicate(), w + 3.0])
 		pen.draw_polyline(pts, ink(col), w + 3.0, true)
 		for p in pts:
 			pen.draw_circle(p, (w + 3.0) * 0.5, ink(col), true, -1.0, true)
@@ -686,6 +753,8 @@ func taper(pts: PackedVector2Array, w0: float, w1: float, col: Color, outline: b
 		return
 	var k = ink(col)
 	var base = lit(col, Vector3(0, 0, 1)).darkened(0.12)
+	if outline and _rec:
+		_sil_ops.append([SIL_TAPER, pts.duplicate(), w0, w1])
 	if outline:
 		for i in n - 1:
 			var w = lerp(w0, w1, i / float(max(n - 2, 1)))
@@ -730,6 +799,16 @@ func tube_shaded(spine: Array, widths: Array, col: Color, w: float = OW):
 		tube(spine, widths, col, w)
 		return
 	lit_tube(spine, widths, col)
+	if _rec and w > 0:
+		var tp := tube_pts(spine, widths)
+		if tp.size() >= 3 and not Geometry2D.triangulate_polygon(tp).is_empty():
+			if col.a >= 0.5:
+				_sil_ops.append([SIL_SHAPE, tp, w])
+		else:
+			var avg = 0.0
+			for x in widths:
+				avg += x
+			_sil_ops.append([SIL_LIMB, PackedVector2Array(spine), 2.0 * avg / max(widths.size(), 1) + 3.0])
 	if w > 0:
 		var loop := tube_pts(spine, widths)
 		_sil_add(loop)
@@ -758,6 +837,8 @@ func eye(p: Vector2, r: float, iris: Color = Color(0.1, 0.1, 0.12), pupil: bool 
 	if halo_pass:
 		pen.draw_circle(p, r + 1.5 + (0.0 if shadow_pass else 2.5), _rim_col(), true, -1.0, true)
 		return
+	if _rec:
+		_sil_ops.append([SIL_EYE, p, r + 1.5])
 	pen.draw_circle(p, r + 1.3, OUTLINE, true, -1.0, true)
 	pen.draw_circle(p, r, iris, true, -1.0, true)
 	if pupil:
@@ -878,8 +959,8 @@ func leg(root: Vector2, side: float, length: float, phase: float, rake: float, w
 		var st: Array = _legs[k]
 		var ph = fposmod(cyc, TAU)
 		var swinging = ph < PI and move > 0.08
-		if shadow_pass:
-			# Update once per frame, on the first pass
+		if not halo_pass:
+			# Update once per frame, on the main pass
 			_stride_sum += reach * scale_w
 			_stride_n += 1
 			if swinging and not st[2]:

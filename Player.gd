@@ -126,6 +126,10 @@ var aim_hold: float = 0.0
 var shot_counter: int = 0
 # Shot feel: a short shove backwards and a squash that lasts a few frames
 var recoil_velocity: Vector2 = Vector2.ZERO
+# Walking speed, eased toward the stick (see ACCEL_TIME)
+var walk_velocity: Vector2 = Vector2.ZERO
+const ACCEL_TIME := 0.06
+const STOP_TIME := 0.045
 var shot_kick: float = 0.0
 const HitFX = preload("res://HitFX.gd")
 const Difficulty = preload("res://data/Difficulty.gd")
@@ -337,9 +341,22 @@ func _physics_process(delta: float):
 
         if dash_timer <= 0:
             is_dashing = false
+            # Come out of the dash still moving, not from a standstill
+            walk_velocity = dash_direction * speed
     else:
         var slowed = slow_mult if slow_timer > 0 else 1.0
-        velocity = Vector2.ZERO if rooted_time > 0 else move_dir.normalized() * speed * slowed + recoil_velocity
+        var want = Vector2.ZERO if rooted_time > 0 else move_dir.normalized() * speed * slowed
+        if rooted_time > 0:
+            walk_velocity = Vector2.ZERO
+        else:
+            # A short ramp instead of instant on/off: full speed in about
+            # 0.06 s, stopped or turned round in about 0.045 s. Enough to give
+            # the body weight (and the legs and fins a clean start), too short
+            # to feel slow to dodge.
+            var reverse = want.length_squared() < 1.0 or want.dot(walk_velocity) < 0.0
+            var rate = speed / (STOP_TIME if reverse else ACCEL_TIME)
+            walk_velocity = walk_velocity.move_toward(want, rate * delta)
+        velocity = walk_velocity + recoil_velocity
         move_and_slide()
     recoil_velocity = recoil_velocity.move_toward(Vector2.ZERO, delta * 900.0)
 
