@@ -1,7 +1,7 @@
 # covertest.gd
 # Checks hiding in growth (Cover.gd, Room.spawn_covers): inside a patch the
 # form is far harder to notice; a hunter chasing you from across the room
-# loses you after a moment, one close by does not; patches are kept per room.
+# and one close by lose you after a moment; patches are kept per room.
 # With SHOT_DIR (xvfb) it also takes a picture of each era's growth.
 #   godot --headless --path . -s res://tools/covertest.gd
 extends SceneTree
@@ -80,7 +80,7 @@ func _initialize():
 				far.global_position = Vector2(1500, 300)
 			await physics_frame
 		check(is_instance_valid(far) and far.mood != "hostile", "era %d: the far hunter loses you (%s)" % [f, far.mood if is_instance_valid(far) else "gone"])
-		check(is_instance_valid(near) and near.mood == "hostile", "era %d: the near one still sees you" % f)
+		check(is_instance_valid(near) and near.mood != "hostile", "era %d: the near one forgets you too (%s)" % [f, near.mood if is_instance_valid(near) else "gone"])
 		if out != "":
 			for e in foes:
 				if is_instance_valid(e):

@@ -90,6 +90,13 @@ func _ready():
 
     if velocity == Vector2.ZERO:
         velocity = direction.normalized() * speed
+    # Animals' and bosses' shots fly slower in the first world, as far as before
+    if is_enemy_tear:
+        var pace: float = preload("res://data/Difficulty.gd").pace
+        if pace != 1.0:
+            velocity *= pace
+            speed *= pace
+            lifetime /= pace
     base_scale = scale
     
     # Deferred: reacting can add/remove physics nodes, which Godot forbids mid physics step

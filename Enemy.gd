@@ -468,7 +468,7 @@ func setup_enemy(floor_number: int):
 
 	# Later eras: tougher and a little quicker (data/Difficulty.gd)
 	max_health *= Difficulty.enemy_health_mult(floor_number)
-	speed *= Difficulty.enemy_speed_mult(floor_number)
+	speed *= Difficulty.enemy_speed_mult(floor_number) * Difficulty.pace_for(floor_number)
 	health = max_health
 
 	if not is_boss():
@@ -536,7 +536,7 @@ func apply_fauna(floor_number: int):
 	$CollisionShape2D.shape.radius *= base_scale
 	behavior = f.get("behavior", "")
 	setup_motion()
-	shoot_delay_mult = f.get("shoot_delay", 1.0) * Difficulty.enemy_fire_delay_mult(floor_number)
+	shoot_delay_mult = f.get("shoot_delay", 1.0) * Difficulty.enemy_fire_delay_mult(floor_number) / Difficulty.pace_for(floor_number)
 	weave_phase = randf() * TAU
 	lunge_cooldown = randf_range(1.0, 2.5)
 	temper = f.get("temper", "")
