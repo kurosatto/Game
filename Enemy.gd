@@ -79,7 +79,7 @@ const SPECIAL_STATS = {
 	"orbiter": {"hp": 7.0, "hp_per_floor": 1.5, "speed": 210.0, "radius": 24.0, "worth": 2.0},
 }
 # Animals that never hurt on contact
-const HARMLESS = ["colony", "skittish"]
+const HARMLESS = ["colony", "skittish", "frond"]
 const COLONY_CAP = 6
 var facing: Vector2 = Vector2.DOWN # armoured: where its shielded front points
 var charge_state: String = ""
@@ -101,8 +101,8 @@ var enroll_cooldown: float = 0.0
 var spray_state: String = "" # snarer: "windup" before a slime jet
 var spray_timer: float = 0.0
 var orbit_sign: float = 1.0 # orbiter: which way it circles
-# frond (Charnia): rooted; the current snaps it at you when you come close.
-# "" -> "windup" (bends away, trembling) -> "lash" (whips over) -> cooldown
+# frond (Charnia): rooted and harmless, sways and leans away from you.
+# (The lash_* fields below are left from its old lash; nothing sets them now.)
 const FROND_ROOT := Vector2(0, 50) # the holdfast, below the enemy's middle
 const FROND_REACH := 170.0
 const BURST_R := 80.0 # Diictodon bursting out of its burrow
@@ -141,6 +141,10 @@ func _ready():
 	player = get_tree().get_first_node_in_group("player")
 	pick_random_wander()
 	setup_hit_feedback()
+	# No coloured glow around animals: the additive light washed their
+	# colours out to white (kuro, 2026-11-26)
+	if light:
+		light.enabled = false
 
 # ═══════════════════════════════════════════════════════════
 # HIT FEEDBACK: white flash, a squash "punch", a little shove and a health bar
@@ -458,10 +462,6 @@ func setup_enemy(floor_number: int):
 		orbit_sign = 1.0 if randf() < 0.5 else -1.0
 		if enemy_type in HARMLESS:
 			damage = 0
-		if enemy_type == "frond":
-			# No body contact damage: only the lash hurts (process_frond)
-			damage = 0
-			lash_cooldown = randf_range(0.3, 1.2)
 		if light:
 			light.color = Color(0.9, 0.75, 0.4)
 			light.scale = Vector2(1.3, 1.3)
@@ -1152,9 +1152,10 @@ func spread_runner():
 			sprout.sprout_timer = randf_range(5.5, 7.5)
 		return
 
-# Charnia: a frond anchored on its holdfast. It sways in the current and,
-# when you come close, bends back and snaps over at you. The real animal
-# was passive; here the frond is simply tough and the current swings it.
+# Charnia: a frond anchored on its holdfast. It sways in the current and
+# bends aside when you swim past. Like the real animal it is harmless: no
+# mouth, no sting, no lash (kuro, 2026-11-26: "make the leaf enemy not
+# attack you"). It is still food if you graze it down.
 func setup_frond():
 	var spr: Sprite2D = $Sprite2D
 	spr.frame = 0 if randf() < 0.5 else 1 # the two painted variants
@@ -1163,10 +1164,6 @@ func setup_frond():
 	spr.position = FROND_ROOT
 	spr.offset = Vector2(0, -20)
 	$CollisionShape2D.position = Vector2(0, 4)
-	if light:
-		light.color = Color(0.5, 0.8, 1.0)
-		light.energy = 0.45
-		light.position = FROND_ROOT * 0.5
 	idle_timer = randf() * TAU # sway phase
 
 func process_frond(delta: float):
@@ -1174,51 +1171,12 @@ func process_frond(delta: float):
 	var spr: Sprite2D = $Sprite2D
 	var t = anim_timer + idle_timer
 	var sway = 0.07 * sin(t * 1.3) + 0.025 * sin(t * 3.1 + 1.0)
-	var root = global_position + FROND_ROOT
-	var to_p = player.global_position - root
-	var aim = clampf(wrapf(to_p.angle() + PI / 2, -PI, PI), -1.25, 1.25)
-	lash_cooldown -= delta
-	match lash_state:
-		"":
-			if lash_cooldown <= 0.0 and to_p.length() < FROND_REACH and blind_timer <= 0.0:
-				lash_state = "windup"
-				lash_timer = FROND_WINDUP
-				lash_angle = aim
-				show_mood("!", Color(1.0, 0.55, 0.3))
-		"windup":
-			# Bends back away from you, trembling, so you see it coming
-			lash_timer -= delta
-			var k = 1.0 - lash_timer / FROND_WINDUP
-			sway = -signf(lash_angle if absf(lash_angle) > 0.05 else 1.0) * 0.6 * k + sin(anim_timer * 55.0) * 0.03
-			if lash_timer <= 0.0:
-				lash_state = "lash"
-				lash_timer = FROND_LASH
-				lash_hit = false
-				SoundManager.play_sfx("enemy_lunge", 0.8)
-		"lash":
-			lash_timer -= delta
-			var k = 1.0 - lash_timer / FROND_LASH
-			sway = lerpf(-signf(lash_angle if absf(lash_angle) > 0.05 else 1.0) * 0.6, lash_angle, sqrt(k))
-			if lash_timer <= 0.0:
-				lash_state = "recover"
-				lash_timer = 0.5
-		"recover":
-			lash_timer -= delta
-			sway = lerpf(sway, lash_angle, lash_timer / 0.5)
-			if lash_timer <= 0.0:
-				lash_state = ""
-				lash_cooldown = randf_range(1.4, 2.2)
-	spr.rotation = lerp_angle(spr.rotation, sway, 1.0 - exp(-delta * (30.0 if lash_state == "lash" else 8.0)))
-	# The frond sweeps through the space in front of it and hurts only what
-	# the painted frond touches in the pose just set (ArtShape.gd)
-	if lash_state == "lash" and not lash_hit and lash_touches():
-		lash_hit = true
-		player.take_damage(1, killer_name())
-
-func lash_touches() -> bool:
-	if not player.has_method("touched_by") or player.get("invincibility_time") > 0.0:
-		return false
-	return player.touched_by(self)
+	# Swimming close pushes the water and the frond leans away from you
+	var to_p = player.global_position - (global_position + FROND_ROOT)
+	if to_p.length() < FROND_REACH:
+		var k = 1.0 - to_p.length() / FROND_REACH
+		sway -= signf(to_p.x if absf(to_p.x) > 1.0 else 1.0) * 0.35 * k
+	spr.rotation = lerp_angle(spr.rotation, sway, 1.0 - exp(-delta * 6.0))
 
 # Marrella: harmless and quick; it flees, and slips sideways when cornered
 func process_skittish(delta: float):

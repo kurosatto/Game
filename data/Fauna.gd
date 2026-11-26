@@ -29,7 +29,7 @@ const FLOORS = {
 		"tank": {"name": "Dickinsonia", "temper": "docile", "idle": "rest", "fact": "A flat, quilted Ediacaran animal up to a metre long; cholesterol traces in its fossils prove it was an animal.", "tip": "Slow and huge, it barely flinches.", "tint": Color(1.0, 1.0, 1.0), "scale": 1.0, "speed": 1.0},
 		# Charnia: the swaying fronds of the Ediacaran sea floor are animals
 		# you can fight (Room.spawn_fronds), never rolled as a random spawn
-		"frond": {"name": "Charnia", "fact": "A feathery rangeomorph frond up to about 60 cm tall, anchored by a disc-shaped holdfast. Found by schoolchildren in Charnwood Forest, England, in the 1950s, it was one of the first fossils accepted as older than the Cambrian. It had no mouth, gut or stinging cells and fed straight from the water.", "tip": "Rooted. Swim too close and the current snaps its tough frond into you.", "tint": Color(1.0, 1.0, 1.0), "scale": 1.4, "speed": 1.0},
+		"frond": {"name": "Charnia", "fact": "A feathery rangeomorph frond up to about 60 cm tall, anchored by a disc-shaped holdfast. Found by schoolchildren in Charnwood Forest, England, in the 1950s, it was one of the first fossils accepted as older than the Cambrian. It had no mouth, gut or stinging cells and fed straight from the water.", "tip": "Rooted and harmless. It just sways in the current; graze it for food.", "tint": Color(1.0, 1.0, 1.0), "scale": 1.4, "speed": 1.0},
 		"colony": {"name": "Fractofusus", "fact": "A spindle-shaped rangeomorph of fractal fronds lying on the Ediacaran sea floor. Fossil beds show it spread by runners, like strawberry plants.", "tip": "Rooted and harmless, but it keeps sprouting new fronds until you clear it.", "tint": Color(1.0, 1.0, 1.0), "scale": 1.0, "speed": 1.0},
 	},
 	2: {

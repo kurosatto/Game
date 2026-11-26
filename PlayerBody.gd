@@ -42,7 +42,7 @@ var preview_parts: Dictionary = {}
 var preview_live: bool = false
 var _last_rot: float = 0.0
 var halo_pass: bool = false
-var body_only: bool = false # tools/fairhits.gd: leave out the paper rim and drop shadow
+var body_only: bool = false # tools/fairhits.gd: leave out the paper rim
 # Attack timeline: seconds since the last strike (strike above is the pose
 # it drives), plus the body's whole-body lunge, a hurt flinch and a damped
 # spring that lets the body lag behind speed changes so it moves with weight
@@ -288,13 +288,13 @@ func _draw_body():
 		off += Vector2(jet * 3.5, 0)
 	if hurt > 0.0:
 		off += Vector2(sin(t * 70.0), cos(t * 53.0)) * 2.2 * hurt
-	# Soft drop shadow, always cast down the screen
-	var down = Vector2(3, 9).rotated(-global_rotation)
+	# No drop shadow: kuro found the dark offset copy under every animal ugly
+	# (the ink filter turned it into a heavy black double outline)
 	_chain_to_draw(off)
 	_draw_off = off
 	# The body is worked out once: the main pass records each outlined part
-	# (_sil_ops), and the drop shadow and the paper rim are drawn from that
-	# record underneath it, instead of running the whole drawing three times
+	# (_sil_ops), and the player's paper rim is drawn from that record
+	# underneath it, instead of running the whole drawing again
 	pen.draw_set_transform(off, _radial_rot, _stretch)
 	halo_pass = false
 	shadow_pass = false
@@ -309,13 +309,10 @@ func _draw_body():
 	_draw_eye_parts()
 	if _sil.size() >= 3:
 		_hull = Geometry2D.convex_hull(_sil)
-	if not body_only:
+	if not body_only and not foe:
 		_under.begin(self)
-		_under.draw_set_transform(down + off * 0.6, _radial_rot, _stretch)
-		_replay_rims(_under, true)
-		if not foe:
-			_under.draw_set_transform(off, _radial_rot, _stretch)
-			_replay_rims(_under, false)
+		_under.draw_set_transform(off, _radial_rot, _stretch)
+		_replay_rims(_under, false)
 		_under.flush()
 
 # Outlined parts of the last main pass: [kind, ...] (see _replay_rims)
