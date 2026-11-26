@@ -43,7 +43,7 @@ const STYLES := [
 	{"id": "neon", "name": "Bioluminescent neon", "desc": "Glowing outlines in the dark abyss.",
 		"fog": Color(0.01, 0.02, 0.05), "rim": Color(0.05, 0.30, 0.40), "dark": true, "floor": Color(0.02, 0.03, 0.06), "swatch": Color(0.20, 0.95, 1.00),
 		"ui": {"INK": Color(0.01, 0.03, 0.07), "INK_SOFT": Color(0.03, 0.07, 0.13), "MEMBRANE": Color(0.20, 0.95, 1.0), "CREAM": Color(0.86, 1.0, 1.0), "MUTED": Color(0.45, 0.72, 0.82), "SUN": Color(1.0, 0.45, 0.90), "LEAF": Color(0.45, 1.0, 0.55), "AQUA": Color(0.30, 0.95, 1.0), "CORAL": Color(1.0, 0.35, 0.45), "SHADE": Color(0.10, 0.85, 1.0, 0.30), "BACKDROP": Color(0.0, 0.01, 0.03), "TITLE": Color(0.60, 1.0, 1.0), "TITLE_OUTLINE": Color(0.05, 0.30, 0.55), "ROUND": 0.9, "RIM": 3, "CORNER_DETAIL": 12, "SMOOTH": true, "SHADOW_SIZE": 18, "SHADOW_OFFSET": Vector2(0, 0)}},
-	{"id": "soft_3d", "name": "Soft 3D", "desc": "Rounded lit volumes, soft shadows and rippling water light.",
+	{"id": "soft_3d", "name": "Soft 3D", "desc": "Rounded lit volumes and rippling water light.",
 		"fog": Color(0.09, 0.24, 0.26), "rim": Color(0.30, 0.55, 0.55), "dark": true, "floor": Color(0.24, 0.48, 0.48), "swatch": Color(0.35, 0.70, 0.68),
 		"ui": {"INK": Color(0.07, 0.20, 0.22), "INK_SOFT": Color(0.12, 0.30, 0.32), "MEMBRANE": Color(0.62, 0.92, 0.86), "CREAM": Color(0.97, 1.0, 0.98), "MUTED": Color(0.70, 0.86, 0.84), "SUN": Color(1.0, 0.86, 0.52), "LEAF": Color(0.66, 0.95, 0.60), "CORAL": Color(1.0, 0.55, 0.48), "SHADE": Color(0.0, 0.08, 0.08, 0.5), "BACKDROP": Color(0.04, 0.13, 0.14), "TITLE": Color(1.0, 0.92, 0.70), "TITLE_OUTLINE": Color(0.06, 0.22, 0.24), "ROUND": 1.5, "RIM": 2, "CORNER_DETAIL": 16, "SMOOTH": true, "SHADOW_SIZE": 34, "SHADOW_OFFSET": Vector2(0, 14)}},
 ]
@@ -389,7 +389,7 @@ void fragment() {
 """
 
 # ---- 10. Soft 3D: brightness read as height and lit like smooth rounded
-# volumes, with a soft drop shadow and caustic light rippling over all ----
+# volumes, with caustic light rippling over all ----
 const SOFT_3D = """
 void fragment() {
 	vec2 px = SCREEN_PIXEL_SIZE;
@@ -411,11 +411,8 @@ void fragment() {
 	vec3 L = normalize(vec3(-0.5, -0.6, 0.8));
 	float diff = 0.72 + 0.45 * dot(n, L);
 	float spec = pow(max(dot(reflect(-L, n), vec3(0.0, 0.0, 1.0)), 0.0), 24.0) * 0.35 * smoothstep(0.02, 0.1, length(vec2(hx, hy)));
-	// Drop shadow: something darker up and to the left casts onto here
-	float l_here = luma(tex(uv));
-	float l_cast = luma(tex(uv - vec2(-7.0, -9.0) * px));
-	float shadow = clamp((l_here - l_cast) / max(light_lum, 0.25), 0.0, 1.0) * 0.35 * (1.0 - thing);
-	vec3 col = saturate_by(c, 1.15) * diff * (1.0 - shadow) + vec3(1.0, 0.98, 0.92) * spec;
+	// No drop shadow (kuro, 2026-11-26: disliked the shadow under the art)
+	vec3 col = saturate_by(c, 1.15) * diff + vec3(1.0, 0.98, 0.92) * spec;
 	// Caustics: bright wandering ribbons of light through the water
 	vec2 q = fc / 160.0;
 	float k = abs(vnoise(q + vec2(TIME * 0.12, 0.0)) - vnoise(q * 1.3 - vec2(0.0, TIME * 0.10)));

@@ -1823,8 +1823,8 @@ func update_creature_visuals():
     $Sprite2D.modulate = Color.WHITE if has_lineage_art else current_modulate
     queue_redraw()
     if has_node("PointLight2D"):
-        $PointLight2D.color = current_modulate
-        $PointLight2D.energy = 1.5
+        # Off: the coloured glow washed the creature's colours out
+        $PointLight2D.enabled = false
     if has_node("SwimParticles"):
         $SwimParticles.color = current_modulate * Color(1, 1, 1, 0.6)
 

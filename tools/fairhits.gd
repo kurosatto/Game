@@ -109,8 +109,7 @@ func run():
 	vp = make_view(LP)
 	if OS.get_environment("SKIP_ANIMALS") == "":
 		await animals()
-	if OS.get_environment("SKIP_FROND") == "":
-		await fronds()
+	# Part 2 is retired: Charnia no longer lashes (2026-11-26)
 	print("FAIRHITS done, %d failures" % fails)
 	quit()
 

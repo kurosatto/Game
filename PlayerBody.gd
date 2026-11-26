@@ -39,7 +39,7 @@ var preview_parts: Dictionary = {}
 var preview_live: bool = false
 var _last_rot: float = 0.0
 var halo_pass: bool = false
-var body_only: bool = false # tools/fairhits.gd: leave out the paper rim and drop shadow
+var body_only: bool = false # tools/fairhits.gd: leave out the paper rim
 # Attack timeline: seconds since the last strike (strike above is the pose
 # it drives), plus the body's whole-body lunge, a hurt flinch and a damped
 # spring that lets the body lag behind speed changes so it moves with weight
@@ -269,18 +269,13 @@ func _draw_body():
 		off += Vector2(jet * 3.5, 0)
 	if hurt > 0.0:
 		off += Vector2(sin(t * 70.0), cos(t * 53.0)) * 2.2 * hurt
-	# Soft drop shadow, always cast down the screen
-	var down = Vector2(3, 9).rotated(-global_rotation)
+	# No drop shadow: kuro found the dark offset copy under every animal ugly
+	# (the ink filter turned it into a heavy black double outline)
 	_chain_to_draw(off)
 	_draw_off = off
-	pen.draw_set_transform(down + off * 0.6, _radial_rot, _stretch)
-	halo_pass = true
-	shadow_pass = true
-	pen.set("solid", false) # halo and drop shadow are not body (HitPen.gd)
-	if not body_only:
-		_draw_parts()
-		_draw_shadow_pass(spec)
 	pen.draw_set_transform(off, _radial_rot, _stretch)
+	halo_pass = true
+	pen.set("solid", false) # the paper halo is not body (HitPen.gd)
 	if not foe and not body_only:
 		_draw_parts()
 		_draw_form(spec)
