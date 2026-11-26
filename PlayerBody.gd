@@ -14,6 +14,13 @@ const Shading = preload("res://Shading.gd")
 const HitPen = preload("res://HitPen.gd")
 const SiltPuffs = preload("res://rooms/SiltPuffs.gd")
 var _turning: float = 0.0 # 0..1 how fast the body is turning on the spot
+# Idle fidgets (see _process)
+const FIDGET_TIME := 0.8
+var _still: float = 0.0
+var _next_fidget: float = 2.0
+var _fidget_t: float = 0.0
+var _fidget_dir: float = 1.0
+var _fidget: float = 0.0
 # All of a body's drawing goes out as one draw call (InkBatch.gd)
 var pen = preload("res://HitPen.gd").new() # records the body for fair hits (ArtShape.gd)
 const OUTLINE := Color(0.05, 0.07, 0.12, 1.0)
@@ -172,7 +179,25 @@ func _process(delta: float):
 	var turn_v: float = min(abs(dr) / dt, 14.0) * 20.0 * max(abs(sc.x), abs(sc.y))
 	_turning = lerp(_turning, clamp(turn_v / max(top * 0.5, 1.0), 0.0, 1.0), 1.0 - exp(-dt * 12.0))
 	gait += (v + turn_v) * delta * (PI / max(1.6 * _stride_w, 6.0) if _stride_w > 0.0 else 1.0 / 16.0)
-	bend = lerp(bend, clamp(dr / dt * 0.18, -1.0, 1.0), 1.0 - exp(-dt * 7.0))
+	# Standing still, the animal isn't frozen: now and then it glances to a
+	# side, resettles its feet and flicks its fins or feelers
+	if move < 0.06 and dash < 0.1 and atk > 1.0 and tuck < 0.1:
+		_still += delta
+	else:
+		_still = 0.0
+		_fidget_t = 0.0
+	if _fidget_t <= 0.0 and _still > _next_fidget:
+		_fidget_t = FIDGET_TIME
+		_fidget_dir = -1.0 if randf() < 0.5 else 1.0
+		_next_fidget = _still + randf_range(1.6, 4.2)
+	var fid := 0.0
+	if _fidget_t > 0.0:
+		_fidget_t -= delta
+		fid = sin(PI * clamp(1.0 - _fidget_t / FIDGET_TIME, 0.0, 1.0))
+		gait += delta * 9.0 * fid
+		swim += delta * 5.0 * fid
+	_fidget = fid
+	bend = lerp(bend, clamp(dr / dt * 0.18 + _fidget_dir * 0.55 * fid, -1.0, 1.0), 1.0 - exp(-dt * 7.0))
 	atk += delta
 	_attack_curve()
 	dash = lerp(dash, 1.0 if player.is_dashing else 0.0, 1.0 - exp(-dt * (30.0 if player.is_dashing else 6.0)))
@@ -966,7 +991,7 @@ func leg(root: Vector2, side: float, length: float, phase: float, rake: float, w
 			_legs.append([rest_w, rest_w, false])
 		var st: Array = _legs[k]
 		var ph = fposmod(cyc, TAU)
-		var swinging = ph < PI and (move > 0.08 or _turning > 0.2)
+		var swinging = ph < PI and (move > 0.08 or _turning > 0.2 or _fidget > 0.25)
 		if not halo_pass:
 			# Update once per frame, on the main pass
 			_stride_sum += reach * scale_w

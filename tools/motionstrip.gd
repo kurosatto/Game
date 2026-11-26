@@ -7,7 +7,7 @@
 # FORMS=id,id,... picks forms.
 extends SceneTree
 const CELL := 200
-const FRAMES := 96
+var FRAMES := int(OS.get_environment("FRAMES")) if OS.get_environment("FRAMES") != "" else 96
 var out := OS.get_environment("SHOT_DIR")
 # STEP=1 also saves every frame as <form>_<n>.png, for animated clips
 var STEP := int(OS.get_environment("STEP")) if OS.get_environment("STEP") != "" else 4
@@ -40,7 +40,7 @@ func _initialize():
 	var player = main.player
 	var spawn: Vector2 = player.global_position - Vector2(220, 120)
 	var cols := FRAMES / STEP
-	var grid := Image.create(CELL * cols, CELL * ids.size(), false, Image.FORMAT_RGBA8)
+	var grid := Image.create(CELL * min(cols, 48), CELL * ids.size(), false, Image.FORMAT_RGBA8)
 	for n in ids.size():
 		player.apply_form(by_id[ids[n]])
 		player.invincibility_time = 0.0
@@ -58,7 +58,7 @@ func _initialize():
 			for a in want:
 				Input.action_press(a)
 			held = want
-			if f == 62:
+			if f == 62 and FRAMES == 96:
 				player.shoot_cooldown = 0.0
 				player.shoot_tear(Vector2.RIGHT)
 			await process_frame
@@ -68,7 +68,8 @@ func _initialize():
 				var sp: Vector2 = player.get_global_transform_with_canvas().origin
 				sp *= Vector2(img.get_size()) / root.get_visible_rect().size
 				var crop = img.get_region(Rect2i(int(sp.x) - CELL / 2, int(sp.y) - CELL / 2, CELL, CELL))
-				grid.blit_rect(crop, Rect2i(0, 0, CELL, CELL), Vector2i((f / STEP) * CELL, n * CELL))
+				if f / STEP < 48:
+					grid.blit_rect(crop, Rect2i(0, 0, CELL, CELL), Vector2i((f / STEP) * CELL, n * CELL))
 				if STEP == 1:
 					crop.save_png("%s/%s_%03d.png" % [out, ids[n], f])
 		for a in held:
