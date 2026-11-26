@@ -12,6 +12,8 @@ extends Node2D
 # Shared lighting (preloaded: works even before the editor has rescanned)
 const Shading = preload("res://Shading.gd")
 const HitPen = preload("res://HitPen.gd")
+const SiltPuffs = preload("res://rooms/SiltPuffs.gd")
+var _turning: float = 0.0 # 0..1 how fast the body is turning on the spot
 # All of a body's drawing goes out as one draw call (InkBatch.gd)
 var pen = preload("res://HitPen.gd").new() # records the body for fair hits (ArtShape.gd)
 const OUTLINE := Color(0.05, 0.07, 0.12, 1.0)
@@ -160,10 +162,16 @@ func _process(delta: float):
 	_stride_sum = 0.0
 	_stride_n = 0
 	_dt = dt
-	gait += v * delta * (PI / max(1.6 * _stride_w, 6.0) if _stride_w > 0.0 else 1.0 / 16.0)
 	var rot: float = get_parent().global_rotation
 	var dr = wrapf(rot - _last_rot, -PI, PI)
 	_last_rot = rot
+	# Turning on the spot steps the legs round too (feet at about 20 px from
+	# the middle sweep that far), so a walker pivots on its feet instead of
+	# sliding them
+	var sc := get_global_transform().get_scale()
+	var turn_v: float = min(abs(dr) / dt, 14.0) * 20.0 * max(abs(sc.x), abs(sc.y))
+	_turning = lerp(_turning, clamp(turn_v / max(top * 0.5, 1.0), 0.0, 1.0), 1.0 - exp(-dt * 12.0))
+	gait += (v + turn_v) * delta * (PI / max(1.6 * _stride_w, 6.0) if _stride_w > 0.0 else 1.0 / 16.0)
 	bend = lerp(bend, clamp(dr / dt * 0.18, -1.0, 1.0), 1.0 - exp(-dt * 7.0))
 	atk += delta
 	_attack_curve()
@@ -958,13 +966,16 @@ func leg(root: Vector2, side: float, length: float, phase: float, rake: float, w
 			_legs.append([rest_w, rest_w, false])
 		var st: Array = _legs[k]
 		var ph = fposmod(cyc, TAU)
-		var swinging = ph < PI and move > 0.08
+		var swinging = ph < PI and (move > 0.08 or _turning > 0.2)
 		if not halo_pass:
 			# Update once per frame, on the main pass
 			_stride_sum += reach * scale_w
 			_stride_n += 1
 			if swinging and not st[2]:
 				st[1] = st[0]
+			elif st[2] and not swinging and (move > 0.6 or _turning > 0.6) and is_visible_in_tree() and k % max(2, _legs.size() / 4) == 0:
+				# A running foot comes down: a little puff of silt
+				SiltPuffs.puff(st[0], scale_w * length / 9.0, (player.velocity.normalized() if player else Vector2.ZERO))
 			if swinging:
 				var ahead = (player.velocity.normalized() if player else Vector2.ZERO) * reach * scale_w * 0.9
 				st[0] = st[1].lerp(rest_w + ahead, smooth(ph / PI))
