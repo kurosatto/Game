@@ -193,6 +193,8 @@ func _trunk(length: float):
 	var w = HALF_W * 0.8
 	var end = base + dir * length
 	var bark = Color(0.42, 0.3, 0.2)
+	if length < 1.0:
+		return # not grown out yet: nothing to draw
 	draw_colored_polygon(PackedVector2Array([base + n * w, end + n * w * 0.75, end - n * w * 0.75, base - n * w]), bark)
 	draw_line(base + n * w, end + n * w * 0.75, INK, 3.0, true)
 	draw_line(base - n * w, end - n * w * 0.75, INK, 3.0, true)

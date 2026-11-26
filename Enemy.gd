@@ -607,7 +607,39 @@ func pick_random_wander():
 	wander_dir = Vector2.RIGHT.rotated(angle)
 	wander_timer = randf_range(1.0, 2.0)
 
+# ── Stop-and-go running ──
+# Many-legged animals hunt the way living arthropods run: quick dashes and
+# short freezes (intermittent locomotion, as in cockroaches and wolf spiders),
+# not a steady glide. The average pace stays the animal's own speed.
+const SKITTER_FORMS := ["early_arthropod", "chelicerate", "mandibulate", "arachnid", "myriapod",
+	"millipede", "centipede", "spider", "scorpion", "hexapod", "beetle", "horseshoe_crab",
+	"malacostracan", "decapod", "mantis_shrimp_line"]
+const SKITTER_CYCLE := 0.75 # seconds per dash and freeze
+const SKITTER_LOW := 0.3
+const SKITTER_HIGH := 1.6
+var _skitter := -1 # -1 unknown, 0 no, 1 yes
+
+func skitter_mult() -> float:
+	if _skitter < 0:
+		var form = String(body_art.form_id) if body_art else ""
+		_skitter = 1 if (motion.get("style", "") == "skitter" or form in SKITTER_FORMS) else 0
+	if _skitter == 0 or mood != "hostile" or behavior == "burst" or enemy_type in ["charger", "frond", "colony", "burrower"]:
+		return 1.0
+	if lunge_state != "" or charge_state != "" or stun_timer > 0.0:
+		return 1.0
+	var s := sin(TAU * anim_timer / SKITTER_CYCLE + weave_phase * 3.0)
+	return lerp(SKITTER_LOW, SKITTER_HIGH, smoothstep(-0.35, 0.15, s))
+
 func _physics_process(delta: float):
+	var k := skitter_mult()
+	if k == 1.0:
+		_physics_tick(delta)
+		return
+	speed *= k
+	_physics_tick(delta)
+	speed /= k
+
+func _physics_tick(delta: float):
 	anim_timer += delta
 
 	if hit_flash_timer > 0:
