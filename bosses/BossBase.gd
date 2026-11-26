@@ -61,6 +61,8 @@ func _init():
 	light.texture = load("res://assets/light.png")
 	light.energy = 1.6
 	light.scale = Vector2(3.5, 3.5)
+	# Off: its additive glow bleached the boss's colours to white
+	light.enabled = false
 	add_child(light)
 
 func _ready():
@@ -110,6 +112,8 @@ func _physics_process(delta: float):
 	# right where the player walks in. Hold still until the slide is over.
 	if _room_sliding():
 		return
+	# The first world runs slower, boss included (Difficulty.FIRST_WORLD_PACE)
+	delta *= Difficulty.pace
 	t += delta
 	# Less circling between attacks; wind-ups keep their full length
 	state_time += delta * Difficulty.boss_clock(state)
@@ -670,5 +674,7 @@ func warn_sector(c: Vector2, r: float, ang: float, half: float):
 	pen.draw_polyline(pts, Color(WARN.r, WARN.g, WARN.b, 0.7), 2.0)
 	pen.solid = true
 
-func shadow(c: Vector2, rx: float, ry: float, rot: float = 0.0):
-	pen.draw_colored_polygon(ellipse_pts(c, rx, ry, rot, 20), Color(0, 0, 0, 0.28))
+# Ground shadows are gone (kuro disliked the dark blot under the art); the
+# calls stay so a boss's drawing order reads as before
+func shadow(_c: Vector2, _rx: float, _ry: float, _rot: float = 0.0):
+	pass

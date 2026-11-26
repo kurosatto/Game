@@ -14,6 +14,13 @@ const Shading = preload("res://Shading.gd")
 const HitPen = preload("res://HitPen.gd")
 const SiltPuffs = preload("res://rooms/SiltPuffs.gd")
 var _turning: float = 0.0 # 0..1 how fast the body is turning on the spot
+# Idle fidgets (see _process)
+const FIDGET_TIME := 0.8
+var _still: float = 0.0
+var _next_fidget: float = 2.0
+var _fidget_t: float = 0.0
+var _fidget_dir: float = 1.0
+var _fidget: float = 0.0
 # All of a body's drawing goes out as one draw call (InkBatch.gd)
 var pen = preload("res://HitPen.gd").new() # records the body for fair hits (ArtShape.gd)
 const OUTLINE := Color(0.05, 0.07, 0.12, 1.0)
@@ -42,7 +49,7 @@ var preview_parts: Dictionary = {}
 var preview_live: bool = false
 var _last_rot: float = 0.0
 var halo_pass: bool = false
-var body_only: bool = false # tools/fairhits.gd: leave out the paper rim and drop shadow
+var body_only: bool = false # tools/fairhits.gd: leave out the paper rim
 # Attack timeline: seconds since the last strike (strike above is the pose
 # it drives), plus the body's whole-body lunge, a hurt flinch and a damped
 # spring that lets the body lag behind speed changes so it moves with weight
@@ -172,7 +179,25 @@ func _process(delta: float):
 	var turn_v: float = min(abs(dr) / dt, 14.0) * 20.0 * max(abs(sc.x), abs(sc.y))
 	_turning = lerp(_turning, clamp(turn_v / max(top * 0.5, 1.0), 0.0, 1.0), 1.0 - exp(-dt * 12.0))
 	gait += (v + turn_v) * delta * (PI / max(1.6 * _stride_w, 6.0) if _stride_w > 0.0 else 1.0 / 16.0)
-	bend = lerp(bend, clamp(dr / dt * 0.18, -1.0, 1.0), 1.0 - exp(-dt * 7.0))
+	# Standing still, the animal isn't frozen: now and then it glances to a
+	# side, resettles its feet and flicks its fins or feelers
+	if move < 0.06 and dash < 0.1 and atk > 1.0 and tuck < 0.1:
+		_still += delta
+	else:
+		_still = 0.0
+		_fidget_t = 0.0
+	if _fidget_t <= 0.0 and _still > _next_fidget:
+		_fidget_t = FIDGET_TIME
+		_fidget_dir = -1.0 if randf() < 0.5 else 1.0
+		_next_fidget = _still + randf_range(1.6, 4.2)
+	var fid := 0.0
+	if _fidget_t > 0.0:
+		_fidget_t -= delta
+		fid = sin(PI * clamp(1.0 - _fidget_t / FIDGET_TIME, 0.0, 1.0))
+		gait += delta * 9.0 * fid
+		swim += delta * 5.0 * fid
+	_fidget = fid
+	bend = lerp(bend, clamp(dr / dt * 0.18 + _fidget_dir * 0.55 * fid, -1.0, 1.0), 1.0 - exp(-dt * 7.0))
 	atk += delta
 	_attack_curve()
 	dash = lerp(dash, 1.0 if player.is_dashing else 0.0, 1.0 - exp(-dt * (30.0 if player.is_dashing else 6.0)))
@@ -207,6 +232,8 @@ func _process(delta: float):
 	var jk = fposmod(_jet_phase, 1.0)
 	var squeeze = sin(PI * jk / 0.28) if jk < 0.28 else 0.0
 	jet = squeeze * clamp(move * 1.4 + 0.15, 0.0, 1.0)
+	_swim_wake(delta)
+	_sniff(delta)
 	# An animal out in the black fog can't be seen: keep its last drawing
 	if foe and pen.hidden_by_fog(global_position, _extent()):
 		return
@@ -220,6 +247,56 @@ func _process(delta: float):
 	queue_redraw()
 
 const REDRAW_STEP := 1.0 / 62.0
+
+# Feelers track the nearest animal (for an animal: you), within reach
+const SNIFF_REACH := 460.0
+var _sniff_ang: float = 0.0
+var _sniff_w: float = 0.0
+var _sniff_target: Node2D = null
+var _sniff_look: float = 0.0
+func _sniff(delta: float):
+	_sniff_look -= delta
+	if _sniff_look <= 0.0:
+		_sniff_look = 0.25
+		_sniff_target = null
+		if foe:
+			var p = player.get("player")
+			if p is Node2D and is_instance_valid(p) and player.get("mood") != "calm":
+				_sniff_target = p
+		else:
+			var best := SNIFF_REACH
+			for e in get_tree().get_nodes_in_group("enemies"):
+				if is_instance_valid(e) and not e.get("dead"):
+					var d: float = e.global_position.distance_to(global_position)
+					if d < best:
+						best = d
+						_sniff_target = e
+	var on := 0.0
+	if _sniff_target and is_instance_valid(_sniff_target):
+		var lp: Vector2 = get_global_transform().affine_inverse() * _sniff_target.global_position
+		if lp.length() < SNIFF_REACH / max(get_global_transform().get_scale().x, 0.01):
+			_sniff_ang = wrapf(lerp_angle(_sniff_ang, lp.angle(), 1.0 - exp(-delta * 9.0)), -PI, PI)
+			on = 1.0
+	_sniff_w = lerp(_sniff_w, on, 1.0 - exp(-delta * 5.0))
+
+# Swimmers (no legs, not star-shaped) leave ripples from the tail when they
+# go fast, as walkers kick up silt with their feet
+var _wake_t: float = 0.0
+const WAKE_FORMS := {"ancestral_collar_cell": 1, "pikaia_chordate": 1, "jawed_fish": 1, "jawless_fish": 1,
+	"early_shark": 1, "ray_finned_fish": 1, "shark_line": 1, "chimaera": 1, "sturgeon_line": 1,
+	"teleost_line": 1, "lamprey": 1, "sea_lamprey": 1, "pouched_lamprey": 1, "hagfish": 1,
+	"atlantic_hagfish": 1, "pacific_hagfish": 1, "cephalopod": 1, "nautilus": 1, "palau_nautilus": 1,
+	"crusty_nautilus": 1, "coleoid": 1, "squid_line": 1, "octopus_line": 1, "scallop": 1, "true_scallop": 1}
+func _swim_wake(delta: float):
+	_wake_t -= delta
+	if _wake_t > 0.0 or move < 0.65 or not _legs.is_empty() or _radial or _chain.size() != JOINTS:
+		return
+	if not is_visible_in_tree() or not WAKE_FORMS.has(form_id):
+		return
+	_wake_t = 0.16
+	var tail := _chain[clampi(int(body_len / SEG), 1, JOINTS - 1)]
+	var sc := get_global_transform().get_scale()
+	SiltPuffs.wake(tail, max(abs(sc.x), abs(sc.y)) * clamp(body_len / 70.0, 0.6, 1.6), player.velocity.normalized())
 var _since_draw: float = 1.0
 
 # How far the drawing reaches from the body's origin, in world px
@@ -288,13 +365,13 @@ func _draw_body():
 		off += Vector2(jet * 3.5, 0)
 	if hurt > 0.0:
 		off += Vector2(sin(t * 70.0), cos(t * 53.0)) * 2.2 * hurt
-	# Soft drop shadow, always cast down the screen
-	var down = Vector2(3, 9).rotated(-global_rotation)
+	# No drop shadow: kuro found the dark offset copy under every animal ugly
+	# (the ink filter turned it into a heavy black double outline)
 	_chain_to_draw(off)
 	_draw_off = off
 	# The body is worked out once: the main pass records each outlined part
-	# (_sil_ops), and the drop shadow and the paper rim are drawn from that
-	# record underneath it, instead of running the whole drawing three times
+	# (_sil_ops), and the player's paper rim is drawn from that record
+	# underneath it, instead of running the whole drawing again
 	pen.draw_set_transform(off, _radial_rot, _stretch)
 	halo_pass = false
 	shadow_pass = false
@@ -309,13 +386,10 @@ func _draw_body():
 	_draw_eye_parts()
 	if _sil.size() >= 3:
 		_hull = Geometry2D.convex_hull(_sil)
-	if not body_only:
+	if not body_only and not foe:
 		_under.begin(self)
-		_under.draw_set_transform(down + off * 0.6, _radial_rot, _stretch)
-		_replay_rims(_under, true)
-		if not foe:
-			_under.draw_set_transform(off, _radial_rot, _stretch)
-			_replay_rims(_under, false)
+		_under.draw_set_transform(off, _radial_rot, _stretch)
+		_replay_rims(_under, false)
 		_under.flush()
 
 # Outlined parts of the last main pass: [kind, ...] (see _replay_rims)
@@ -345,7 +419,7 @@ func _replay_rims(p, shadow: bool):
 			SIL_LIMB:
 				var hw: float = op[2] + rw
 				p.draw_polyline(op[1], col, hw, true)
-				for q in op[1]:
+				for q in round_joints(op[1]):
 					p.draw_circle(q, hw * 0.5, col, true, -1.0, true)
 			SIL_TAPER:
 				var pts: PackedVector2Array = op[1]
@@ -731,19 +805,37 @@ func limb(pts: PackedVector2Array, w: float, col: Color, outline: bool = true):
 			return
 		var hw = w + 3.0 + _rim_w()
 		pen.draw_polyline(pts, _rim_col(), hw, true)
-		for p in pts:
+		for p in round_joints(pts):
 			pen.draw_circle(p, hw * 0.5, _rim_col(), true, -1.0, true)
 		return
+	var joints := round_joints(pts)
 	if outline:
 		if _rec:
 			_sil_ops.append([SIL_LIMB, pts.duplicate(), w + 3.0])
 		pen.draw_polyline(pts, ink(col), w + 3.0, true)
-		for p in pts:
+		for p in joints:
 			pen.draw_circle(p, (w + 3.0) * 0.5, ink(col), true, -1.0, true)
-	pen.draw_polyline(pts, lit(col, Vector3(0, 0, 1)).darkened(0.12), w, true)
-	for p in pts:
-		pen.draw_circle(p, w * 0.5, lit(col, Vector3(0, 0, 1)).darkened(0.12), true, -1.0, true)
+	var fillc := lit(col, Vector3(0, 0, 1)).darkened(0.12)
+	pen.draw_polyline(pts, fillc, w, true)
+	for p in joints:
+		pen.draw_circle(p, w * 0.5, fillc, true, -1.0, true)
 	_limb_shine(pts, w, col)
+
+# Where a stroke needs a round cap: its two ends and any sharp bend. Along a
+# gentle curve the polyline's own mitred joins already look round, so the
+# joint discs there (most of them, on long arms and feelers) are skipped.
+static func round_joints(pts: PackedVector2Array) -> PackedVector2Array:
+	var n := pts.size()
+	if n <= 2:
+		return pts
+	var out := PackedVector2Array([pts[0]])
+	for i in range(1, n - 1):
+		var a := pts[i] - pts[i - 1]
+		var b := pts[i + 1] - pts[i]
+		if a.length_squared() < 0.0001 or b.length_squared() < 0.0001 or abs(a.angle_to(b)) > 0.45:
+			out.append(pts[i])
+	out.append(pts[n - 1])
+	return out
 
 # Tapered limb: each piece thinner than the last
 func taper(pts: PackedVector2Array, w0: float, w1: float, col: Color, outline: bool = true):
@@ -966,7 +1058,7 @@ func leg(root: Vector2, side: float, length: float, phase: float, rake: float, w
 			_legs.append([rest_w, rest_w, false])
 		var st: Array = _legs[k]
 		var ph = fposmod(cyc, TAU)
-		var swinging = ph < PI and (move > 0.08 or _turning > 0.2)
+		var swinging = ph < PI and (move > 0.08 or _turning > 0.2 or _fidget > 0.25)
 		if not halo_pass:
 			# Update once per frame, on the main pass
 			_stride_sum += reach * scale_w
@@ -1010,6 +1102,11 @@ func leg(root: Vector2, side: float, length: float, phase: float, rake: float, w
 func antenna(root: Vector2, side: float, length: float, spread: float, col: Color, w: float = 1.4, n: int = 7):
 	var pts := PackedVector2Array()
 	var a = side * spread
+	if _sniff_w > 0.01 and spread < 1.3:
+		# Smelling or feeling for an animal nearby: both feelers swing
+		# toward it, still a little apart, and tremble as they test the water
+		var want: float = clamp(_sniff_ang + side * spread * 0.4, -1.3, 1.3) + sin(t * 15.0 + side) * 0.05
+		a = lerp(a, want, 0.6 * _sniff_w)
 	var p = root
 	pts.append(p)
 	for i in n:
