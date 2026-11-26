@@ -78,7 +78,8 @@ var evolution_modal: Control = null
 @onready var display_option = $SettingsModal/Panel/Margin/VBox/DisplaySection/DisplayOption
 @onready var volume_label = $SettingsModal/Panel/Margin/VBox/VolumeSection/VolumeLabel
 @onready var volume_slider = $SettingsModal/Panel/Margin/VBox/VolumeSection/VolumeSlider
-@onready var resume_btn = $SettingsModal/Panel/Margin/VBox/ResumeBtn
+@onready var settings_back_btn = $SettingsModal/Panel/Margin/VBox/ResumeBtn
+var resume_btn: Button # RESUME on the pause page
 
 @onready var game_over_screen = $GameOverScreen
 @onready var victory_screen = $VictoryScreen
@@ -141,20 +142,14 @@ func _ready():
 
 func setup_settings_ui():
     settings_btn.pressed.connect(toggle_settings)
-    resume_btn.pressed.connect(toggle_settings)
+    settings_btn.text = " ⏸ PAUSE " # it opens the pause page; settings are on it
+    # Settings are their own page, opened from the pause page; BACK returns
+    settings_back_btn.text = "BACK"
+    settings_back_btn.pressed.connect(show_settings_page.bind(false))
     # On the pad, Start pauses; the top bar's button is for mouse and touch
     settings_btn.focus_mode = Control.FOCUS_NONE
-    resume_btn.set_meta("pad_default", true)
-    var menu_btn = Button.new()
-    menu_btn.text = "MAIN MENU (ends this run)"
-    menu_btn.custom_minimum_size = Vector2(0, 44)
-    menu_btn.add_theme_font_size_override("font_size", 16)
-    menu_btn.pressed.connect(func():
-        SettingsManager.save_settings()
-        get_tree().paused = false
-        get_tree().change_scene_to_file("res://MainMenu.tscn")
-    )
-    resume_btn.get_parent().add_child(menu_btn)
+    settings_back_btn.set_meta("pad_default", true)
+    _create_pause_info()
     
     # Initialize display options (1080p Standard)
     display_option.clear()
@@ -274,14 +269,32 @@ func toggle_settings():
     # screen would unpause the game behind that card when it closes
     if not settings_modal.visible and other_screen_up():
         return
+    # On the settings page, Esc / back goes back to the pause page first
+    if settings_modal.visible and settings_page_up():
+        show_settings_page(false)
+        return
     settings_modal.visible = not settings_modal.visible
     get_tree().paused = settings_modal.visible
     if settings_modal.visible:
         display_option.select(SettingsManager.window_mode_index) # F11 may have changed it
+        show_settings_page(false)
         show_pause_info()
         UI.reveal(settings_modal, pause_box, 0.16)
     
     if not settings_modal.visible:
+        SettingsManager.save_settings()
+
+func settings_page_up() -> bool:
+    return $SettingsModal/Panel.visible
+
+# Swap the pause page for the settings page, or back
+func show_settings_page(on: bool):
+    $SettingsModal/Panel.visible = on
+    if pause_box:
+        pause_box.visible = not on
+    if on:
+        UI.reveal(settings_modal, $SettingsModal/Panel, 0.12)
+    else:
         SettingsManager.save_settings()
 
 func _on_brightness_changed(val: float):
@@ -1073,7 +1086,6 @@ func update_dna(current_dna: int, max_dna: int, level: int):
 
 # Phones have no keyboard: name the on-screen buttons instead of keys
 func use_touch_texts():
-    resume_btn.text = "RESUME GAME"
     # The settings menu pauses the game; make it a thumb-sized pause button
     settings_btn.text = " ⏸ PAUSE "
     settings_btn.custom_minimum_size = Vector2(190, 56)
@@ -1082,8 +1094,7 @@ func use_touch_texts():
     # touchscreen PC like the Legion Go still has a window)
     if OS.has_feature("mobile") or OS.has_feature("web"):
         $SettingsModal/Panel/Margin/VBox/DisplaySection.visible = false
-    $GameOverScreen/Center/SubLabel.text = "Your genetic lineage was severed.
-Tap to Mutate Anew"
+    $GameOverScreen/Center/SubLabel.text = "Tap to try again"
     $VictoryScreen/Center/RestartLabel.text = "Tap to play again  ·  Back for the main menu"
 
 func update_discharge_cooldown(current_cd: float, max_cd: float):
@@ -1297,19 +1308,17 @@ func show_game_over(run: Dictionary = {}):
         "Tap to try again  ·  Back for the main menu", "R or tap to try again  ·  Esc for the main menu")
     var sub = $GameOverScreen/Center/SubLabel
     if run.is_empty():
-        sub.text = "Your genetic lineage was severed.\n" + how
+        sub.text = how
         return
     add_lineage_strip($GameOverScreen/Center)
+    # Two short lines: what ended it, and how far you got
     var era: Dictionary = ERA_INFO.get(int(run.get("era", clampi(run.get("floor", 1), 1, 5))), {})
-    var lines = "Your %s lineage died out in the %s, era %d of 5." % [
-        str(run.get("form", "")).to_lower().capitalize(), era.get("name", "").to_lower().capitalize(), run.get("floor", 1)]
-    if str(run.get("killed_by", "")) != "":
-        lines += "\nKilled by %s." % run.killed_by
-    lines += "\n%d animals eaten · %d rooms cleared this era · %d of %d lineages in your codex" % [
-        run.get("kills", 0), run.get("rooms", 0), codex.load_discovered().size(), lineages.TREE.size()]
+    var era_name = str(era.get("name", "")).replace(" PERIOD", "").to_lower().capitalize()
+    var lines = ("Killed by %s" % run.killed_by) if str(run.get("killed_by", "")) != "" else "Died out"
+    lines += " in the %s" % era_name
+    lines += "\n%d eaten · era %d of 5" % [run.get("kills", 0), run.get("floor", 1)]
     if run.get("record", false) and run.get("floor", 1) > 1:
-        lines += "\nYour furthest run yet!"
-    lines += "\nAbout 99% of all species that ever lived are extinct. You are in good company."
+        lines += " · best run yet!"
     sub.text = lines + "\n\n" + how
     sub.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
     $GameOverScreen/Center.offset_left = -560.0
@@ -1374,13 +1383,8 @@ func show_victory(summary: Dictionary = {}):
     else:
         label.text = "YOU LIVED THROUGH THE GREAT DYING!" if Worlds.finale else "APEX EVOLUTION: VICTORY!"
         add_lineage_strip($VictoryScreen/Center)
-        var text = "Final Evolved Lineage: " + summary.get("title", "Apex Organism") + "\n"
-        text += summary.get("clade", "") + "\n\nPhylogenetic Path Across Earth's Eras:\n"
-        for h in summary.get("history", []):
-            text += "• Era %d: %s (%s)\n" % [h["floor"], h["title"], h["clade"]]
-            if h.get("living", "") != "":
-                text += "    Living today: %s\n" % h["living"]
-        text += "\nCodex: %d of %d lineages discovered" % [codex.load_discovered().size(), lineages.TREE.size()]
+        var text = summary.get("title", "Apex Organism")
+        text += "\nCodex: %d of %d lineages" % [codex.load_discovered().size(), lineages.TREE.size()]
         sublabel.text = text
 
 func show_evolution_modal(floor_num: int, current_path: Array = []):
@@ -1677,27 +1681,35 @@ var pause_wildlife: HFlowContainer
 var pause_adapt: HFlowContainer
 var pause_journal: HFlowContainer
 var pause_journal_head: Label
+var pause_adapt_head: Label
 var pause_info_title: Label
 var pause_info_body: Label
 var pause_tiles: Array = []
 var pause_default: Array = ["", ""]
 
 func _create_pause_info():
+    # The settings page: centred, hidden until SETTINGS is pressed
     var panel = settings_modal.get_node("Panel")
-    panel.offset_left = 40.0
-    panel.offset_right = 600.0
-    panel.offset_top = min(panel.offset_top, -270.0)
-    panel.offset_bottom = max(panel.offset_bottom, 270.0)
+    panel.visible = false
+    panel.offset_left = -300.0
+    panel.offset_right = 300.0
+    panel.offset_top = -250.0
+    panel.offset_bottom = 250.0
+    # The pause page fills the screen's height under the top bar, so it never
+    # runs off the bottom on a phone; the middle scrolls if it ever must
     pause_box = PanelContainer.new()
-    pause_box.set_anchors_preset(Control.PRESET_CENTER)
-    pause_box.offset_left = -900.0
-    pause_box.offset_right = 0.0
-    pause_box.offset_top = -440.0
-    pause_box.offset_bottom = 440.0
-    pause_box.add_theme_stylebox_override("panel", UI.panel(UI.MEMBRANE, 28, 0.96, 28.0))
+    pause_box.anchor_left = 0.5
+    pause_box.anchor_right = 0.5
+    pause_box.anchor_top = 0.0
+    pause_box.anchor_bottom = 1.0
+    pause_box.offset_left = -640.0
+    pause_box.offset_right = 640.0
+    pause_box.offset_top = 76.0
+    pause_box.offset_bottom = -64.0 # clear of the track name at the bottom
+    pause_box.add_theme_stylebox_override("panel", UI.panel(UI.MEMBRANE, 26, 0.96, 28.0))
     settings_modal.add_child(pause_box)
     var col = VBoxContainer.new()
-    col.add_theme_constant_override("separation", 12)
+    col.add_theme_constant_override("separation", 10)
     pause_box.add_child(col)
 
     var era_row = HBoxContainer.new()
@@ -1711,49 +1723,74 @@ func _create_pause_info():
     pause_dates.size_flags_vertical = Control.SIZE_SHRINK_CENTER
     era_row.add_child(pause_dates)
 
+    var scroll = ScrollContainer.new()
+    scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+    scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+    col.add_child(scroll)
+    var body = VBoxContainer.new()
+    body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+    body.add_theme_constant_override("separation", 8)
+    scroll.add_child(body)
+
     pause_you = HBoxContainer.new()
     pause_you.add_theme_constant_override("separation", 22)
-    col.add_child(pause_you)
+    body.add_child(pause_you)
 
-    col.add_child(_pause_label(17, UI.LEAF, true, "ANIMALS OF THIS ERA"))
-    # Up to nine animals an era: they wrap onto a second row
+    body.add_child(_pause_label(17, UI.LEAF, true, "ANIMALS"))
     pause_wildlife = HFlowContainer.new()
     pause_wildlife.add_theme_constant_override("h_separation", 10)
     pause_wildlife.add_theme_constant_override("v_separation", 6)
-    col.add_child(pause_wildlife)
+    body.add_child(pause_wildlife)
 
-    col.add_child(_pause_label(17, UI.LEAF, true, "FINDS AND ADAPTATIONS"))
+    pause_adapt_head = _pause_label(17, UI.LEAF, true, "FINDS")
+    body.add_child(pause_adapt_head)
     pause_adapt = HFlowContainer.new()
     pause_adapt.add_theme_constant_override("h_separation", 10)
     pause_adapt.add_theme_constant_override("v_separation", 10)
-    col.add_child(pause_adapt)
+    body.add_child(pause_adapt)
 
-    pause_journal_head = _pause_label(17, UI.LEAF, true, "FIELD JOURNAL")
-    col.add_child(pause_journal_head)
+    pause_journal_head = _pause_label(17, UI.LEAF, true, "JOURNAL")
+    body.add_child(pause_journal_head)
     pause_journal = HFlowContainer.new()
     pause_journal.add_theme_constant_override("h_separation", 8)
     pause_journal.add_theme_constant_override("v_separation", 8)
-    col.add_child(pause_journal)
-
-    var spacer = Control.new()
-    spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
-    col.add_child(spacer)
+    body.add_child(pause_journal)
 
     # The details box: what the last tapped picture is
     var info = PanelContainer.new()
-    var sb = UI.panel(UI.SUN, 20, 0.9, 18.0)
+    var sb = UI.panel(UI.SUN, 16, 0.9, 18.0)
     sb.set_border_width_all(2)
     sb.shadow_size = 0
     info.add_theme_stylebox_override("panel", sb)
-    info.custom_minimum_size = Vector2(0, 150)
+    info.custom_minimum_size = Vector2(0, 96)
     col.add_child(info)
     var info_col = VBoxContainer.new()
     info_col.add_theme_constant_override("separation", 4)
     info.add_child(info_col)
-    pause_info_title = _pause_label(21, UI.SUN, true)
+    pause_info_title = _pause_label(20, UI.SUN, true)
     info_col.add_child(pause_info_title)
-    pause_info_body = _pause_label(18, UI.CREAM)
+    pause_info_body = _pause_label(17, UI.CREAM)
     info_col.add_child(pause_info_body)
+
+    # One row of buttons: play on, settings page, or quit the run
+    var buttons = HBoxContainer.new()
+    buttons.alignment = BoxContainer.ALIGNMENT_CENTER
+    buttons.add_theme_constant_override("separation", 18)
+    col.add_child(buttons)
+    resume_btn = _styled_button("RESUME", UI.LEAF, 260, 58)
+    resume_btn.set_meta("pad_default", true)
+    resume_btn.pressed.connect(toggle_settings)
+    buttons.add_child(resume_btn)
+    var settings_open = _styled_button("⚙ SETTINGS", UI.MEMBRANE, 260, 58)
+    settings_open.pressed.connect(show_settings_page.bind(true))
+    buttons.add_child(settings_open)
+    var menu_btn = _styled_button("QUIT RUN", UI.CORAL, 260, 58)
+    menu_btn.pressed.connect(func():
+        SettingsManager.save_settings()
+        get_tree().paused = false
+        get_tree().change_scene_to_file("res://MainMenu.tscn")
+    )
+    buttons.add_child(menu_btn)
 
 func _pause_label(px: int, colour: Color, bold: bool = false, text: String = "") -> Label:
     var l = Label.new()
@@ -1837,7 +1874,7 @@ func show_pause_info():
     pause_dates.text = era.get("dates", "")
     # Which music is playing, so favourite tracks can be named
     if SoundManager.now_playing() != "":
-        pause_dates.text += "     Music " + SoundManager.now_playing()
+        pause_dates.text += "     ♪ " + SoundManager.now_playing().get_slice(" ", 0)
 
     # You: your animated sprite (whatever art the player is drawn with) and
     # your numbers as icons
@@ -1847,6 +1884,8 @@ func show_pause_info():
             var spr: Sprite2D = player.get_node("Sprite2D")
             var w = lineages.weapon_stats(player.current_weapon)
             var body = form.fact
+            if form.get("living_example", "") != "":
+                body += "\nLiving today: " + form.living_example
             if w.get("special", "") != "":
                 body += "\nAttack: %s. %s" % [player.current_weapon_name, w.special]
             var twist: Array = lineages.fan_twist(player.current_character_id)
@@ -1871,9 +1910,6 @@ func show_pause_info():
             side.size_flags_horizontal = Control.SIZE_EXPAND_FILL
             pause_you.add_child(side)
             side.add_child(_pause_label(30, UI.SUN, true, form.name))
-            side.add_child(_pause_label(17, UI.MUTED, false, form.get("clade", "")))
-            if form.get("living_example", "") != "":
-                side.add_child(_pause_label(17, UI.CREAM, false, "Living today: " + form.living_example))
             var chips = HFlowContainer.new()
             chips.add_theme_constant_override("h_separation", 18)
             chips.add_theme_constant_override("v_separation", 6)
@@ -1905,6 +1941,7 @@ func show_pause_info():
         var body = a.fact + ("\n" + a.tip if a.has("tip") else "")
         _pause_tile(pause_wildlife, tex, frames, tile_size, a.name, a.name, body)
 
+    pause_adapt_head.visible = player != null and not (player.items_found.is_empty() and player.adaptations_taken.is_empty())
     # Treasure finds first (on a sunny disc), then adaptations as icons,
     # stacked ones with a count
     if player:
@@ -1925,18 +1962,11 @@ func show_pause_info():
             t.badge = n
             t.tint = UI.LEAF
             t.animate = false
-    elif player and player.items_found.is_empty():
-        var none = _pause_label(18, UI.MUTED, false, "None yet. Eat prey, then GROW parts from its elements.")
-        none.autowrap_mode = TextServer.AUTOWRAP_OFF
-        pause_adapt.add_child(none)
 
     # Until something is tapped, the box keeps the last thing that popped up
     var touch = TouchControls.should_show()
     pause_info_title.text = "Tap a picture to learn about it" if touch else "Point at a picture to learn about it"
     pause_info_body.text = ""
-    if not last_banner.is_empty() and last_banner[0] != "WILDLIFE OF THIS ERA" and last_banner[1] != "":
-        pause_info_title.text = "Last discovery: " + last_banner[0]
-        pause_info_body.text = last_banner[1]
 
 # ---- Adaptations ----
 # Shown when the biomass bar fills: three traits from data/Adaptations.gd.
@@ -2009,46 +2039,29 @@ func dash_row(form: Dictionary, touch: bool, pad: bool = false) -> Array:
     var how = "RT / RB / A" if pad else (("Tap " + label) if touch else "Space / Shift / right-click")
     return [label, "%s: %s, %s" % [how, escape[1].to_lower(), escape[2]]]
 
-# One page per floor, pictures first: the era, you, and the era's animals as
-# drawings, with a single fact. The game is frozen under it and any tap, key,
-# click or pad button closes it at once. Controls are only spelled out on the
-# first era (they are the same afterwards), plus the escape move whenever the
-# new form has one instead of a dash.
+# One page per floor: the era's name, you, and the controls, so a player can
+# start at once. The era's dates, fact and animals sit behind an ERA INFO
+# button. The game is frozen under it and any other tap, key, click or pad
+# button closes it.
+var era_info_btn: Button = null
+var era_info_box: Control = null
+var era_info_at: int = 0
+
+# The controls in a few words each: [what, how]
+func control_rows(form: Dictionary, touch: bool, pad: bool) -> Array:
+    var dash = lineages.escape_label(form)
+    if pad:
+        return [["MOVE", "Left stick"], ["FIRE", "Right stick"], [dash, "RT"],
+            ["ZAP", "LT"], ["GROW", "Y"], ["PAUSE", "Start"]]
+    if touch:
+        return [["MOVE", "Left thumb"], ["FIRE", "Right thumb"], [dash, "Tap " + dash],
+            ["ZAP", "Tap ZAP"], ["GROW", "Tap GROW"], ["PAUSE", "⏸"]]
+    return [["MOVE", "WASD"], ["FIRE", "IJKL / mouse"], [dash, "Space"],
+        ["ZAP", "E"], ["GROW", "G"], ["PAUSE", "Esc"]]
+
 func show_era_card(floor_num: int, form: Dictionary):
     var touch = TouchControls.should_show()
     var pad = PadInput.using_pad
-    var weapon = lineages.weapon_stats(form.get("weapon", "vesicle"))
-    var rows: Array = []
-    if floor_num == 1:
-        if pad:
-            rows = [
-                ["MOVE", "Left stick"],
-                ["AIM & FIRE", "Right stick, hold to fire"],
-                dash_row(form, false, true),
-                ["ZAP", "LT / LB / X, a burst around you"],
-                ["GROW", "Y"],
-                ["PAUSE", "Start"],
-            ]
-        elif touch:
-            rows = [
-                ["MOVE", "Drag the left side"],
-                ["AIM & FIRE", "Drag the right side, hold to fire"],
-                dash_row(form, true),
-                ["ZAP", "Tap ZAP, a burst around you"],
-                ["GROW", "Tap GROW"],
-                ["PAUSE", "⏸ top right"],
-            ]
-        else:
-            rows = [
-                ["MOVE", "W A S D / arrows"],
-                ["AIM & FIRE", "I J K L or hold left mouse"],
-                dash_row(form, false),
-                ["ZAP", "E / Q / middle-click"],
-                ["GROW", "G / Tab"],
-                ["PAUSE", "Esc"],
-            ]
-    elif lineages.escape_label(form) != "DASH":
-        rows = [dash_row(form, touch, pad)]
     var color: Color = form.get("color", Color(0.0, 0.95, 1.0))
     var era: Dictionary = ERA_INFO.get(Worlds.era(floor_num), {})
     var finale = Worlds.finale and floor_num >= 5
@@ -2056,63 +2069,94 @@ func show_era_card(floor_num: int, form: Dictionary):
         era = {"name": FINALE_INFO.name, "dates": FINALE_INFO.dates,
             "fact": FINALE_INFO.fact_sea if Worlds.sea else FINALE_INFO.fact_land}
     item_banner.visible = false # an old note would sit on top of the page
-    var vbox = _open_card(color, 1500, 0.95)
+    var vbox = _open_card(color, 1180, 0.95)
     vbox.add_theme_constant_override("separation", 10)
 
     for l in [_card_label("BEYOND THE END" if finale else "ERA %d OF 5" % floor_num, 18, UI.MUTED),
-            _card_label(era.get("name", ""), 46, UI.SUN),
-            _card_label(era.get("dates", ""), 22, UI.LEAF),
-            _card_label(era.get("fact", ""), 22, UI.CREAM)]:
+            _card_label(era.get("name", ""), 44, UI.SUN)]:
         l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
         vbox.add_child(l)
-    vbox.add_child(HSeparator.new())
 
+    # You, drawn, beside the controls
     var cols = HBoxContainer.new()
     cols.add_theme_constant_override("separation", 34)
+    cols.alignment = BoxContainer.ALIGNMENT_CENTER
     vbox.add_child(cols)
-
-    # You, drawn
-    var you = VBoxContainer.new()
-    you.add_theme_constant_override("separation", 6)
-    you.custom_minimum_size = Vector2(330, 0)
-    cols.add_child(you)
-    var me = _era_form_tile(you, 170.0)
+    var me = _era_form_tile(cols, 150.0)
     if me:
-        me.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+        me.size_flags_vertical = Control.SIZE_SHRINK_CENTER
         me.tint = UI.ink_tint(color)
-    var who = _card_label(("YOU ARE THE " if floor_num == 1 else "YOU ARE NOW ") + form.get("name", current_creature_name), 24, color)
-    who.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-    you.add_child(who)
-    var atk = _card_label("Attack: " + form.get("weapon_name", "Engulf (phagocytosis)"), 18, UI.MUTED)
-    atk.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-    you.add_child(atk)
+    var right = VBoxContainer.new()
+    right.add_theme_constant_override("separation", 12)
+    right.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+    cols.add_child(right)
+    right.add_child(_card_label(("YOU ARE THE " if floor_num == 1 else "YOU ARE NOW ") + form.get("name", current_creature_name), 26, color))
+    var grid = GridContainer.new()
+    grid.columns = 6
+    grid.add_theme_constant_override("h_separation", 16)
+    grid.add_theme_constant_override("v_separation", 8)
+    right.add_child(grid)
+    for r in control_rows(form, touch, pad):
+        var key = _card_label(r[0], 21, UI.LEAF)
+        key.autowrap_mode = TextServer.AUTOWRAP_OFF
+        grid.add_child(key)
+        var val = _card_label(r[1], 21, UI.CREAM)
+        val.autowrap_mode = TextServer.AUTOWRAP_OFF
+        val.custom_minimum_size = Vector2(150, 0)
+        grid.add_child(val)
 
-    cols.add_child(VSeparator.new())
-
-    # The era's animals, drawn, with only their names
-    var wild = VBoxContainer.new()
-    wild.add_theme_constant_override("separation", 8)
-    wild.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-    cols.add_child(wild)
-    wild.add_child(_card_label("WILDLIFE OF THIS ERA", 20, UI.LEAF))
+    # The era's dates, fact and animals, hidden until ERA INFO is pressed
+    var info = VBoxContainer.new()
+    info.add_theme_constant_override("separation", 8)
+    info.visible = false
+    vbox.add_child(info)
+    era_info_box = info
+    info.add_child(HSeparator.new())
+    for l in [_card_label(era.get("dates", ""), 20, UI.LEAF), _card_label(era.get("fact", ""), 20, UI.CREAM)]:
+        l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+        info.add_child(l)
     var flow = HFlowContainer.new()
+    flow.alignment = FlowContainer.ALIGNMENT_CENTER
     flow.add_theme_constant_override("h_separation", 14)
     flow.add_theme_constant_override("v_separation", 6)
-    wild.add_child(flow)
+    info.add_child(flow)
     var fauna = preload("res://data/Fauna.gd")
     var animals: Array = fauna.era_species(floor_num)
-    var disc = 112.0 if animals.size() <= 6 else 92.0
+    var disc = 104.0 if animals.size() <= 6 else 88.0
     for a in animals:
         var p = fauna.sheet_path(a)
         var tex: Texture2D = load(p) if ResourceLoader.exists(p) else null
         var frames = int(round(tex.get_width() / float(tex.get_height()))) if tex else 1
         _quiet_tile(flow, PauseTile.new().setup(tex, frames, disc, a.name))
 
-    if not rows.is_empty():
-        vbox.add_child(HSeparator.new())
-        _add_rows(vbox, rows, 4 if rows.size() > 1 else 2, 19)
+    var btn_row = HBoxContainer.new()
+    btn_row.alignment = BoxContainer.ALIGNMENT_CENTER
+    vbox.add_child(btn_row)
+    era_info_btn = _styled_button(PadInput.prompt("ERA INFO (Y)", "ERA INFO", "ERA INFO (H)"), UI.LEAF, 260, 56)
+    era_info_btn.focus_mode = Control.FOCUS_NONE
+    era_info_btn.mouse_filter = Control.MOUSE_FILTER_IGNORE # _input handles it
+    btn_row.add_child(era_info_btn)
 
     _close_card(vbox, "start" if floor_num == 1 else "continue")
+
+func toggle_era_info():
+    if era_info_box == null or not is_instance_valid(era_info_box):
+        return
+    era_info_at = Time.get_ticks_msec()
+    era_info_box.visible = not era_info_box.visible
+    era_info_btn.text = "HIDE INFO" if era_info_box.visible else PadInput.prompt("ERA INFO (Y)", "ERA INFO", "ERA INFO (H)")
+
+# True when this press is meant for the era page's ERA INFO button
+func _is_era_info_press(event: InputEvent) -> bool:
+    if era_info_btn == null or not is_instance_valid(era_info_btn) or not era_info_btn.is_visible_in_tree():
+        return false
+    if event is InputEventKey:
+        return event.keycode == KEY_H
+    if event is InputEventJoypadButton:
+        return event.button_index == JOY_BUTTON_Y
+    if event is InputEventMouseButton or event is InputEventScreenTouch:
+        return era_info_btn.get_global_rect().grow(10).has_point(event.position)
+    return false
 
 # Your form's animated drawing for the era page (the same art the pause
 # screen uses); null if the player isn't there
@@ -2252,8 +2296,16 @@ func _input(event: InputEvent):
     if not pressed:
         return
     get_viewport().set_input_as_handled()
-    if Time.get_ticks_msec() >= intro_ready_time:
-        dismiss_card()
+    if Time.get_ticks_msec() < intro_ready_time:
+        return
+    if _is_era_info_press(event):
+        # A tap arrives twice on phones (touch, then the copied mouse click)
+        if Time.get_ticks_msec() - era_info_at > 300:
+            toggle_era_info()
+        return
+    if Time.get_ticks_msec() - era_info_at < 300:
+        return
+    dismiss_card()
 
 func _process(delta: float):
     _watch_grow_fight(delta)
