@@ -357,27 +357,21 @@ func spawn_fullscreen_background():
     # Colour art styles paint the open floor in their own backdrop key
     bg.material = preload("res://data/ArtStyles.gd").floor_material(SettingsManager.art_style, era_dir())
     add_child(bg)
-    # Screens taller than 16:9 (the Legion Go's 1920x1200) see past the top
-    # and bottom of the room: mirror the rocky rim out into that strip
-    var extra = ceilf((get_viewport().get_visible_rect().size.y - 1080.0) / 2.0) + 8.0
-    if extra > 8.0:
-        extra = minf(extra, 400.0)
-        for top in [true, false]:
-            var at = AtlasTexture.new()
-            at.atlas = bg.texture
-            at.region = Rect2(0, 0 if top else 1080.0 - extra, 1920, extra)
-            var strip = TextureRect.new()
-            strip.name = "RimTop" if top else "RimBottom"
-            strip.texture = at
-            strip.flip_v = true
-            strip.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-            strip.stretch_mode = TextureRect.STRETCH_SCALE
-            strip.position = Vector2(-side_margin, -extra if top else 1080.0)
-            strip.size = Vector2(1920 + side_margin * 2, extra)
-            strip.z_index = -20
-            strip.modulate = bg.modulate
-            strip.mouse_filter = Control.MOUSE_FILTER_IGNORE
-            add_child(strip)
+    # The border is a relief-map slope drawn over the art's old rocky rim
+    # (ReliefRim.gd); on taller screens it reaches past the top and bottom
+    var rim = preload("res://ReliefRim.gd").new()
+    rim.name = "ReliefRim"
+    var door_spots := []
+    if room_data:
+        var m = side_margin
+        var spots = {Vector2i.UP: Vector2(960, 64), Vector2i.DOWN: Vector2(960, 1016),
+            Vector2i.LEFT: Vector2(64 - m, 540), Vector2i.RIGHT: Vector2(1856 + m, 540)}
+        for d in room_data.connections:
+            if spots.has(d):
+                door_spots.append(spots[d])
+    rim.setup(ERA_ART[Worlds.era(current_floor) - 1], era_look.get_look(current_floor).get("ink_light", 0.45), Rect2(128 - side_margin, 128, 1664 + side_margin * 2, 824), door_spots)
+    rim.modulate = bg.modulate
+    add_child(rim)
 
 func spawn_boundary_colliders_and_doors():
     var m = side_margin

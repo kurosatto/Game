@@ -31,7 +31,7 @@ var scenery: Array = []
 const SCENERY = [
 	["tall", 0.14, 0.30, 1.4], ["tall_2", 0.87, 0.27, 1.4],
 	["mound", 0.17, 0.78, 1.2], ["fossil", 0.83, 0.74, 1.2],
-	["rock_2", 0.06, 0.55, 1.1], ["mound_2", 0.94, 0.52, 1.1],
+	["rock_2", 0.12, 0.55, 1.1], ["mound_2", 0.88, 0.52, 1.1],
 ]
 
 func _ready():
@@ -72,19 +72,21 @@ func build_background():
 	light.material = mat
 	if preload("res://data/ArtStyles.gd").keeps_floor(SettingsManager.art_style):
 		add_child(light)
-	# Ediacaran scenery on the open floor around the buttons, like a room
+	# The room's relief-map slopes and a few knolls around the buttons,
+	# drawn as in play (ReliefRim.gd), covering the screen like the floor
 	var view = get_viewport_rect().size
+	var map = Node2D.new()
+	var k = maxf(view.x / 1920.0, view.y / 1080.0)
+	map.scale = Vector2.ONE * k
+	map.position = (view - Vector2(1920, 1080) * k) * 0.5
+	map.modulate = room.modulate
+	add_child(map)
+	var rim = preload("res://ReliefRim.gd").new()
+	rim.setup("ediacaran", 0.32, Rect2(128, 128, 1664, 824), [])
+	rim.z_index = 0
 	for p in SCENERY:
-		var tex_path = "res://assets/eras/ediacaran/%s.png" % p[0]
-		if not ResourceLoader.exists(tex_path):
-			continue
-		var prop = Sprite2D.new()
-		prop.texture = load(tex_path)
-		prop.position = Vector2(p[1] * view.x, p[2] * view.y)
-		prop.scale = Vector2.ONE * p[3]
-		prop.modulate = room.modulate
-		add_child(prop)
-		scenery.append({"node": prop, "t": randf() * TAU})
+		rim.knolls.append([Vector2(p[1] * 1920.0, p[2] * 1080.0), 40.0 * p[3], 26.0 * p[3]])
+	map.add_child(rim)
 	# Discovered lineages drift past; the starting cell if nothing yet
 	var found: Array = codex.load_discovered()
 	if found.is_empty():
