@@ -367,7 +367,7 @@ func _replay_rims(p, shadow: bool):
 			SIL_LIMB:
 				var hw: float = op[2] + rw
 				p.draw_polyline(op[1], col, hw, true)
-				for q in op[1]:
+				for q in round_joints(op[1]):
 					p.draw_circle(q, hw * 0.5, col, true, -1.0, true)
 			SIL_TAPER:
 				var pts: PackedVector2Array = op[1]
@@ -753,19 +753,37 @@ func limb(pts: PackedVector2Array, w: float, col: Color, outline: bool = true):
 			return
 		var hw = w + 3.0 + _rim_w()
 		pen.draw_polyline(pts, _rim_col(), hw, true)
-		for p in pts:
+		for p in round_joints(pts):
 			pen.draw_circle(p, hw * 0.5, _rim_col(), true, -1.0, true)
 		return
+	var joints := round_joints(pts)
 	if outline:
 		if _rec:
 			_sil_ops.append([SIL_LIMB, pts.duplicate(), w + 3.0])
 		pen.draw_polyline(pts, ink(col), w + 3.0, true)
-		for p in pts:
+		for p in joints:
 			pen.draw_circle(p, (w + 3.0) * 0.5, ink(col), true, -1.0, true)
-	pen.draw_polyline(pts, lit(col, Vector3(0, 0, 1)).darkened(0.12), w, true)
-	for p in pts:
-		pen.draw_circle(p, w * 0.5, lit(col, Vector3(0, 0, 1)).darkened(0.12), true, -1.0, true)
+	var fillc := lit(col, Vector3(0, 0, 1)).darkened(0.12)
+	pen.draw_polyline(pts, fillc, w, true)
+	for p in joints:
+		pen.draw_circle(p, w * 0.5, fillc, true, -1.0, true)
 	_limb_shine(pts, w, col)
+
+# Where a stroke needs a round cap: its two ends and any sharp bend. Along a
+# gentle curve the polyline's own mitred joins already look round, so the
+# joint discs there (most of them, on long arms and feelers) are skipped.
+static func round_joints(pts: PackedVector2Array) -> PackedVector2Array:
+	var n := pts.size()
+	if n <= 2:
+		return pts
+	var out := PackedVector2Array([pts[0]])
+	for i in range(1, n - 1):
+		var a := pts[i] - pts[i - 1]
+		var b := pts[i + 1] - pts[i]
+		if a.length_squared() < 0.0001 or b.length_squared() < 0.0001 or abs(a.angle_to(b)) > 0.45:
+			out.append(pts[i])
+	out.append(pts[n - 1])
+	return out
 
 # Tapered limb: each piece thinner than the last
 func taper(pts: PackedVector2Array, w0: float, w1: float, col: Color, outline: bool = true):
