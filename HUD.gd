@@ -1135,58 +1135,120 @@ func update_minimap(rooms: Dictionary, current_pos: Vector2i):
     if minimap_ctrl:
         minimap_ctrl.queue_redraw()
 
+# The map in the corner is an explorer's survey chart, not a grid of boxes
+# (kuro, 2026-11-26: too much like Isaac). Each explored stretch of sea floor
+# is an inked patch, open basins wider than the enclosed rooms, joined by
+# dotted routes; places glimpsed but not yet visited are dashed outlines.
+const MAP_PAPER := Color(0.93, 0.88, 0.75)
+const MAP_INK := Color(0.22, 0.14, 0.08)
+const MAP_PATCH := Color(0.84, 0.77, 0.60)
+
+func _map_blob(c: Vector2, a: float, b: float, seed_v: int) -> PackedVector2Array:
+    var pts := PackedVector2Array()
+    for i in 18:
+        var t = TAU * i / 18.0
+        var w = 1.0 + 0.13 * sin(t * 3.0 + seed_v * 1.7) + 0.08 * sin(t * 5.0 + seed_v * 0.9)
+        pts.append(c + Vector2(cos(t) * a * w, sin(t) * b * w))
+    return pts
+
 func _on_minimap_draw():
     if dungeon_rooms.is_empty():
         return
-        
-    var center_screen = minimap_ctrl.size / 2.0
-    var cell_size = Vector2(22, 16)
-    var gap = Vector2(4, 4)
-    var step = cell_size + gap
-    
-    var ci = minimap_ctrl.get_canvas_item()
-    UI.panel(UI.MEMBRANE, 18, 0.78, 0.0).draw(ci, Rect2(Vector2.ZERO, minimap_ctrl.size))
-    
+    var mm = minimap_ctrl
+    var size: Vector2 = mm.size
+    var center_screen = size / 2.0
+    var step = Vector2(34, 26)
+    var ci = mm.get_canvas_item()
+    UI.panel(UI.MEMBRANE, 18, 0.78, 0.0).draw(ci, Rect2(Vector2.ZERO, size))
+    # A sheet of chart paper inside the frame, with a few faint sounding lines
+    var sheet = Rect2(Vector2(6, 6), size - Vector2(12, 12))
+    mm.draw_rect(sheet, MAP_PAPER)
+    for k in range(1, 4):
+        var y = sheet.position.y + sheet.size.y * k / 4.0
+        mm.draw_line(Vector2(sheet.position.x + 4, y), Vector2(sheet.end.x - 4, y), Color(MAP_INK, 0.08), 1.0)
+    var Room = preload("res://Room.gd")
+    var known := {}
     for pos in dungeon_rooms:
         var r_data = dungeon_rooms[pos]
-        var is_current = (pos == current_room_pos)
-        var is_visited = r_data.visited
-        
-        var is_adjacent = false
-        for d in [Vector2i.UP, Vector2i.DOWN, Vector2i.LEFT, Vector2i.RIGHT]:
-            var n_pos = pos + d
-            if dungeon_rooms.has(n_pos) and dungeon_rooms[n_pos].visited:
-                is_adjacent = true
-                break
-                
-        if not is_visited and not is_adjacent:
+        if r_data.visited:
+            known[pos] = true
             continue
-            
-        var offset_grid = pos - current_room_pos
-        var draw_pos = center_screen + Vector2(offset_grid.x * step.x, offset_grid.y * step.y) - (cell_size / 2.0)
-        var rect = Rect2(draw_pos, cell_size)
-        
-        var room_col = Color(UI.MEMBRANE.darkened(0.55), 0.65)
-        if is_visited:
-            room_col = Color(UI.MEMBRANE.darkened(0.15), 0.95)
-        var blob = UI.bar_box(room_col)
-        blob.set_corner_radius_all(6)
-        if is_current:
-            blob.bg_color = UI.CREAM
-        blob.draw(ci, rect)
-        
-        if is_visited or is_adjacent:
-            if r_data.type == 3: # BOSS
-                minimap_ctrl.draw_circle(draw_pos + cell_size/2.0, 4.5, UI.CORAL)
-            elif r_data.type == 2: # TREASURE / MUTATION
-                minimap_ctrl.draw_circle(draw_pos + cell_size/2.0, 4.0, UI.SUN)
-            elif r_data.type == 4: # SHOP / SHRINE
-                minimap_ctrl.draw_circle(draw_pos + cell_size/2.0, 4.0, UI.LEAF)
-            elif r_data.type == 5 and not r_data.seep_used: # MINERAL SEEP
-                minimap_ctrl.draw_circle(draw_pos + cell_size/2.0, 4.0, UI.LEAF)
-            elif r_data.special != "" and is_visited: # SPECIAL ROOM (data/SpecialRooms.gd)
-                minimap_ctrl.draw_arc(draw_pos + cell_size/2.0, 4.5, 0, TAU, 12, UI.SUN, 2.0, true)
-                
+        for d in [Vector2i.UP, Vector2i.DOWN, Vector2i.LEFT, Vector2i.RIGHT]:
+            if dungeon_rooms.has(pos + d) and dungeon_rooms[pos + d].visited:
+                known[pos] = false
+                break
+    var at = func(pos: Vector2i) -> Vector2:
+        var o = pos - current_room_pos
+        return center_screen + Vector2(o.x * step.x, o.y * step.y)
+    # Routes: dotted ink between explored places and where they lead
+    var drawn := {}
+    for pos in known:
+        if not known[pos]:
+            continue
+        for d in dungeon_rooms[pos].connections:
+            var q = dungeon_rooms[pos].connections[d]
+            if not known.has(q):
+                continue
+            var key = [min(pos.x, q.x), min(pos.y, q.y), max(pos.x, q.x), max(pos.y, q.y)]
+            if drawn.has(key):
+                continue
+            drawn[key] = true
+            var p0: Vector2 = at.call(pos)
+            var p1: Vector2 = at.call(q)
+            var n = int(p0.distance_to(p1) / 4.0)
+            for k in range(1, n):
+                mm.draw_circle(p0.lerp(p1, k / float(n)), 1.1, Color(MAP_INK, 0.7))
+    # Places: inked patches; open basins are long, enclosed rooms round
+    for pos in known:
+        var r_data = dungeon_rooms[pos]
+        var c: Vector2 = at.call(pos)
+        var wide = Room.is_basin(r_data)
+        var a = 15.0 if wide else 9.5
+        var b = 8.5 if wide else 8.0
+        var seed_v = pos.x * 7 + pos.y * 13
+        var blob = _map_blob(c, a, b, seed_v)
+        var ring = blob.duplicate()
+        ring.append(blob[0])
+        if known[pos]:
+            mm.draw_colored_polygon(blob, MAP_PATCH)
+            # two strokes of shading on the lower side
+            for k in 2:
+                var x = c.x - a * 0.3 + k * a * 0.5
+                mm.draw_line(Vector2(x, c.y + b * 0.15), Vector2(x + 4, c.y + b * 0.65), Color(MAP_INK, 0.35), 1.0, true)
+            mm.draw_polyline(ring, MAP_INK, 1.6, true)
+        else:
+            # glimpsed: a dashed outline only
+            for k in range(0, ring.size() - 1, 2):
+                mm.draw_line(ring[k], ring[k + 1], Color(MAP_INK, 0.55), 1.2, true)
+        # What is there, in pen
+        if r_data.type == 3: # boss: a coiled shell
+            var sp := PackedVector2Array()
+            for k in 16:
+                var t = k * 0.55
+                sp.append(c + Vector2(cos(t), sin(t)) * (1.0 + t * 0.85))
+            mm.draw_polyline(sp, UI.CORAL.darkened(0.35), 2.0, true)
+        elif r_data.type == 2: # treasure: an X marks the spot
+            mm.draw_line(c + Vector2(-4, -4), c + Vector2(4, 4), Color(0.72, 0.45, 0.12), 2.2, true)
+            mm.draw_line(c + Vector2(-4, 4), c + Vector2(4, -4), Color(0.72, 0.45, 0.12), 2.2, true)
+        elif r_data.type == 4 or (r_data.type == 5 and not r_data.seep_used): # shop or seep: a sprig
+            mm.draw_line(c + Vector2(0, 4), c + Vector2(0, -4), UI.LEAF.darkened(0.45), 1.8, true)
+            mm.draw_line(c + Vector2(0, 0), c + Vector2(-3, -3), UI.LEAF.darkened(0.45), 1.6, true)
+            mm.draw_line(c + Vector2(0, -1), c + Vector2(3, -4), UI.LEAF.darkened(0.45), 1.6, true)
+        elif r_data.special != "" and known[pos]: # a special place: a small ring
+            mm.draw_arc(c, 3.5, 0, TAU, 12, Color(0.72, 0.45, 0.12), 1.6, true)
+    # You are here: an ink dot in a ring
+    var me: Vector2 = at.call(current_room_pos)
+    var room_node = get_tree().get_first_node_in_group("main").current_room_node if get_tree().get_first_node_in_group("main") else null
+    if room_node and is_instance_valid(room_node) and Room.is_basin(dungeon_rooms.get(current_room_pos)):
+        # where in the basin, left to right
+        var player = get_tree().get_first_node_in_group("player")
+        if player:
+            var m: float = room_node.side_margin
+            var f = clampf((player.global_position.x + m) / (1920.0 + m * 2.0), 0.0, 1.0)
+            me.x += (f - 0.5) * 22.0
+    mm.draw_circle(me, 5.5, Color(MAP_PAPER, 0.9))
+    mm.draw_arc(me, 5.0, 0, TAU, 14, MAP_INK, 1.4, true)
+    mm.draw_circle(me, 2.3, MAP_INK)
 
 func show_boss_health(current: float, max_value: float, boss_title: String = ""):
     boss_container.visible = true
