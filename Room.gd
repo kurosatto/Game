@@ -26,6 +26,11 @@ static func margin_for(viewport: Viewport) -> float:
     var w = viewport.get_visible_rect().size.x
     return clampf((w - 1920.0) / 2.0, 0.0, 400.0)
 
+# Extra floor on each side of an open basin (Room.is_basin)
+const BASIN_EXTRA := 720.0
+static func is_basin(rd) -> bool:
+    return rd != null and rd.type == 1 and rd.special == "" and rd.lair == ""
+
 func era_dir() -> String:
     return "res://assets/eras/%s/" % ERA_ART[Worlds.era(current_floor) - 1]
 var active_enemies: Array = []
@@ -49,6 +54,12 @@ func setup_room(data, floor_number: int):
     room_data = data
     current_floor = floor_number
     side_margin = margin_for(get_viewport())
+    # Open basins (kuro, 2026-11-26, "hybrid"): ordinary fight rooms are
+    # wide stretches of sea floor the camera follows across, joined to each
+    # other by open passes. Start, special, treasure, shop, lair and boss
+    # rooms stay enclosed.
+    if is_basin(room_data):
+        side_margin += BASIN_EXTRA
     
     # 1. Clear existing children
     for child in get_children():
@@ -116,6 +127,8 @@ func setup_room(data, floor_number: int):
 
     # 7. Spawn Layout Obstacles
     spawn_layout_obstacles(clean_layout)
+    if is_basin(room_data):
+        spawn_basin_wings()
     close_tight_gaps()
 
     # 7b. Era ground hazards in fight rooms (Hazard.gd)
@@ -449,6 +462,9 @@ func spawn_door_at(pos: Vector2, d_dir: Vector2i, rot: float):
     # other rooms (LevelGenerator), and there is no other key anywhere
     if neighbor_type == 2 and not is_visited:
         door.is_locked = true
+    # Between two open basins there is no door, just an open pass
+    if is_basin(room_data) and parent and parent.has_method("is_basin_room") and parent.is_basin_room(neighbor_pos):
+        door.open_pass = true
         
     add_child(door)
     door_nodes[d_dir] = door
@@ -873,6 +889,22 @@ func spawn_tactical_enemies(layout: Dictionary, floor_number: int):
             continue
             
         spawn_enemy(cand_pos, roll_enemy_type("fly" if randf() < 0.55 else "pacer", floor_number), floor_number)
+
+    # 3. Animals out in an open basin's wings too
+    if is_basin(room_data):
+        var wing_spots = basin_wing_spots()
+        for side in [-1, 1]:
+            var n = 2 if floor_number < 3 else 3
+            for s in wing_spots:
+                if n <= 0:
+                    break
+                if s.side != side:
+                    continue
+                var at: Vector2 = s.pos + Vector2(0, -150 if s.pos.y > 540.0 else 150)
+                if at.distance_to(player_pos) < 420.0 or not spot_is_free(at, 50.0):
+                    continue
+                spawn_enemy(at, roll_enemy_type("fly" if randf() < 0.55 else "pacer", floor_number), floor_number)
+                n -= 1
 
     maybe_promote_elder(floor_number)
 
@@ -1353,3 +1385,34 @@ func _make_trapdoor(pos: Vector2, world: String):
 
 func _on_door_entered(direction):
     room_transition_requested.emit(direction)
+
+
+# The basin's wide wings, left and right of the central layout: a few knolls
+# and a couple more animals, the same every visit (seeded by the room)
+func basin_wing_spots() -> Array:
+    var rng = RandomNumberGenerator.new()
+    rng.seed = int(room_data.grid_pos.x * 92821 + room_data.grid_pos.y * 68917 + current_floor * 131)
+    var spots: Array = []
+    var extra = side_margin - margin_for(get_viewport())
+    for side in [-1, 1]:
+        # wing x range, inside the walls, clear of the central layout
+        var x0 = 180.0 - side_margin if side < 0 else 1920.0 - 180.0 + side_margin - extra + 120.0
+        var x1 = 1920.0 - 180.0 + side_margin if side > 0 else 180.0 - side_margin + extra - 120.0
+        var placed: Array = []
+        var tries = 0
+        while placed.size() < 4 and tries < 80:
+            tries += 1
+            var p = Vector2(rng.randf_range(x0, x1), rng.randf_range(230.0, 850.0))
+            # keep the side door's lane and the middle row open
+            if absf(p.y - 540.0) < 130.0 and (p.x < 200.0 - side_margin + 260.0 or p.x > 1720.0 + side_margin - 260.0):
+                continue
+            if placed.any(func(q): return q.distance_to(p) < 260.0):
+                continue
+            placed.append(p)
+        for p in placed:
+            spots.append({"pos": p, "type": ["rock", "fossil_bone", "stromatolite", "calcified_sponge"][rng.randi() % 4], "side": side})
+    return spots
+
+func spawn_basin_wings():
+    for s in basin_wing_spots():
+        spawn_obstacle(s.pos, s.type)

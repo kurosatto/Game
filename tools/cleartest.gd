@@ -3,7 +3,6 @@ extends SceneTree
 # the animals act for a few seconds around the player, reports any that
 # ended up outside the floor or inside a rock, then kills everything and
 # checks the doors open. Run: godot --headless --path . -s res://tools/cleartest.gd
-const INTERIOR = Rect2(128, 128, 1664, 824)
 var main
 func _initialize():
 	main = load("res://Main.tscn").instantiate()
@@ -49,7 +48,7 @@ func try_room(pos: Vector2i) -> String:
 			notes.append("freed enemy still counted")
 			continue
 		var lp = room.to_local(e.global_position)
-		if not INTERIOR.has_point(lp):
+		if not room.interior_rect().grow(4.0).has_point(lp):
 			notes.append("%s outside floor at %s" % [e.enemy_type, lp])
 		for c in room.get_children():
 			if c is StaticBody2D and c.position.distance_to(lp) < 40.0:
