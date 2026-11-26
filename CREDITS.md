@@ -28,7 +28,6 @@ while the favourites are being picked. The same list is shown in-game under
 | 16 | explore | Safety (Tribe version) | fupi | CC0 | https://opengameart.org/content/safety-2-versions |
 | 17 | explore | Revenge of the Jungle | oglsdl | CC0 | https://opengameart.org/content/revenge-of-the-jungle |
 | 18 | explore | Unexplored | bo-jingles (TAD) | CC0 | https://opengameart.org/content/unexplored-expansion |
-| 19 | explore | Ocean Trance | mintodog | CC0 | https://opengameart.org/content/ocean-trance |
 | 20 | boss | Warped | Alexander Ehlers | CC0 | https://opengameart.org/content/free-music-pack |
 | 21 | boss | Waking the Devil | Alexander Ehlers | CC0 | https://opengameart.org/content/free-music-pack |
 | 22 | boss | Final Hour | isaiah658 | CC0 | https://opengameart.org/content/final-hour |
