@@ -37,8 +37,13 @@ window/handheld/orientation=4
 
 theme/custom="res://assets/ui/organic_theme.tres"
 
+[input_devices]
+
+buffering/agile_event_flushing=true
+
 [physics]
 
+common/physics_jitter_fix=0.0
 common/physics_interpolation=true
 
 [rendering]
