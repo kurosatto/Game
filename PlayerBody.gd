@@ -233,6 +233,7 @@ func _process(delta: float):
 	var squeeze = sin(PI * jk / 0.28) if jk < 0.28 else 0.0
 	jet = squeeze * clamp(move * 1.4 + 0.15, 0.0, 1.0)
 	_swim_wake(delta)
+	_sniff(delta)
 	# An animal out in the black fog can't be seen: keep its last drawing
 	if foe and pen.hidden_by_fog(global_position, _extent()):
 		return
@@ -246,6 +247,37 @@ func _process(delta: float):
 	queue_redraw()
 
 const REDRAW_STEP := 1.0 / 62.0
+
+# Feelers track the nearest animal (for an animal: you), within reach
+const SNIFF_REACH := 460.0
+var _sniff_ang: float = 0.0
+var _sniff_w: float = 0.0
+var _sniff_target: Node2D = null
+var _sniff_look: float = 0.0
+func _sniff(delta: float):
+	_sniff_look -= delta
+	if _sniff_look <= 0.0:
+		_sniff_look = 0.25
+		_sniff_target = null
+		if foe:
+			var p = player.get("player")
+			if p is Node2D and is_instance_valid(p) and player.get("mood") != "calm":
+				_sniff_target = p
+		else:
+			var best := SNIFF_REACH
+			for e in get_tree().get_nodes_in_group("enemies"):
+				if is_instance_valid(e) and not e.get("dead"):
+					var d: float = e.global_position.distance_to(global_position)
+					if d < best:
+						best = d
+						_sniff_target = e
+	var on := 0.0
+	if _sniff_target and is_instance_valid(_sniff_target):
+		var lp: Vector2 = get_global_transform().affine_inverse() * _sniff_target.global_position
+		if lp.length() < SNIFF_REACH / max(get_global_transform().get_scale().x, 0.01):
+			_sniff_ang = wrapf(lerp_angle(_sniff_ang, lp.angle(), 1.0 - exp(-delta * 9.0)), -PI, PI)
+			on = 1.0
+	_sniff_w = lerp(_sniff_w, on, 1.0 - exp(-delta * 5.0))
 
 # Swimmers (no legs, not star-shaped) leave ripples from the tail when they
 # go fast, as walkers kick up silt with their feet
@@ -1070,6 +1102,11 @@ func leg(root: Vector2, side: float, length: float, phase: float, rake: float, w
 func antenna(root: Vector2, side: float, length: float, spread: float, col: Color, w: float = 1.4, n: int = 7):
 	var pts := PackedVector2Array()
 	var a = side * spread
+	if _sniff_w > 0.01 and spread < 1.3:
+		# Smelling or feeling for an animal nearby: both feelers swing
+		# toward it, still a little apart, and tremble as they test the water
+		var want: float = clamp(_sniff_ang + side * spread * 0.4, -1.3, 1.3) + sin(t * 15.0 + side) * 0.05
+		a = lerp(a, want, 0.6 * _sniff_w)
 	var p = root
 	pts.append(p)
 	for i in n:
