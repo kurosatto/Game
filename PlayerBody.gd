@@ -282,7 +282,7 @@ func _sniff(delta: float):
 # Swimmers (no legs, not star-shaped) leave ripples from the tail when they
 # go fast, as walkers kick up silt with their feet
 var _wake_t: float = 0.0
-const WAKE_FORMS := {"ancestral_collar_cell": 1, "pikaia_chordate": 1, "jawed_fish": 1, "jawless_fish": 1,
+const WAKE_FORMS := {"ancestral_collar_cell": 1, "collar_cell": 1, "pikaia_chordate": 1, "jawed_fish": 1, "jawless_fish": 1,
 	"early_shark": 1, "ray_finned_fish": 1, "shark_line": 1, "chimaera": 1, "sturgeon_line": 1,
 	"teleost_line": 1, "lamprey": 1, "sea_lamprey": 1, "pouched_lamprey": 1, "hagfish": 1,
 	"atlantic_hagfish": 1, "pacific_hagfish": 1, "cephalopod": 1, "nautilus": 1, "palau_nautilus": 1,
@@ -2636,7 +2636,7 @@ func sea_cucumber():
 			pen.draw_circle(spo(q.x, q.y), 2.2, shade(body, 1.4), true, -1.0, true)
 
 # ───────────────────────── the first cell ─────────────────────────
-func ancestral_collar_cell():
+func collar_cell():
 	# Choanoflagellate-like cell, drawn like a cell under the microscope: a
 	# soft, never quite round membrane; one long flagellum whose travelling
 	# wave pushes it; a collar of stiff microvilli that strains bacteria from
@@ -2758,10 +2758,109 @@ func ancestral_collar_cell():
 			pen.draw_arc(lc, lr, 0, TAU, 12, Color(0.18, 0.08, 0.12, 0.9), 0.9, true)
 			pen.draw_circle(lc + Vector2(-0.5, 0.4), lr * 0.35, Color(0.3, 0.12, 0.18, 0.8), true, -1.0, true)
 
+# ── The starter cell: an amoeboid single cell (kuro picked this look) ──
+# Shared cell insides: streaming granules, mitochondria, nucleus, lysosomes
+func _cell_insides(cx: float, rx: float, ry: float, nuc: Vector2, nr: float, front: float):
+	for k in 16:
+		var g = t * 0.35 + k * TAU / 16.0
+		var rr = 0.5 + 0.3 * sin(k * 2.7)
+		dot(Vector2(cx + cos(g) * rx * rr, sin(g) * ry * rr), 0.7 + 0.4 * fposmod(k * 0.37, 1.0), Color(0.12, 0.2, 0.22, 0.5))
+	for k in 3:
+		var g = -t * 0.18 + k * TAU / 3.0 + 0.6
+		var mc = Vector2(cx + cos(g) * rx * 0.58, sin(g) * ry * 0.55)
+		var ma = g + PI * 0.5
+		var mp = ellipse_pts(mc, 5.0, 2.3, ma, 14)
+		pen.draw_colored_polygon(mp, Color(0.78, 0.84, 0.66))
+		mp.append(mp[0])
+		pen.draw_polyline(mp, Color(0.1, 0.16, 0.14, 0.9), 0.9, true)
+		var ax = Vector2.RIGHT.rotated(ma)
+		var nx = Vector2(-ax.y, ax.x)
+		var cr := PackedVector2Array()
+		for j in 7:
+			cr.append(mc + ax * (-3.6 + j * 1.2) + nx * (1.3 if j % 2 == 0 else -1.3))
+		pen.draw_polyline(cr, Color(0.1, 0.16, 0.14, 0.7), 0.7, true)
+	pen.draw_circle(nuc, nr, Color(0.56, 0.7, 0.78), true, -1.0, true)
+	pen.draw_arc(nuc, nr, 0, TAU, 24, OUTLINE, 1.3, true)
+	for j in 7:
+		var ca = j * 2.4
+		dot(nuc + Vector2(cos(ca), sin(ca)) * (nr * 0.25 + fposmod(j * 0.61, 1.0) * nr * 0.45), 0.8, Color(0.14, 0.18, 0.3, 0.55))
+	pen.draw_circle(nuc + Vector2(nr * 0.2, -nr * 0.15), nr * 0.32, Color(0.16, 0.18, 0.34), true, -1.0, true)
+	for k in 3:
+		var u = fposmod(t * 0.3 + k / 3.0, 1.0)
+		var lc = Vector2(cx + lerp(-2.0, front, u), (k - 1) * 8.0 * (1.0 - u * 0.6))
+		var lr = 2.6 * (1.0 - strike * smooth((u - 0.6) / 0.4))
+		if lr > 0.4:
+			pen.draw_circle(lc, lr, Color(0.7, 0.42, 0.5), true, -1.0, true)
+			pen.draw_arc(lc, lr, 0, TAU, 12, Color(0.18, 0.08, 0.12, 0.9), 0.9, true)
+
+func _contractile_vacuole(c: Vector2, phase: float, rmax: float, canals: int):
+	# Fills slowly with water, then empties in a snap
+	var u = fposmod(t * 0.45 + phase, 1.0)
+	var r = rmax * (u / 0.85 if u < 0.85 else (1.0 - u) / 0.15)
+	for j in canals:
+		var a = j * TAU / canals + 0.3
+		var l = rmax * (2.2 - u * 0.9)
+		pen.draw_line(c + Vector2.from_angle(a) * r, c + Vector2.from_angle(a) * (r + l), Color(0.1, 0.2, 0.24, 0.55), 1.0 + (1.0 - u), true)
+	if r > 0.5:
+		pen.draw_circle(c, r, Color(0.9, 0.98, 0.97, 0.95), true, -1.0, true)
+		pen.draw_arc(c, r, 0, TAU, 16, Color(0.1, 0.2, 0.24, 0.85), 0.9, true)
+
+func _ang_d(a: float, b: float) -> float:
+	return wrapf(a - b, -PI, PI)
+
+# A: amoeba. No tail, no spikes: the cell crawls by pouring itself into
+# blunt pseudopods; the front lobe reaches toward where it is going and
+# shoots out on a strike. (Choanoflagellates squeezed in tight places drop
+# their flagellum and crawl like this, Brunet et al. 2021.)
+func cell_amoeba():
+	var body = Color(0.5, 0.8, 0.82)
+	var lobes = [
+		[0.0, 0.32 + 0.3 * move + 0.5 * strike + 0.06 * sin(t * 1.3), 0.34],
+		[2.0 + 0.3 * sin(t * 0.47), 0.55 + 0.2 * sin(t * 0.9), 0.24],
+		[-2.1 + 0.3 * sin(t * 0.53 + 1.0), 0.5 + 0.2 * sin(t * 0.8 + 2.0), 0.22],
+		[0.9 + 0.2 * sin(t * 0.7), 0.4 + 0.15 * sin(t * 1.1 + 1.0), 0.2],
+		[-0.95 + 0.2 * sin(t * 0.6 + 2.0), 0.32 + 0.15 * sin(t * 1.0 + 3.0), 0.2],
+	]
+	var mem := PackedVector2Array()
+	var R := 18.5
+	for i in 56:
+		var a = TAU * i / 56.0
+		var r = 1.0 + 0.03 * sin(5.0 * a + t * 1.7) + 0.02 * sin(9.0 * a - t * 2.3)
+		for L in lobes:
+			var d = _ang_d(a, L[0])
+			r += max(0.0, L[1]) * exp(-d * d / (2.0 * L[2] * L[2]))
+		# Wrinkled tail end (uroid)
+		var back = pow(max(0.0, -cos(a)), 8.0)
+		r -= back * (0.08 - 0.04 * sin(a * 14.0 + t * 2.0))
+		mem.append(Vector2(cos(a), sin(a) * 0.9) * R * r)
+	shape(mem, Color(body.r, body.g, body.b, 0.95), 2.2)
+	if halo_pass:
+		return
+	# Clear ectoplasm rim, granular endoplasm pouring into the lobes
+	var inner := PackedVector2Array()
+	for q in mem:
+		inner.append(q * 0.8 + Vector2(-1.5, 0))
+	pen.draw_colored_polygon(inner, Color(0.56, 0.81, 0.81, 0.6))
+	var loop := inner.duplicate()
+	loop.append(inner[0])
+	pen.draw_polyline(loop, Color(0.1, 0.2, 0.22, 0.22), 0.8, true)
+	for k in 12:
+		var u = fposmod(t * 0.25 + k / 12.0, 1.0)
+		var lane = (fposmod(k * 0.618, 1.0) - 0.5) * 22.0
+		dot(Vector2(lerp(-16.0, 20.0 + 8.0 * move, u), lane * (1.0 - u * 0.5)), 0.9, Color(0.12, 0.2, 0.22, 0.6 * sin(u * PI)))
+	_contractile_vacuole(Vector2(-14, 6), 0.0, 4.5, 0)
+	for k in 2:
+		var vc = Vector2(-6 + k * 6.0 + sin(t * 0.3 + k) * 2.0, -10.0 + k * 3.0)
+		pen.draw_circle(vc, 3.8 - k, Color(0.86, 0.95, 0.9, 0.9), true, -1.0, true)
+		pen.draw_arc(vc, 3.8 - k, 0, TAU, 16, Color(0.1, 0.18, 0.2, 0.8), 0.9, true)
+		pen.draw_line(vc + Vector2(-1.4, -0.5), vc + Vector2(1.2, 0.7), Color(0.35, 0.28, 0.18, 0.8), 1.5, true)
+	_cell_insides(0.0, 19.0, 15.0, Vector2(2.0 + sin(t * 0.5), 3.0), 7.5, 20.0 + 6.0 * move)
+
 # id -> [drawing function, optional parameters]. Descendants that differ
 # from their parent mostly in colour reuse its drawing with their own.
 const FORMS = {
-	"ancestral_collar_cell": ["ancestral_collar_cell"],
+	"ancestral_collar_cell": ["cell_amoeba"],
+	"collar_cell": ["collar_cell"],
 	"early_arthropod": ["early_arthropod"],
 	"chelicerate": ["chelicerate"],
 	"mandibulate": ["mandibulate"],

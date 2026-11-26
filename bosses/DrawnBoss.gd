@@ -27,7 +27,7 @@ extends "res://bosses/BossBase.gd"
 const PlayerBody = preload("res://PlayerBody.gd")
 
 const SPECIES = {
-	1: {"name": "Salpingoeca", "form": "ancestral_collar_cell", "rosette": 8, "scale": 2.1, "hp": 100.0, "speed": 150.0,
+	1: {"name": "Salpingoeca", "form": "collar_cell", "rosette": 8, "scale": 2.1, "hp": 100.0, "speed": 150.0,
 		"title": "SALPINGOECA ROSETTA — COLLAR CELL COLONY",
 		"fact": "A living choanoflagellate, the closest single-celled relative of animals. Its collar cells stick together into a spinning rosette, joined by bridges of cytoplasm, much like the first steps toward a body.",
 		"kit": ["spin", "ring", "volley"], "phase2": "burst", "light": Color(0.4, 0.85, 1.0), "burst": Color(0.5, 0.9, 1.0)},
