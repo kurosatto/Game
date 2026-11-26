@@ -3,15 +3,16 @@
 # era: rangeomorph fronds (Ediacaran), a sponge garden (Cambrian), a meadow of
 # sea lilies (Ordovician), a thicket of ferns and horsetails (Carboniferous),
 # seed-fern scrub (Permian). Small animals have always hidden in growth like
-# this. Inside it animals notice you far later, and ones hunting you from
-# across the room lose track of you after a moment. The growth sways as you
+# this. Inside it animals notice you far later, and every animal hunting you
+# loses track of you after a moment (kuro, 2026-11-26: hidden in the bushes,
+# enemies forget about you). One mid-lunge forgets once the lunge is over. The growth sways as you
 # push through and thins so you can still see yourself.
 extends Node2D
 
 const INK = Color(0.24, 0.15, 0.08)
-const HIDE := 0.35        # notice range while hidden
-const LOSE_AFTER := 1.4   # seconds inside before far hunters lose you
-const LOSE_RANGE := 300.0 # hunters closer than this still see you go in
+const HIDE := 0.25        # notice range while hidden
+const LOSE_AFTER := 0.8   # seconds inside before hunters lose you
+const LOSE_EVERY := 0.4   # then checked again this often, for ones that were mid-attack
 
 var floor_num: int = 2
 var size: Vector2 = Vector2(150, 105) # half extents
@@ -57,10 +58,10 @@ func _process(delta: float):
 			push = max(push, 0.5)
 		player.cover_time = 0.15
 		want_fade = 0.62
-		if inside >= LOSE_AFTER and inside - delta < LOSE_AFTER:
+		if inside >= LOSE_AFTER and int((inside - LOSE_AFTER) / LOSE_EVERY) != int((inside - delta - LOSE_AFTER) / LOSE_EVERY) \
+				or (inside >= LOSE_AFTER and inside - delta < LOSE_AFTER):
 			for e in get_tree().get_nodes_in_group("enemies"):
-				if is_instance_valid(e) and e.has_method("lose_track") and e.get("mood") == "hostile" \
-						and e.global_position.distance_to(player.global_position) > LOSE_RANGE:
+				if is_instance_valid(e) and e.has_method("lose_track") and e.get("mood") in ["hostile", "alert"]:
 					e.lose_track()
 	else:
 		inside = -1.0

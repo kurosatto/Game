@@ -191,9 +191,12 @@ func random_track(pool: String) -> String:
     music_bags[pool] = bag
     return pick
 
+# kuro's favourite: #2 Snowfall is the menu music (2026-11-26)
+const MENU_TRACK = "snowfall"
+
 func play_menu_music():
     floor_tracks.clear()
-    play_music(random_track("menu"))
+    play_music(MENU_TRACK)
 
 # A new run picks new floor and boss tracks
 func new_run():

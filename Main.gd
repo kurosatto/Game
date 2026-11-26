@@ -233,6 +233,8 @@ func check_challenges():
 
 func generate_floor():
     hit_this_floor = false
+    # The first world moves slower (data/Difficulty.gd FIRST_WORLD_PACE)
+    preload("res://data/Difficulty.gd").pace = preload("res://data/Difficulty.gd").pace_for(floor_number)
     # Tests and screenshots can force the world (WORLD=sea / land)
     if Worlds.forced() != "" and Worlds.splits(floor_number):
         Worlds.sea = Worlds.forced() == "sea"

@@ -34,8 +34,6 @@ const TRACKS = [
 		"url": "https://opengameart.org/content/krakatoa"},
 	{"num": 14, "id": "parasite", "pool": "explore", "title": "Parasite", "artist": "Kistol", "license": "CC0",
 		"url": "https://opengameart.org/content/parasite"},
-	{"num": 15, "id": "green_forests", "pool": "explore", "title": "Green Forests", "artist": "Alexandr Zhelanov", "license": "CC-BY 4.0",
-		"url": "https://opengameart.org/content/tribal-music"},
 	{"num": 16, "id": "safety_tribe", "pool": "explore", "title": "Safety (Tribe version)", "artist": "fupi", "license": "CC0",
 		"url": "https://opengameart.org/content/safety-2-versions"},
 	{"num": 17, "id": "revenge_of_the_jungle", "pool": "explore", "title": "Revenge of the Jungle", "artist": "oglsdl", "license": "CC0",

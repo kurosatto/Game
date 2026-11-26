@@ -112,6 +112,8 @@ func _physics_process(delta: float):
 	# right where the player walks in. Hold still until the slide is over.
 	if _room_sliding():
 		return
+	# The first world runs slower, boss included (Difficulty.FIRST_WORLD_PACE)
+	delta *= Difficulty.pace
 	t += delta
 	# Less circling between attacks; wind-ups keep their full length
 	state_time += delta * Difficulty.boss_clock(state)

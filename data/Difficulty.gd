@@ -68,6 +68,17 @@ const BOSS_HEALTH_PER_ERA := 0.08
 const BOSS_REST_SPEED := 1.5
 const BOSS_REST_STATES := ["cruise", "recover", "wander", "stalk", "approach", "drift", "feed"]
 
+# ── The first world ──
+# kuro (2026-11-26): everything in the first world moves slower, so a new
+# player learns the controls before the pace picks up. Animals, their shots
+# and the boss all run at this share of their speed on floor 1 (the shots
+# fly as far, just slower). Main.generate_floor sets `pace` for the floor.
+const FIRST_WORLD_PACE := 0.72
+static var pace: float = 1.0
+
+static func pace_for(floor_number: int) -> float:
+	return FIRST_WORLD_PACE if floor_number <= 1 else 1.0
+
 static func era(floor_number: int) -> int:
 	return clampi(floor_number, 1, LAST_ERA)
 

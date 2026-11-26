@@ -13,7 +13,7 @@ const BIOMINERALS = preload("res://data/Biominerals.gd")
 const INK = Color(0.24, 0.15, 0.08)
 const PAPER = Color(0.95, 0.9, 0.78)
 
-const KINDS = ["vent", "tar", "dig", "frenzy", "extinction", "nest", "tide", "ambush", "glow", "dark", "fire", "molt", "procession", "meadow", "mat", "drought", "treefall", "brachiopods", "current", "cupreef"]
+const KINDS = ["vent", "tar", "dig", "frenzy", "extinction", "nest", "tide", "ambush", "glow", "dark", "fire", "molt", "procession", "meadow", "drought", "treefall", "brachiopods", "current", "cupreef"]
 
 # Which eras each kind can turn up in. No brood care, hunters lying in wait
 # or animal sidekicks before the Cambrian; no glowing animals known on land
@@ -33,9 +33,6 @@ const ERAS = {
 	"procession": [3],
 	# Sea-lily meadows: the Ordovician and the Mississippian "Age of Crinoids"
 	"meadow": [3, 6],
-	# Microbial mats carpeted the sea floor until Cambrian burrowers churned
-	# it up, so the mat ground is an Ediacaran room
-	"mat": [1],
 	# Monsoon dry seasons on the Permian lowlands: ponds shrank to puddles
 	"drought": [5],
 	# Scale trees of the coal swamps, 30 m tall on shallow roots
@@ -49,7 +46,7 @@ const ERAS = {
 }
 
 # Rooms with nothing to fight when you walk in: open doors, open ground
-const PEACEFUL = ["vent", "dig", "extinction", "nest", "ambush", "procession", "mat", "drought", "brachiopods", "cupreef"]
+const PEACEFUL = ["vent", "dig", "extinction", "nest", "ambush", "procession", "drought", "brachiopods", "cupreef"]
 
 const Worlds = preload("res://data/Worlds.gd")
 
@@ -87,7 +84,6 @@ static func title(kind: String, f: int) -> String:
 		"molt": return "MASS MOLT"
 		"procession": return "TRILOBITE PROCESSION"
 		"meadow": return "CRINOID MEADOW"
-		"mat": return "MICROBIAL MAT"
 		"drought": return "DRYING POOL"
 		"treefall": return "FALLING TREE"
 		"brachiopods": return "LAMP-SHELL BED"
@@ -151,8 +147,6 @@ static func fact(kind: String, f: int) -> String:
 			return "The coal swamps were forests of giant club mosses like Lepidodendron, 30 m tall on shallow roots called Stigmaria spread through wet peat. They toppled easily, and fossil forests are strewn with their fallen trunks, patterned all over with diamond-shaped leaf scars. Cockroaches swarmed in the rotting wood and leaf litter."
 		"drought":
 			return "Permian lowlands had monsoon seasons, and in the dry months ponds shrank to puddles. Fish crowded into the last of the water, and those left on the mud died there. Lungfish dug into the mud, sealed themselves in and slept until the rains came back; their burrows, some with the fish still inside, are found by the hundred in Permian red beds."
-		"mat":
-			return "Ediacaran sea floors were carpeted with mats of bacteria, which left a wrinkled \"elephant skin\" texture in the rock. Dickinsonia lay on the mat and digested it through its underside, then shifted and lay down again, leaving rows of oval scars called Epibaion. In the Cambrian, burrowing animals churned the mats away, and this way of life ended."
 		"procession":
 			return "About 480 million years ago in what is now Morocco, lines of the little trilobite Ampyx were buried as they walked, up to 22 in single file, each touching the one in front with its long spines. Ampyx was blind: the line kept together by touch, perhaps moving off to escape a storm or to spawn. It is one of the oldest signs of animals moving together."
 		"molt":
@@ -184,7 +178,6 @@ static func how(kind: String, f: int) -> String:
 		"brachiopods": return "They feel the water move and snap shut. Creep up, wait for them to open, then lunge."
 		"treefall": return "A scale tree is about to fall. Get out from under its shadow and lure the animals beneath it."
 		"drought": return "The pool is drying up. Stranded fish are easy prey; stand on a lungfish burrow in the dry mud to dig it out."
-		"mat": return "Rest on a mat to graze it. The Dickinsonia graze them too, so get there first."
 		"molt": return "Their shells are hard. Wait for one to molt, then strike while it's soft."
 	return ""
 
