@@ -32,7 +32,7 @@ const TREE = {
         "scale": Vector2(1.0, 1.0),
         "speed": 310.0,
         "damage": 3.8,
-        "fire_delay": 0.18,
+        "fire_delay": 0.22,
         "shot_speed": 720.0,
         "max_health_add": 0,
         "attack_type": "single",

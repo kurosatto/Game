@@ -34,6 +34,7 @@ var form_id: String = "ancestral_collar_cell"
 var t: float = 0.0        # clock
 var swim: float = 0.0     # stroke phase: fins, tails, flagella (faster at speed)
 var gait: float = 0.0     # leg cycle, advanced by distance walked
+var crawl: float = 0.0    # amoeba crawl cycles, one per CRAWL_STEP px crawled
 var move: float = 0.0     # 0 idle .. 1 full speed
 var bend: float = 0.0     # body curve while turning
 var strike: float = 0.0   # 1 on attack, fades out
@@ -179,6 +180,7 @@ func _process(delta: float):
 	var turn_v: float = min(abs(dr) / dt, 14.0) * 20.0 * max(abs(sc.x), abs(sc.y))
 	_turning = lerp(_turning, clamp(turn_v / max(top * 0.5, 1.0), 0.0, 1.0), 1.0 - exp(-dt * 12.0))
 	gait += (v + turn_v) * delta * (PI / max(1.6 * _stride_w, 6.0) if _stride_w > 0.0 else 1.0 / 16.0)
+	crawl += v * delta / CRAWL_STEP
 	# Standing still, the animal isn't frozen: now and then it glances to a
 	# side, resettles its feet and flicks its fins or feelers
 	if move < 0.06 and dash < 0.1 and atk > 1.0 and tuck < 0.1:
@@ -2809,52 +2811,97 @@ func _ang_d(a: float, b: float) -> float:
 	return wrapf(a - b, -PI, PI)
 
 # A: amoeba. No tail, no spikes: the cell crawls by pouring itself into
-# blunt pseudopods; the front lobe reaches toward where it is going and
-# shoots out on a strike. (Choanoflagellates squeezed in tight places drop
-# their flagellum and crawl like this, Brunet et al. 2021.)
+# blunt pseudopods. (Choanoflagellates squeezed in tight places drop their
+# flagellum and crawl like this, Brunet et al. 2021.)
+# Crawling is a cycle, one per CRAWL_STEP px: a pseudopod bursts out ahead,
+# off to one side (fast, like the eruptive lobes of limax amoebae), the
+# body hangs back while it holds on, then the cytoplasm pours forward into
+# it and the wrinkled rear (uroid) lets go, trailing a few retraction
+# fibres. The next lobe goes out on the other side, so the cell zigzags
+# along in quick lurches. The front lobe still shoots out on a strike.
+const CRAWL_STEP := 105.0
 func cell_amoeba():
 	var body = Color(0.5, 0.8, 0.82)
+	var m: float = clamp(move, 0.0, 1.2)
+	var cyc := crawl
+	var u := fposmod(cyc, 1.0)
+	var side := 1.0 if int(floor(cyc)) % 2 == 0 else -1.0
+	var ext := smooth(clamp(u / 0.28, 0.0, 1.0))           # lobe bursts out
+	var pour := smooth(clamp((u - 0.36) / 0.64, 0.0, 1.0)) # body flows in
+	# The body hangs back while the lobe goes out, then catches up
+	var o := Vector2(5.5 * m * (pour - ext), 0.0)
+	# Stretched while reaching, rounder while pouring (same volume)
+	var sx := 1.0 + 0.14 * m * (ext - pour) + 0.04 * m
+	var sy := 1.0 / sqrt(sx)
+	var idle: float = 1.0 - min(m * 0.8, 0.85)
 	var lobes = [
-		[0.0, 0.32 + 0.3 * move + 0.5 * strike + 0.06 * sin(t * 1.3), 0.34],
-		[2.0 + 0.3 * sin(t * 0.47), 0.55 + 0.2 * sin(t * 0.9), 0.24],
-		[-2.1 + 0.3 * sin(t * 0.53 + 1.0), 0.5 + 0.2 * sin(t * 0.8 + 2.0), 0.22],
-		[0.9 + 0.2 * sin(t * 0.7), 0.4 + 0.15 * sin(t * 1.1 + 1.0), 0.2],
-		[-0.95 + 0.2 * sin(t * 0.6 + 2.0), 0.32 + 0.15 * sin(t * 1.0 + 3.0), 0.2],
+		# Resting front lobe; it lunges on a strike
+		[0.0, 0.32 * idle + 0.5 * strike + 0.06 * sin(t * 1.3), 0.34],
+		# New pseudopod, swinging in toward the middle as the body fills it
+		[side * (0.5 - 0.32 * pour), m * (0.95 * ext - 0.55 * pour), 0.2 + 0.15 * pour],
+		# Last cycle's pseudopod, becoming body
+		[-side * 0.18, m * 0.4 * (1.0 - ext), 0.35],
+		[2.0 + 0.3 * sin(t * 0.47), (0.55 + 0.2 * sin(t * 0.9)) * (1.0 - 0.6 * m), 0.24],
+		[-2.1 + 0.3 * sin(t * 0.53 + 1.0), (0.5 + 0.2 * sin(t * 0.8 + 2.0)) * (1.0 - 0.6 * m), 0.22],
+		[0.9 + 0.2 * sin(t * 0.7), (0.4 + 0.15 * sin(t * 1.1 + 1.0)) * (1.0 - 0.4 * m), 0.2],
+		[-0.95 + 0.2 * sin(t * 0.6 + 2.0), (0.32 + 0.15 * sin(t * 1.0 + 3.0)) * (1.0 - 0.4 * m), 0.2],
 	]
 	var mem := PackedVector2Array()
 	var R := 18.5
+	# Rear wrinkles deepen and pinch in as the uroid is dragged after
+	var pinch := 0.08 + m * (0.05 + 0.12 * pour * (1.0 - pour) * 4.0)
 	for i in 56:
 		var a = TAU * i / 56.0
 		var r = 1.0 + 0.03 * sin(5.0 * a + t * 1.7) + 0.02 * sin(9.0 * a - t * 2.3)
 		for L in lobes:
 			var d = _ang_d(a, L[0])
 			r += max(0.0, L[1]) * exp(-d * d / (2.0 * L[2] * L[2]))
-		# Wrinkled tail end (uroid)
 		var back = pow(max(0.0, -cos(a)), 8.0)
-		r -= back * (0.08 - 0.04 * sin(a * 14.0 + t * 2.0))
-		mem.append(Vector2(cos(a), sin(a) * 0.9) * R * r)
+		r -= back * (pinch - 0.04 * sin(a * 14.0 + t * 2.0 + cyc * 3.0))
+		mem.append(o + Vector2(cos(a) * sx, sin(a) * 0.9 * sy) * R * r)
+	# Retraction fibres: thin strands left stuck to the ground behind the
+	# uroid, stretching while the body hangs back and snapping as it pours on
+	if m > 0.15 and not halo_pass:
+		var fib := (1.0 - pour) * smooth(clamp((m - 0.15) / 0.4, 0.0, 1.0))
+		if fib > 0.05:
+			for k in 3:
+				var y = (k - 1) * 5.5 + sin(cyc * 5.0 + k) * 1.5
+				var root = o + Vector2(-R * (1.0 - pinch) * sx + 1.5, y * 0.8)
+				var tip = root + Vector2(-(3.0 + 7.0 * ext) * fib - k % 2 * 2.0, y * 0.35)
+				line(root, tip, Color(0.12, 0.2, 0.22, 0.55 * fib), 0.8)
+				dot(tip, 0.8, Color(0.12, 0.2, 0.22, 0.5 * fib))
 	shape(mem, Color(body.r, body.g, body.b, 0.95), 2.2)
 	if halo_pass:
 		return
-	# Clear ectoplasm rim, granular endoplasm pouring into the lobes
+	# Clear ectoplasm rim, granular endoplasm pouring into the lobes. The
+	# ectoplasm is thick at the tip of a fresh lobe (the clear hyaline cap)
 	var inner := PackedVector2Array()
+	var lead := Vector2.from_angle(side * (0.5 - 0.32 * pour))
 	for q in mem:
-		inner.append(q * 0.8 + Vector2(-1.5, 0))
+		var qq = q - o
+		var cap = max(0.0, qq.normalized().dot(lead)) * m * ext * (1.0 - pour) * 4.0
+		inner.append(o + qq * 0.8 + Vector2(-1.5, 0) - qq.normalized() * cap)
 	pen.draw_colored_polygon(inner, Color(0.56, 0.81, 0.81, 0.6))
 	var loop := inner.duplicate()
 	loop.append(inner[0])
 	pen.draw_polyline(loop, Color(0.1, 0.2, 0.22, 0.22), 0.8, true)
+	# Granules stream forward, surging into the new lobe while pouring
+	var stream: float = t * 0.25 * idle + cyc * 0.9
 	for k in 12:
-		var u = fposmod(t * 0.25 + k / 12.0, 1.0)
+		var g = fposmod(stream + k / 12.0, 1.0)
 		var lane = (fposmod(k * 0.618, 1.0) - 0.5) * 22.0
-		dot(Vector2(lerp(-16.0, 20.0 + 8.0 * move, u), lane * (1.0 - u * 0.5)), 0.9, Color(0.12, 0.2, 0.22, 0.6 * sin(u * PI)))
-	_contractile_vacuole(Vector2(-14, 6), 0.0, 4.5, 0)
+		var gp = Vector2(lerp(-16.0, 19.0 + 9.0 * m * ext, g), lane * (1.0 - g * 0.5))
+		gp.y += side * m * g * g * 7.0 * (0.5 - 0.32 * pour)
+		dot(o + Vector2(gp.x * sx, gp.y * sy), 0.9, Color(0.12, 0.2, 0.22, 0.6 * sin(g * PI)))
+	_contractile_vacuole(o + Vector2(-14 * sx, 6), 0.0, 4.5, 0)
 	for k in 2:
-		var vc = Vector2(-6 + k * 6.0 + sin(t * 0.3 + k) * 2.0, -10.0 + k * 3.0)
+		var vc = o + Vector2(-6 + k * 6.0 + sin(t * 0.3 + k) * 2.0, -10.0 + k * 3.0)
 		pen.draw_circle(vc, 3.8 - k, Color(0.86, 0.95, 0.9, 0.9), true, -1.0, true)
 		pen.draw_arc(vc, 3.8 - k, 0, TAU, 16, Color(0.1, 0.18, 0.2, 0.8), 0.9, true)
 		pen.draw_line(vc + Vector2(-1.4, -0.5), vc + Vector2(1.2, 0.7), Color(0.35, 0.28, 0.18, 0.8), 1.5, true)
-	_cell_insides(0.0, 19.0, 15.0, Vector2(2.0 + sin(t * 0.5), 3.0), 7.5, 20.0 + 6.0 * move)
+	# The nucleus is carried along by the flow, a beat behind the surge
+	var nlag = -1.5 * m * ext * (1.0 - pour)
+	_cell_insides(o.x, 19.0 * sx, 15.0 * sy, o + Vector2(2.0 + sin(t * 0.5) + nlag, 3.0), 7.5, 20.0 + 6.0 * m)
 
 # id -> [drawing function, optional parameters]. Descendants that differ
 # from their parent mostly in colour reuse its drawing with their own.

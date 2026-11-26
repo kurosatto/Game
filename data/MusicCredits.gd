@@ -40,8 +40,6 @@ const TRACKS = [
 		"url": "https://opengameart.org/content/revenge-of-the-jungle"},
 	{"num": 18, "id": "unexplored", "pool": "explore", "title": "Unexplored", "artist": "bo-jingles (TAD)", "license": "CC0",
 		"url": "https://opengameart.org/content/unexplored-expansion"},
-	{"num": 19, "id": "ocean_trance", "pool": "explore", "title": "Ocean Trance", "artist": "mintodog", "license": "CC0",
-		"url": "https://opengameart.org/content/ocean-trance"},
 	{"num": 20, "id": "warped", "pool": "boss", "title": "Warped", "artist": "Alexander Ehlers", "license": "CC0",
 		"url": "https://opengameart.org/content/free-music-pack"},
 	{"num": 21, "id": "waking_the_devil", "pool": "boss", "title": "Waking the Devil", "artist": "Alexander Ehlers", "license": "CC0",
