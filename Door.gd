@@ -41,7 +41,38 @@ func _add_outer_stop():
 	body.add_child(col)
 	add_child(body)
 
+# A shut way: eddies of silt turning across the gap, drawn in door space
+# (x along the edge, -y out of the room), so the ink filter sketches them
+var _swirl := 0.0
+var _swirl_t := 0.0
+func _draw():
+	if _swirl <= 0.01:
+		return
+	var ink = Color(0.16, 0.12, 0.09, 0.85 * _swirl)
+	var pale = Color(0.55, 0.5, 0.42, 0.55 * _swirl)
+	for i in 5:
+		var x = -64.0 + i * 32.0
+		var y = 22.0 + (i % 2) * 22.0
+		var r = 15.0 + (i % 3) * 3.0
+		var a0 = _swirl_t * (1.4 if i % 2 == 0 else -1.2) + i
+		var pts := PackedVector2Array()
+		for k in 22:
+			var f = k / 21.0
+			var ang = a0 + f * TAU * 1.6
+			pts.append(Vector2(x, y) + Vector2(cos(ang), sin(ang)) * r * (0.25 + 0.75 * f))
+		draw_polyline(pts, pale, 7.0, true)
+		draw_polyline(pts, ink, 2.6, true)
+	for k in 26:
+		var px = sin(k * 12.9898) * 72.0
+		var py = 0.0 + fmod(k * 37.0 + _swirl_t * 18.0, 80.0)
+		draw_circle(Vector2(px, py), 1.8, ink)
+
 func _process(delta: float):
+	var want = 0.0 if is_open else 1.0
+	if absf(_swirl - want) > 0.001 or _swirl > 0.0:
+		_swirl = move_toward(_swirl, want, delta * 2.5)
+		_swirl_t += delta
+		queue_redraw()
 	if hint_cooldown > 0:
 		hint_cooldown -= delta
 	elif not is_open and not is_locked:
@@ -127,10 +158,14 @@ func unlock_door():
 func update_visuals():
 	if not is_inside_tree():
 		return
+	# No door art since the rooms lost their walls (kuro, 2026-11-26): an
+	# open way is just open floor, and a shut one is a swirl of stirred-up
+	# silt across the gap (_draw). DoorMarks still mark each state in pen.
+	$Sprite2D.visible = false
+	queue_redraw()
 		
 	if open_pass and not is_locked:
 		is_open = true
-		$Sprite2D.visible = false
 		$StaticBody2D/CollisionShape2D.set_deferred("disabled", true)
 		return
 	if is_locked:

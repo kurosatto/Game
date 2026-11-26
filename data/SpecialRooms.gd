@@ -13,7 +13,9 @@ const BIOMINERALS = preload("res://data/Biominerals.gd")
 const INK = Color(0.24, 0.15, 0.08)
 const PAPER = Color(0.95, 0.9, 0.78)
 
-const KINDS = ["vent", "tar", "dig", "frenzy", "extinction", "nest", "tide", "ambush", "glow", "dark", "fire", "molt", "procession", "meadow", "drought", "treefall", "brachiopods", "current", "cupreef"]
+# "extinction" (OXYGEN CRASH and the other countdown rooms, rooms/Extinction.gd)
+# is out of the pool: kuro didn't like it (2026-11-26)
+const KINDS = ["vent", "tar", "dig", "frenzy", "nest", "tide", "ambush", "glow", "dark", "fire", "molt", "procession", "meadow", "drought", "treefall", "brachiopods", "current", "cupreef"]
 
 # Which eras each kind can turn up in. No brood care, hunters lying in wait
 # or animal sidekicks before the Cambrian; no glowing animals known on land

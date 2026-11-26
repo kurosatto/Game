@@ -98,6 +98,9 @@ func _process(delta: float):
         var want = camera_x_for(current_room_node, player.global_position.x)
         camera.position.x = lerpf(camera.position.x, want, 1.0 - exp(-delta * 8.0))
         camera.position.y = 540.0
+        # The chart's "you are here" moves along an open basin
+        if current_room_node.side_margin > 400.0 and Engine.get_process_frames() % 12 == 0 and hud.minimap_ctrl:
+            hud.minimap_ctrl.queue_redraw()
     # Process camera shake
     if camera_shake_amount > 0:
         camera.offset = Vector2(
