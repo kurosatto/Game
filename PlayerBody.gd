@@ -232,6 +232,7 @@ func _process(delta: float):
 	var jk = fposmod(_jet_phase, 1.0)
 	var squeeze = sin(PI * jk / 0.28) if jk < 0.28 else 0.0
 	jet = squeeze * clamp(move * 1.4 + 0.15, 0.0, 1.0)
+	_swim_wake(delta)
 	# An animal out in the black fog can't be seen: keep its last drawing
 	if foe and pen.hidden_by_fog(global_position, _extent()):
 		return
@@ -245,6 +246,25 @@ func _process(delta: float):
 	queue_redraw()
 
 const REDRAW_STEP := 1.0 / 62.0
+
+# Swimmers (no legs, not star-shaped) leave ripples from the tail when they
+# go fast, as walkers kick up silt with their feet
+var _wake_t: float = 0.0
+const WAKE_FORMS := {"ancestral_collar_cell": 1, "pikaia_chordate": 1, "jawed_fish": 1, "jawless_fish": 1,
+	"early_shark": 1, "ray_finned_fish": 1, "shark_line": 1, "chimaera": 1, "sturgeon_line": 1,
+	"teleost_line": 1, "lamprey": 1, "sea_lamprey": 1, "pouched_lamprey": 1, "hagfish": 1,
+	"atlantic_hagfish": 1, "pacific_hagfish": 1, "cephalopod": 1, "nautilus": 1, "palau_nautilus": 1,
+	"crusty_nautilus": 1, "coleoid": 1, "squid_line": 1, "octopus_line": 1, "scallop": 1, "true_scallop": 1}
+func _swim_wake(delta: float):
+	_wake_t -= delta
+	if _wake_t > 0.0 or move < 0.65 or not _legs.is_empty() or _radial or _chain.size() != JOINTS:
+		return
+	if not is_visible_in_tree() or not WAKE_FORMS.has(form_id):
+		return
+	_wake_t = 0.16
+	var tail := _chain[clampi(int(body_len / SEG), 1, JOINTS - 1)]
+	var sc := get_global_transform().get_scale()
+	SiltPuffs.wake(tail, max(abs(sc.x), abs(sc.y)) * clamp(body_len / 70.0, 0.6, 1.6), player.velocity.normalized())
 var _since_draw: float = 1.0
 
 # How far the drawing reaches from the body's origin, in world px
