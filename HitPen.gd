@@ -14,16 +14,42 @@ const MIN_ALPHA := 0.6
 const HAIRLINE := 2.5 # half width, drawing units: thinner strokes are feelers, legs, flagella, outlines
 var solid := true
 var hits: Array = []
+# Polylines are kept whole ([transform, points, half width]) and only cut into
+# capsules if something asks where the body is (most frames nobody does)
+var polys: Array = []
 
 func begin(target: CanvasItem):
 	super.begin(target)
 	hits = []
+	polys = []
 
 # The pieces drawn since begin(); call after flush()
 func take_hits() -> Array:
-	var h := hits
+	var h := expand([hits, polys])
 	hits = []
+	polys = []
 	return h
+
+# The same, still packed: pass it to expand() when the pieces are needed
+func take_packed() -> Array:
+	var h := [hits, polys]
+	hits = []
+	polys = []
+	return h
+
+static func expand(packed: Array) -> Array:
+	var out: Array = packed[0]
+	for pl in packed[1]:
+		var m: Transform2D = pl[0]
+		var q: PackedVector2Array = m * (pl[1] as PackedVector2Array)
+		var sc := m.get_scale()
+		var w: float = pl[2] * max(abs(sc.x), abs(sc.y))
+		var ww: float = max(w, 2.0)
+		var hair := w < HAIRLINE
+		for i in q.size() - 1:
+			out.append([q[i], q[i + 1], ww, hair])
+	packed[1] = []
+	return out
 
 func hit_seg(a: Vector2, b: Vector2, half_w: float):
 	if solid:
@@ -45,6 +71,15 @@ func hit_poly(pts: PackedVector2Array):
 		r = max(r, c.distance_to(v))
 	hits.append([q, c, r])
 
+func draw_circle(pos: Vector2, radius: float, color: Color, filled: bool = true, width: float = -1.0, antialiased: bool = false):
+	if not (filled and antialiased):
+		# InkBatch sends these through draw_ellipse, which notes them
+		super.draw_circle(pos, radius, color, filled, width, antialiased)
+		return
+	super.draw_circle(pos, radius, color, filled, width, antialiased)
+	if color.a >= MIN_ALPHA:
+		hit_seg(pos, pos, radius)
+
 func draw_ellipse(pos: Vector2, major: float, minor: float, color: Color, filled: bool = true, width: float = -1.0, antialiased: bool = false):
 	super.draw_ellipse(pos, major, minor, color, filled, width, antialiased)
 	if color.a >= MIN_ALPHA:
@@ -62,6 +97,5 @@ func draw_line(from: Vector2, to: Vector2, color: Color, width: float = -1.0, an
 
 func draw_polyline_colors(points: PackedVector2Array, colors: PackedColorArray, width: float = -1.0, antialiased: bool = false):
 	super.draw_polyline_colors(points, colors, width, antialiased)
-	if not colors.is_empty() and colors[0].a >= MIN_ALPHA:
-		for i in points.size() - 1:
-			hit_seg(points[i], points[i + 1], max(width, 1.0) * 0.5)
+	if solid and not colors.is_empty() and colors[0].a >= MIN_ALPHA and points.size() > 1:
+		polys.append([xf, points.duplicate(), max(width, 1.0) * 0.5])

@@ -41,59 +41,133 @@ static func _emit(ci, idx: PackedInt32Array, verts: PackedVector2Array, cols: Pa
 	else:
 		ci.add_triangles(idx, verts, cols)
 
+# The lighting of lit(), split so whole meshes can be shaded quickly: for a
+# normal n, colour = base + span * diffuse(n.L) + specular(n.h) - rim(n.z)
+static var _idx_poly := {} # index pattern of a dome with n outline points
+
+static func _spec(nh: float) -> float:
+	# pow(x, 28) is below 1/255 for x < 0.83: skip it there
+	return pow(nh, 28.0) * 0.55 if nh > 0.8 else 0.0
+
 # Polygon shaded as a dome over its outline (rings shrinking to the centre)
 static func lit_poly(ci, pts: PackedVector2Array, col: Color, L: Vector3):
-	var n = pts.size()
+	var n := pts.size()
+	if n < 3:
+		return
 	var c := Vector2.ZERO
 	for q in pts:
 		c += q
 	c /= n
+	var h := (L + Vector3(0, 0, 1)).normalized()
+	var sr := col.r * 0.42
+	var sg := col.g * 0.48
+	var sb := col.b * 0.62 + 0.04
+	var dr: float = min(col.r * 1.12 + 0.04, 1.0) - sr
+	var dg: float = min(col.g * 1.1 + 0.04, 1.0) - sg
+	var db: float = min(col.b * 1.05 + 0.03, 1.0) - sb
+	var nr := RINGS.size()
 	var verts := PackedVector2Array()
 	var cols := PackedColorArray()
-	for s in RINGS:
-		var r = s * 0.94
-		var z = sqrt(max(0.0, 1.0 - r * r))
-		for q in pts:
-			var d: Vector2 = q - c
-			var dir = d.normalized() if d.length() > 0.001 else Vector2.ZERO
-			verts.append(c + d * s)
-			cols.append(lit(col, Vector3(dir.x * r, dir.y * r, z), L))
-	verts.append(c)
-	cols.append(lit(col, Vector3(0, 0, 1), L))
-	var idx := PackedInt32Array()
-	for k in RINGS.size() - 1:
-		for i in n:
-			var a = k * n + i
-			var b = k * n + (i + 1) % n
-			idx.append_array([a, b, b + n, a, b + n, a + n])
-	var last = (RINGS.size() - 1) * n
-	var centre = verts.size() - 1
+	verts.resize(nr * n + 1)
+	cols.resize(nr * n + 1)
 	for i in n:
-		idx.append_array([last + i, last + (i + 1) % n, centre])
+		var d: Vector2 = pts[i] - c
+		var dl := 0.0
+		var dh := 0.0
+		if d.length() > 0.001:
+			var dn := d.normalized()
+			dl = dn.x * L.x + dn.y * L.y
+			dh = dn.x * h.x + dn.y * h.y
+		for k in nr:
+			var s: float = RINGS[k]
+			var r: float = _RR[k]
+			var z: float = _RZ[k]
+			verts[k * n + i] = c + d * s
+			var diff := clampf((r * dl + z * L.z) * 0.5 + 0.5, 0.0, 1.0)
+			diff = diff * diff * (3.0 - 2.0 * diff)
+			var e := _spec(r * dh + z * h.z)
+			var rim: float = _RIM[k]
+			cols[k * n + i] = Color(minf(sr + dr * diff + e - rim, 1.0), minf(sg + dg * diff + e - rim, 1.0), minf(sb + db * diff + e - rim * 0.8, 1.0), col.a)
+	verts[nr * n] = c
+	cols[nr * n] = lit(col, Vector3(0, 0, 1), L)
+	var idx: PackedInt32Array = _idx_poly.get(n, PackedInt32Array())
+	if idx.is_empty():
+		for k in nr - 1:
+			for i in n:
+				var a = k * n + i
+				var b = k * n + (i + 1) % n
+				idx.append_array([a, b, b + n, a, b + n, a + n])
+		var last = (nr - 1) * n
+		var centre = nr * n
+		for i in n:
+			idx.append_array([last + i, last + (i + 1) % n, centre])
+		_idx_poly[n] = idx
 	_emit(ci, idx, verts, cols)
+
+# Per ring: normal length across, height, and the rim darkening
+const _RR := [0.94, 0.8084, 0.6392, 0.4324, 0.2068]
+static var _RZ := []
+static var _RIM := []
+static var _AZ := []
+static var _ARIM := []
+static func _static_init():
+	for r in _RR:
+		var z := sqrt(max(0.0, 1.0 - r * r))
+		_RZ.append(z)
+		_RIM.append(pow(1.0 - clamp(z, 0.0, 1.0), 3.0) * 0.18)
+	for u in ACROSS:
+		var uu: float = u * 0.94
+		var z := sqrt(1.0 - uu * uu)
+		_AZ.append(z)
+		_ARIM.append(pow(1.0 - clamp(z, 0.0, 1.0), 3.0) * 0.18)
+
+static var _idx_tube := {}
 
 # Long body shaded as a cylinder along its spine
 static func lit_tube(ci, spine: Array, widths: Array, col: Color, L: Vector3):
-	var n = spine.size()
+	var n := spine.size()
 	if n < 2:
 		return
-	var m = ACROSS.size()
+	var m := ACROSS.size()
+	var h := (L + Vector3(0, 0, 1)).normalized()
+	var sr := col.r * 0.42
+	var sg := col.g * 0.48
+	var sb := col.b * 0.62 + 0.04
+	var dr: float = min(col.r * 1.12 + 0.04, 1.0) - sr
+	var dg: float = min(col.g * 1.1 + 0.04, 1.0) - sg
+	var db: float = min(col.b * 1.05 + 0.03, 1.0) - sb
 	var verts := PackedVector2Array()
 	var cols := PackedColorArray()
+	verts.resize(n * m)
+	cols.resize(n * m)
+	var j := 0
 	for i in n:
 		var a: Vector2 = spine[max(i - 1, 0)]
 		var b: Vector2 = spine[min(i + 1, n - 1)]
-		var tn = (b - a).normalized()
-		var nm = Vector2(-tn.y, tn.x)
-		for u in ACROSS:
-			var uu = u * 0.94
-			verts.append(spine[i] + nm * widths[i] * u)
-			cols.append(lit(col, Vector3(nm.x * uu, nm.y * uu, sqrt(1.0 - uu * uu)), L))
-	var idx := PackedInt32Array()
-	for i in n - 1:
-		for j in m - 1:
-			var a = i * m + j
-			idx.append_array([a, a + 1, a + m + 1, a, a + m + 1, a + m])
+		var tn := (b - a).normalized()
+		var nm := Vector2(-tn.y, tn.x)
+		var p: Vector2 = spine[i]
+		var wd: float = widths[i]
+		var nl := nm.x * L.x + nm.y * L.y
+		var nh := nm.x * h.x + nm.y * h.y
+		for k in m:
+			var u: float = ACROSS[k]
+			var uu := u * 0.94
+			var z: float = _AZ[k]
+			verts[j] = p + nm * (wd * u)
+			var diff := clampf((uu * nl + z * L.z) * 0.5 + 0.5, 0.0, 1.0)
+			diff = diff * diff * (3.0 - 2.0 * diff)
+			var e := _spec(uu * nh + z * h.z)
+			var rim: float = _ARIM[k]
+			cols[j] = Color(minf(sr + dr * diff + e - rim, 1.0), minf(sg + dg * diff + e - rim, 1.0), minf(sb + db * diff + e - rim * 0.8, 1.0), col.a)
+			j += 1
+	var idx: PackedInt32Array = _idx_tube.get(n, PackedInt32Array())
+	if idx.is_empty():
+		for i in n - 1:
+			for jj in m - 1:
+				var q = i * m + jj
+				idx.append_array([q, q + 1, q + m + 1, q, q + m + 1, q + m])
+		_idx_tube[n] = idx
 	_emit(ci, idx, verts, cols)
 
 # Round limbs drawn as strokes: a shadow along the side away from the light
