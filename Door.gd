@@ -10,6 +10,8 @@ signal door_entered(direction)
 var era_dir: String = ""
 
 var is_open: bool = false
+# An open pass between two basins (Room.is_basin): always open, no door art
+var open_pass := false
 var trigger_cooldown: float = 0.6
 var hint_cooldown: float = 0.0
 var key_badge: Node2D = null
@@ -81,7 +83,7 @@ func open_door():
 	var was_open = is_open
 	is_open = true
 	update_visuals()
-	if not was_open and is_inside_tree():
+	if not was_open and is_inside_tree() and not open_pass:
 		# A little pop so a newly opened exit catches the eye
 		var sprite = $Sprite2D
 		sprite.scale = Vector2.ONE * 1.3
@@ -89,6 +91,8 @@ func open_door():
 		tw.tween_property(sprite, "scale", Vector2.ONE, 0.35).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 
 func close_door():
+	if open_pass:
+		return
 	var was_open = is_open
 	is_open = false
 	update_visuals()
@@ -124,6 +128,11 @@ func update_visuals():
 	if not is_inside_tree():
 		return
 		
+	if open_pass and not is_locked:
+		is_open = true
+		$Sprite2D.visible = false
+		$StaticBody2D/CollisionShape2D.set_deferred("disabled", true)
+		return
 	if is_locked:
 		$Sprite2D.texture = _door_texture("locked")
 		$Sprite2D.modulate = Color.WHITE

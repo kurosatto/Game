@@ -77,7 +77,27 @@ func setup_inputs():
     mouse_ev.button_index = MOUSE_BUTTON_MIDDLE
     InputMap.action_add_event("discharge", mouse_ev)
 
+func is_basin_room(grid_pos: Vector2i) -> bool:
+    return dungeon_rooms.has(grid_pos) and preload("res://Room.gd").is_basin(dungeon_rooms[grid_pos])
+
+# The camera's x for a spot in a room: centred on it, but never past the
+# room's ends. A room exactly the screen's width pins it at 960; an open
+# basin (Room.is_basin) lets it follow the player across.
+func camera_x_for(room, x: float) -> float:
+    var m: float = room.side_margin if room and is_instance_valid(room) else 0.0
+    var half = get_viewport().get_visible_rect().size.x * 0.5
+    var lo = -m + half
+    var hi = 1920.0 + m - half
+    if lo >= hi:
+        return 960.0
+    return clampf(x, lo, hi)
+
 func _process(delta: float):
+    # Follow the player across an open basin
+    if not is_transitioning and current_room_node and is_instance_valid(current_room_node) and player:
+        var want = camera_x_for(current_room_node, player.global_position.x)
+        camera.position.x = lerpf(camera.position.x, want, 1.0 - exp(-delta * 8.0))
+        camera.position.y = 540.0
     # Process camera shake
     if camera_shake_amount > 0:
         camera.offset = Vector2(
@@ -303,7 +323,7 @@ func load_room(grid_pos: Vector2i):
     
     update_ambient_lighting(room_data.type)
     
-    camera.position = Vector2(960, 540)
+    camera.position = Vector2(camera_x_for(current_room_node, player.global_position.x if player else 960.0), 540)
     hud.update_minimap(dungeon_rooms, current_room_pos)
 
 # Mid-fight: no growing until the room is clear (HUD.show_grow_screen)
@@ -361,16 +381,20 @@ func _on_room_transition_requested(direction: Vector2i):
     # 1080p full screen offset
     # Rooms are 1920px plus a side margin on wide screens (Room.side_margin)
     var margin = current_room_node.side_margin if current_room_node else 0.0
-    var room_offset = Vector2(direction.x * (1920 + margin * 2), direction.y * 1080)
     var next_room_data = dungeon_rooms[target_pos]
     next_room_data.visited = true
     
     var next_room_node = room_scene.instantiate()
-    next_room_node.position = room_offset
     add_child(next_room_node)
     move_child(next_room_node, 0)
     next_room_node.entry_dir = direction
     next_room_node.setup_room(next_room_data, floor_number)
+    # Open basins are wider than the screen: line the next room's near edge
+    # up with this room's far edge, whatever either one's width
+    var next_margin: float = next_room_node.side_margin
+    var room_offset = Vector2(direction.x * (1920 + margin + next_margin), direction.y * 1080)
+    next_room_node.position = room_offset
+    margin = next_margin
     
     # Safe entry position inside new room (safely away from door trigger area)
     var local_enter_pos = Vector2(960, 540)
@@ -384,7 +408,7 @@ func _on_room_transition_requested(direction: Vector2i):
         local_enter_pos = Vector2(260 - margin, 540) # Spawn well right of left door
         
     var target_player_world_pos = local_enter_pos + room_offset
-    var target_cam_pos = Vector2(960, 540) + room_offset
+    var target_cam_pos = Vector2(camera_x_for(next_room_node, local_enter_pos.x), 540) + room_offset
     
     SoundManager.play_sfx("door_open", 1.1, -4.0)
     
@@ -405,7 +429,7 @@ func _on_room_transition_requested(direction: Vector2i):
         current_room_node.position = Vector2.ZERO
         current_room_node.room_transition_requested.connect(_on_room_transition_requested)
         
-        camera.position = Vector2(960, 540)
+        camera.position = Vector2(camera_x_for(current_room_node, local_enter_pos.x), 540)
         player.global_position = local_enter_pos
         player.velocity = Vector2.ZERO
         player.door_cooldown = 0.4
