@@ -20,6 +20,11 @@ const WALL = 128.0
 # Contour offsets from the wall face (negative = out on the floor)
 const RINGS = [-20.0, 0.0, 18.0, 34.0, 48.0, 60.0, 72.0, 84.0, 96.0, 110.0, 126.0, 146.0, 170.0, 200.0, 240.0, 300.0, 380.0, 470.0, 560.0]
 const STEPS = 240 # points per contour
+# kuro (2026-11-26) didn't want walls as borders: the floor just fades into
+# dark water at the edge, no lines. false brings back the contour slopes.
+const FADE = true
+const FADE_RINGS = [-150.0, -105.0, -65.0, -30.0, 0.0, 35.0, 80.0, 140.0, 700.0]
+const FADE_ALPHA = [0.0, 0.12, 0.3, 0.55, 0.78, 0.92, 1.0, 1.0, 1.0]
 
 var floor_col := Color(0.35, 0.35, 0.3)
 var rect := Rect2()     # the floor inside the walls
@@ -62,7 +67,30 @@ func setup(era_name: String, ink_light: float, floor_rect: Rect2, door_spots: Ar
 static func wob(t: float, seed_v: float) -> float:
 	return (sin(t * TAU * 3.0 + seed_v) * 0.5 + sin(t * TAU * 7.0 + seed_v * 2.3) * 0.3 + sin(t * TAU * 13.0 + seed_v * 0.7) * 0.2)
 
-func ring(off: float) -> PackedVector2Array:
+# A rounded-rectangle ring (superellipse) taken at the same angles for every
+# offset, so the fade's bands never cross at the corners
+func ring_soft(off: float) -> PackedVector2Array:
+	var pts := PackedVector2Array()
+	var c = rect.get_center()
+	var hw = rect.size.x * 0.5 + off
+	var hh = rect.size.y * 0.5 + off
+	var seed_v = rect.size.x * 0.001
+	for i in STEPS:
+		var t = TAU * i / float(STEPS)
+		var cx = cos(t)
+		var sy = sin(t)
+		var p = c + Vector2(signf(cx) * pow(absf(cx), 0.18) * hw, signf(sy) * pow(absf(sy), 0.18) * hh)
+		var n = Vector2(cx * hh, sy * hw).normalized()
+		var w = 30.0 * wob(i / float(STEPS), seed_v)
+		for d in doors:
+			var dd = p.distance_to(d)
+			if dd < 260.0:
+				var q = 1.0 - dd / 260.0
+				w += (maxf(off, 0.0) + 150.0) * q * q * (3.0 - 2.0 * q)
+		pts.append(p + n * w)
+	return pts
+
+func ring(off: float, rough: float = 1.0) -> PackedVector2Array:
 	var pts := PackedVector2Array()
 	var x0 = rect.position.x - off
 	var y0 = rect.position.y - off
@@ -89,7 +117,7 @@ func ring(off: float) -> PackedVector2Array:
 		var c = Vector2(clampf(p.x, x0 + rad, x1 - rad), clampf(p.y, y0 + rad, y1 - rad))
 		if absf(c.x - p.x) > 0.01 and absf(c.y - p.y) > 0.01:
 			p = c + (p - c).normalized() * rad
-		var w = 14.0 * wob(i / float(STEPS), seed_v)
+		var w = 14.0 * rough * wob(i / float(STEPS), seed_v)
 		# A valley runs up the slope to each door
 		for d in doors:
 			var dd = p.distance_to(d)
@@ -99,8 +127,34 @@ func ring(off: float) -> PackedVector2Array:
 		pts.append(p + n * w)
 	return pts
 
+func _draw_fade():
+	var deep = at_lum(floor_col, light, -0.35)
+	var rings: Array = []
+	for off in FADE_RINGS:
+		rings.append(ring_soft(off))
+	for k in rings.size() - 1:
+		var pts := PackedVector2Array()
+		pts.append_array(rings[k])
+		pts.append_array(rings[k + 1])
+		var cols := PackedColorArray()
+		cols.resize(STEPS * 2)
+		for i in STEPS:
+			cols[i] = Color(deep, FADE_ALPHA[k])
+			cols[STEPS + i] = Color(deep, FADE_ALPHA[k + 1])
+		var tri := PackedInt32Array()
+		for i in STEPS:
+			var j = (i + 1) % STEPS
+			tri.append_array([i, j, STEPS + i, j, STEPS + j, STEPS + i])
+		pen.add_triangles(tri, pts, cols)
+	for kn in knolls:
+		draw_knoll(pen, kn[0], kn[1], kn[2], kn[0].x * 0.01, floor_col, light)
+
 func _draw():
 	pen.begin(self)
+	if FADE:
+		_draw_fade()
+		pen.flush()
+		return
 	var rings: Array = []
 	for off in RINGS:
 		rings.append(ring(off))

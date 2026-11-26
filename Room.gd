@@ -342,6 +342,18 @@ func spawn_fullscreen_background():
     bg.patch_margin_bottom = 128
     bg.axis_stretch_horizontal = NinePatchRect.AXIS_STRETCH_MODE_TILE_FIT
     bg.axis_stretch_vertical = NinePatchRect.AXIS_STRETCH_MODE_STRETCH
+    # No walls drawn (ReliefRim.FADE): only the art's open floor, stretched
+    # to the whole room, so its rocky rim never shows through the fade
+    if preload("res://ReliefRim.gd").FADE:
+        var floor_only = AtlasTexture.new()
+        floor_only.atlas = bg.texture
+        floor_only.region = Rect2(200, 150, 1520, 780)
+        bg.texture = floor_only
+        bg.patch_margin_left = 0
+        bg.patch_margin_right = 0
+        bg.patch_margin_top = 0
+        bg.patch_margin_bottom = 0
+        bg.axis_stretch_horizontal = NinePatchRect.AXIS_STRETCH_MODE_STRETCH
     bg.position = Vector2(-side_margin, 0)
     bg.size = Vector2(1920 + side_margin * 2, 1080)
     bg.z_index = -20

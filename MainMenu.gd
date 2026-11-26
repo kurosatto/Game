@@ -52,6 +52,11 @@ func build_background():
 	var look: Dictionary = preload("res://data/EraLook.gd").get_look(1)
 	var room = TextureRect.new()
 	room.texture = load("res://assets/eras/ediacaran/room.png")
+	if preload("res://ReliefRim.gd").FADE:
+		var floor_only = AtlasTexture.new()
+		floor_only.atlas = room.texture
+		floor_only.region = Rect2(200, 150, 1520, 780)
+		room.texture = floor_only
 	room.set_anchors_preset(Control.PRESET_FULL_RECT)
 	room.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
 	room.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
