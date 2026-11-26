@@ -27,6 +27,10 @@ func _ready():
 	z_index = -3
 	add_to_group("trace_layer")
 	player = get_tree().get_first_node_in_group("player")
+	# Silt kicked up by running feet, just above the tracks
+	var puffs = preload("res://rooms/SiltPuffs.gd").new()
+	puffs.name = "SiltPuffs"
+	add_child(puffs)
 
 func trace_of(e: Node) -> String:
 	if e == player:
@@ -62,7 +66,17 @@ func _process(delta: float):
 	# Drop marks that have faded
 	while not marks.is_empty() and time - marks[0][5] > marks[0][6]:
 		marks.pop_front()
-	queue_redraw()
+		_dirty = true
+	# Redraw when a mark comes or goes, and a few times a second for the slow
+	# fade (hundreds of marks: redrawing them every frame was wasted work)
+	_since_draw += delta
+	if _dirty or (_since_draw > 0.08 and not marks.is_empty()):
+		_dirty = false
+		_since_draw = 0.0
+		queue_redraw()
+
+var _dirty := false
+var _since_draw := 0.0
 
 func _step(w: Node2D, life: float):
 	var id = trace_of(w)
@@ -98,6 +112,7 @@ func _step(w: Node2D, life: float):
 	wk.mark_at = pos
 	wk.side = -wk.side
 	marks.append([pos, heading, wk.side, wk.walked / wk.size, wk.size, time, life, id])
+	_dirty = true
 	if marks.size() > MAX_MARKS:
 		marks.pop_front()
 	if not seen_run.has(id) and (w == player or _in_sight(w)):
