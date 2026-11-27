@@ -381,6 +381,10 @@ func _setup_element_bar():
     element_label.add_theme_font_size_override("normal_font_size", 17)
     element_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
     row.add_child(element_label)
+    # Counts only on the BODY screen (kuro 2026-11-27): in a run they only
+    # pay for healing and the clutch, the rest is banked for the lineage
+    element_label.visible = false
+    box.custom_minimum_size.x = 0
     grow_btn = Button.new()
     grow_btn.text = "BODY"
     grow_btn.custom_minimum_size = Vector2(110, 34)

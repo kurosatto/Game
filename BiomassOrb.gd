@@ -15,6 +15,7 @@ var player: Node2D = null
 
 func _ready():
 	z_index = 5
+	add_to_group("element_orbs")
 	velocity = Vector2.RIGHT.rotated(randf() * TAU) * randf_range(160.0, 340.0)
 	player = get_tree().get_first_node_in_group("player")
 
