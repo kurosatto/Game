@@ -50,7 +50,8 @@ const PLAYER_IFRAMES := 0.8
 # ── Free healing ──
 # A kill leaves a pickup this often (originally 0.35)
 const KILL_DROP_CHANCE := 0.22
-# Of those pickups, this share is a heart rather than a coin (originally 0.30)
+# Of those, this share leaves a heart; the rest leave nothing (they were
+# shop coins until 2026-11-27) (originally 0.30)
 const DROP_HEART_SHARE := 0.2
 # Of those hearts, this share is a whole heart rather than half (originally 0.70)
 const DROP_FULL_HEART_SHARE := 0.45

@@ -99,6 +99,11 @@ var grow: float = 1.0 # colony: new sprouts grow in from small
 var enroll_time: float = 0.0 # enroll: rolled up and untouchable
 var enroll_cooldown: float = 0.0
 var spray_state: String = "" # snarer: "windup" before a slime jet
+# Shooters (pacer) stop, face you, swell and gather a droplet at the mouth
+# before every shot, so the player can see it coming (SPIT_WIND seconds)
+const SPIT_WIND := 0.6
+var spit_wind: float = 0.0
+var spit_mark: Node2D = null
 var spray_timer: float = 0.0
 var orbit_sign: float = 1.0 # orbiter: which way it circles
 # frond (Charnia): rooted and harmless, sways and leans away from you.
@@ -391,6 +396,8 @@ func attack_pose() -> float:
 			return 0.16
 	if spray_state == "windup":
 		return -0.12 + t
+	if spit_wind > 0.0:
+		return -0.15 * (1.0 - spit_wind / SPIT_WIND) + t
 	if burrow_state == "rise":
 		return -0.1 + 0.12 * sin(anim_timer * 30.0)
 	return 0.0
@@ -547,6 +554,7 @@ func apply_fauna(floor_number: int):
 		calm_radius = t.calm
 		notice_time = t.notice * Difficulty.NOTICE_TIME_MULT
 		mood = "calm"
+		spit_wind = 0.0
 		idle_timer = randf_range(0.0, 2.0)
 
 # Drawn animals: the playable form's drawing hangs under the (now invisible)
@@ -649,6 +657,8 @@ func _physics_tick(delta: float):
 	update_health_bar(delta)
 	if elder_ring:
 		elder_ring.visible = not is_burrowed()
+	if spit_mark and spit_mark.visible and spit_wind <= 0.0 and spray_state != "windup":
+		spit_mark.visible = false
 
 	if not player or not is_instance_valid(player):
 		return
@@ -705,6 +715,23 @@ func _physics_tick(delta: float):
 			check_contact_damage()
 			return
 
+		if spit_wind > 0.0:
+			# Wind-up: plant, turn to the player, swell, then spit
+			spit_wind -= delta
+			velocity = Vector2.ZERO
+			move_and_slide()
+			if player:
+				face_sprite(player.global_position - global_position, delta, 14.0)
+			$Sprite2D.modulate = base_tint.lerp(Color(1.9, 1.5, 1.2), 0.35 + 0.35 * sin(anim_timer * 30.0))
+			update_spit_mark(1.0 - spit_wind / SPIT_WIND, Color(0.35, 0.22, 0.1))
+			if spit_wind <= 0.0:
+				$Sprite2D.modulate = base_tint
+				update_spit_mark(-1.0, Color.BLACK)
+				if blind_timer <= 0:
+					shoot_at_player()
+				shoot_timer = randf_range(1.5, 2.5) * shoot_delay_mult
+			return
+
 		velocity = wander_dir * speed
 		if move_and_slide():
 			pick_random_wander()
@@ -713,8 +740,7 @@ func _physics_tick(delta: float):
 
 		shoot_timer -= delta
 		if shoot_timer <= 0 and blind_timer <= 0:
-			shoot_at_player()
-			shoot_timer = randf_range(1.5, 2.5) * shoot_delay_mult
+			start_spit_wind()
 
 	elif enemy_type in SPECIAL_STATS:
 		if enemy_type != "frond":
@@ -786,6 +812,7 @@ func lose_track():
 	if charge_state != "" or lunge_state != "" or spray_state != "" or burrow_state != "walk":
 		return
 	mood = "calm"
+	spit_wind = 0.0
 	calm_timer = 0.0
 	idle_timer = 0.0
 	home_pos = global_position
@@ -860,6 +887,7 @@ func check_lose_interest(delta: float):
 		calm_timer += delta
 		if calm_timer > 3.5:
 			mood = "calm"
+			spit_wind = 0.0
 			calm_timer = 0.0
 			idle_timer = 0.0
 			home_pos = global_position
@@ -1263,7 +1291,9 @@ func process_snarer(delta: float):
 		spray_timer -= delta
 		$Sprite2D.modulate = base_tint.lerp(Color(1.4, 2.0, 1.4), 0.5 + 0.5 * sin(anim_timer * 40.0))
 		face_sprite(to_p, delta, 12.0)
+		update_spit_mark(1.0 - spray_timer / 0.5, Color(0.25, 0.4, 0.15))
 		if spray_timer <= 0:
+			update_spit_mark(-1.0, Color.BLACK)
 			spray_slime(to_p.normalized())
 			spray_state = ""
 			spray_timer = randf_range(2.6, 3.4)
@@ -1422,6 +1452,43 @@ func art_reach() -> float:
 	if _drawn_hits():
 		return ArtShape.pieces_reach(ArtShape.body_pieces(body_art.hits), body_art.get_global_transform(), global_position)
 	return ArtShape.sprite_radius($Sprite2D)
+
+func start_spit_wind():
+	spit_wind = SPIT_WIND
+	# A soft wet intake: quieter than the spit itself
+	SoundManager.play_sfx("enemy_lunge", 1.6, -8.0)
+
+# The wind-up mark: an ink droplet swelling at the mouth (toward the player)
+# with a ring closing in on it. k is 0..1 through the wind-up; k < 0 hides it.
+func update_spit_mark(k: float, col: Color):
+	if k < 0.0:
+		if spit_mark:
+			spit_mark.visible = false
+		return
+	if spit_mark == null:
+		spit_mark = Node2D.new()
+		spit_mark.z_index = 2
+		add_child(spit_mark)
+		spit_mark.draw.connect(_draw_spit_mark.bind(spit_mark))
+	spit_mark.visible = true
+	var aim = Vector2.UP
+	if player and is_instance_valid(player):
+		aim = (player.global_position - global_position).normalized()
+	spit_mark.position = aim * ($CollisionShape2D.shape.radius + 10.0)
+	spit_mark.set_meta("k", clamp(k, 0.0, 1.0))
+	spit_mark.set_meta("col", col)
+	spit_mark.queue_redraw()
+
+func _draw_spit_mark(m: Node2D):
+	var k: float = m.get_meta("k", 0.0)
+	var col: Color = m.get_meta("col", Color.BLACK)
+	var paper = Color(0.96, 0.92, 0.8, 0.9)
+	var r = 4.0 + 9.0 * k
+	m.draw_circle(Vector2.ZERO, r + 2.0, paper)
+	m.draw_circle(Vector2.ZERO, r, col)
+	# A ring tightening onto the droplet: when it closes, the shot comes
+	var ring = r + 5.0 + 34.0 * (1.0 - k)
+	m.draw_arc(Vector2.ZERO, ring, 0.0, TAU, 28, Color(col, 0.35 + 0.6 * k), 3.0, true)
 
 func shoot_at_player():
 	if not player:
