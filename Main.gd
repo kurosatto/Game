@@ -186,10 +186,6 @@ func start_new_game():
     Worlds.sea = false # floors 1-3 are sea anyway; advance_floor picks 4 and 5
     Worlds.finale = false
     generate_floor()
-    # Starting trait chosen on the main menu (unlocked by a challenge)
-    var start_trait = progress.start_trait()
-    if start_trait != "" and get_tree().get_script() == null:
-        player.grant_adaptation(start_trait)
     # Parts grown into the lineage on the main menu GROW page
     if get_tree().get_script() == null:
         apply_lineage(progress.lineage_ranks())
@@ -237,9 +233,10 @@ func complete_challenge(id: String):
         return # tools/*.gd runs shouldn't fill the real save
     if progress.complete(id):
         var c = progress.get_challenge(id)
-        var a = player.adaptations.get_adaptation(c.unlock)
+        var f = hud.lineages.get_form(c.lineage)
+        var nm = String(f.get("name", "")).to_lower().capitalize()
         SoundManager.play_sfx("level_up", 0.9)
-        hud.show_item_banner("CHALLENGE: " + c.name, "%s. New starting trait on the main menu: %s." % [c.goal, a.name], true, -1.0, "New starting trait: " + a.name)
+        hud.show_item_banner("CHALLENGE: " + c.name, "%s. %s can now be picked on the evolution cards." % [c.goal, nm], true, -1.0, "New lineage: " + nm)
 
 # Codex, form and adaptation challenges, checked whenever they could change
 func check_challenges():
