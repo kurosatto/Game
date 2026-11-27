@@ -1291,6 +1291,10 @@ func clear_room():
         start_wave()
         return
     room_data.cleared = true
+    # Room quiet: every element still drifting about is taken in at once
+    for orb in get_tree().get_nodes_in_group("element_orbs"):
+        if orb.has_method("collect") and orb.age >= 0.3:
+            orb.collect()
     SoundManager.play_sfx("room_clear")
     var mb = get_parent()
     if mb and mb.has_method("flush_bank"):
