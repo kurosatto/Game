@@ -258,6 +258,11 @@ void fragment() {
 	vec3 q = floor(c * 5.0 + d + 0.5) / 5.0;
 	q *= 1.0 - smoothstep(0.25, 0.6, edge) * 0.55;
 	q = mix(q, vec3(0.06, 0.10, 0.20), 0.12 * thing);
+	// The open water is not dithered in 5 loud steps (that drew a busy
+	// checkerboard over the whole room, kuro 2026-11-27): it gets fine steps,
+	// so the dither is only a quiet grain where the shade changes
+	vec3 fl = floor(bg * 24.0 + d * 0.8 + 0.5) / 24.0;
+	q = mix(fl, q, step(0.5, thing));
 	COLOR = vec4(clamp(q, 0.0, 1.0), 1.0);
 }
 """
