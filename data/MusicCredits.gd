@@ -26,8 +26,6 @@ const TRACKS = [
 		"url": "https://opengameart.org/content/i-think-id-stay-jungle-chill"},
 	{"num": 10, "id": "great_oasis", "pool": "explore", "title": "The Great Oasis", "artist": "Alexandr Zhelanov", "license": "CC-BY 4.0",
 		"url": "https://opengameart.org/content/tribal-music"},
-	{"num": 11, "id": "endless_expanse", "pool": "explore", "title": "Endless Expanse", "artist": "Alexandr Zhelanov", "license": "CC-BY 4.0",
-		"url": "https://opengameart.org/content/tribal-music"},
 	{"num": 12, "id": "exploration_theme", "pool": "explore", "title": "Exploration Theme", "artist": "Cleyton Kauffman", "license": "CC0",
 		"url": "https://opengameart.org/content/exploration-theme"},
 	{"num": 13, "id": "krakatoa", "pool": "explore", "title": "Krakatoa", "artist": "Kistol", "license": "CC0",
