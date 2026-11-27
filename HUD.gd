@@ -1146,6 +1146,8 @@ func update_minimap(rooms: Dictionary, current_pos: Vector2i):
 const MAP_PAPER := Color(0.93, 0.88, 0.75)
 const MAP_INK := Color(0.22, 0.14, 0.08)
 const MAP_PATCH := Color(0.84, 0.77, 0.60)
+const MAP_CORNER := 10
+const MAP_PAD := 9.0
 
 func _map_blob(c: Vector2, a: float, b: float, seed_v: int) -> PackedVector2Array:
     var pts := PackedVector2Array()
@@ -1160,16 +1162,19 @@ func _on_minimap_draw():
         return
     var mm = minimap_ctrl
     var size: Vector2 = mm.size
-    var center_screen = size / 2.0
     var step = Vector2(34, 26)
     var ci = mm.get_canvas_item()
-    UI.panel(UI.MEMBRANE, 18, 0.78, 0.0).draw(ci, Rect2(Vector2.ZERO, size))
-    # A sheet of chart paper inside the frame, with a few faint sounding lines
-    var sheet = Rect2(Vector2(6, 6), size - Vector2(12, 12))
-    mm.draw_rect(sheet, MAP_PAPER)
+    # The chart is a sheet of paper with rounded corners; its inked frame is
+    # drawn last, over everything, so nothing pokes past it (kuro, 2026-11-27:
+    # the map didn't sit nicely in its box)
+    var paper = StyleBoxFlat.new()
+    paper.bg_color = MAP_PAPER
+    paper.set_corner_radius_all(MAP_CORNER)
+    paper.corner_detail = 6
+    paper.draw(ci, Rect2(Vector2.ZERO, size))
     for k in range(1, 4):
-        var y = sheet.position.y + sheet.size.y * k / 4.0
-        mm.draw_line(Vector2(sheet.position.x + 4, y), Vector2(sheet.end.x - 4, y), Color(MAP_INK, 0.08), 1.0)
+        var y = size.y * k / 4.0
+        mm.draw_line(Vector2(8, y), Vector2(size.x - 8, y), Color(MAP_INK, 0.08), 1.0)
     var Room = preload("res://Room.gd")
     var known := {}
     for pos in dungeon_rooms:
@@ -1182,8 +1187,23 @@ func _on_minimap_draw():
                 known[pos] = false
                 break
     var at = func(pos: Vector2i) -> Vector2:
-        var o = pos - current_room_pos
-        return center_screen + Vector2(o.x * step.x, o.y * step.y)
+        return Vector2(pos.x * step.x, pos.y * step.y)
+    # Fit the whole known chart inside the frame: centre it, and shrink it a
+    # little when it is too big. Only a chart too big even then follows you.
+    var bounds := Rect2(at.call(current_room_pos), Vector2.ZERO)
+    for pos in known:
+        bounds = bounds.expand(at.call(pos))
+    bounds = bounds.grow_individual(16, 10, 16, 10)
+    var inner = size - Vector2(MAP_PAD, MAP_PAD) * 2.0
+    var sc = clampf(minf(inner.x / bounds.size.x, inner.y / bounds.size.y), 0.6, 1.0)
+    var view = inner / sc
+    var me_c: Vector2 = at.call(current_room_pos)
+    var centre = bounds.get_center()
+    if bounds.size.x > view.x:
+        centre.x = clampf(me_c.x, bounds.position.x + view.x * 0.5, bounds.end.x - view.x * 0.5)
+    if bounds.size.y > view.y:
+        centre.y = clampf(me_c.y, bounds.position.y + view.y * 0.5, bounds.end.y - view.y * 0.5)
+    mm.draw_set_transform(size * 0.5 - centre * sc, 0.0, Vector2(sc, sc))
     # Routes: dotted ink between explored places and where they lead
     var drawn := {}
     for pos in known:
@@ -1253,6 +1273,24 @@ func _on_minimap_draw():
     mm.draw_circle(me, 5.5, Color(MAP_PAPER, 0.9))
     mm.draw_arc(me, 5.0, 0, TAU, 14, MAP_INK, 1.4, true)
     mm.draw_circle(me, 2.3, MAP_INK)
+    mm.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+    # The inked frame: a heavy outer rule and a fine inner one, like a plate
+    # in a field notebook
+    var rule = StyleBoxFlat.new()
+    rule.draw_center = false
+    rule.border_color = MAP_INK
+    rule.set_border_width_all(3)
+    rule.set_corner_radius_all(MAP_CORNER)
+    rule.corner_detail = 6
+    rule.anti_aliasing = true
+    rule.draw(ci, Rect2(Vector2.ZERO, size))
+    var fine = StyleBoxFlat.new()
+    fine.draw_center = false
+    fine.border_color = Color(MAP_INK, 0.55)
+    fine.set_border_width_all(1)
+    fine.set_corner_radius_all(MAP_CORNER - 4)
+    fine.corner_detail = 6
+    fine.draw(ci, Rect2(Vector2(5, 5), size - Vector2(10, 10)))
 
 func show_boss_health(current: float, max_value: float, boss_title: String = ""):
     boss_container.visible = true
