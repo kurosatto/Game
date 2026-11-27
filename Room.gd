@@ -1237,13 +1237,14 @@ func spawn_random_pickup(pos: Vector2):
     var p = pickup_scene.instantiate()
     p.position = pos
     
-    var roll = randf()
-    # No keys here: each locked floor hides exactly one (LevelGenerator)
-    if roll >= Difficulty.DROP_HEART_SHARE:
-        p.pickup_type = "coin"
-    else:
-        p.pickup_type = "heart" if randf() < Difficulty.DROP_FULL_HEART_SHARE else "heart_half"
-        
+    # No keys here: each locked floor hides exactly one (LevelGenerator).
+    # The rest of the old drops were shop coins; with no shop they only burst
+    # into spare phosphorus, so they are gone (kuro 2026-11-27): a drop is a
+    # heart or nothing, at the same heart rate as before.
+    if randf() >= Difficulty.DROP_HEART_SHARE:
+        p.queue_free()
+        return
+    p.pickup_type = "heart" if randf() < Difficulty.DROP_FULL_HEART_SHARE else "heart_half"
     add_child(p)
 
 # The commotion draws more animals: when the room falls quiet, a second

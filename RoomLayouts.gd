@@ -68,9 +68,7 @@ static func base_layouts() -> Array:
                 {"gx": 7, "gy": 1, "type": "fly"},
                 {"gx": 7, "gy": 6, "type": "fly"},
             ],
-            "pickups": [
-                {"gx": 7, "gy": 4, "type": "coin"}
-            ]
+            "pickups": []
         },
 
         # Layout 3: Crossroads Trenches (4 L-shaped fortifications)
