@@ -1,5 +1,5 @@
 # MainMenu.gd
-# Title screen: play, pick a starting trait, see challenges and the codex.
+# Title screen: play, grow the lineage, see challenges and the codex.
 # Built in code like the HUD cards. Lineages you have discovered drift
 # across the background.
 extends Control
@@ -8,7 +8,7 @@ var lineages = preload("res://data/Lineages.gd")
 var codex = preload("res://data/Codex.gd")
 var music_credits = preload("res://data/MusicCredits.gd")
 var progress = preload("res://data/Progress.gd")
-var adaptations = preload("res://data/Adaptations.gd")
+const PauseTile = preload("res://PauseTile.gd")
 var endgame = preload("res://data/Endgame.gd")
 
 const UI = preload("res://data/UIStyle.gd")
@@ -20,8 +20,6 @@ var TITLE_INK = UI.TITLE
 var PAPER = UI.TITLE_OUTLINE
 
 var menu_box: VBoxContainer
-var trait_btn: Button
-var trait_info: Label
 var style_btn: Button
 var overlay: Control = null
 var drifters: Array = []
@@ -278,18 +276,15 @@ func show_more():
 	grid.add_theme_constant_override("v_separation", 18)
 	grid.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	list.add_child(grid)
-	trait_btn = button("", cycle_trait)
 	style_btn = button("", show_art_styles)
-	dark_btn = button("", toggle_dark_rooms)
 	var eg = endgame.unlocked_count()
 	var items: Array = [
-		trait_btn, style_btn,
+		style_btn,
 		button("CHALLENGES  %d / %d" % [progress.completed().size(), progress.CHALLENGES.size()], show_challenges),
 		button("ENDGAME" if eg > 0 else "🔒  ENDGAME", show_endgame, UI.CORAL if eg > 0 else UI.MEMBRANE),
 	]
 	if progress.run_stats().count > 0:
 		items.append(button("PAST RUNS", show_past_runs))
-	items.append(dark_btn)
 	if not OS.has_feature("mobile") and not OS.has_feature("web"):
 		fullscreen_btn = button("", SettingsManager.toggle_fullscreen)
 		_update_fullscreen_text(SettingsManager.is_fullscreen())
@@ -301,11 +296,7 @@ func show_more():
 		grid.add_child(b)
 	if PadInput.using_pad:
 		items[0].grab_focus.call_deferred()
-	trait_info = label("", 19, TITLE_INK.lerp(PAPER, 0.3))
-	list.add_child(trait_info)
-	update_trait_text()
 	update_style_text()
-	update_dark_text()
 	# One quiet line of progress at the bottom
 	var runs = progress.run_stats()
 	var bits: Array = ["Codex %d / %d" % [codex.load_discovered().size(), lineages.TREE.size()],
@@ -326,31 +317,6 @@ func start_game():
 	endgame.mode = ""
 	SoundManager.play_sfx("evolve")
 	get_tree().change_scene_to_file("res://Main.tscn")
-
-# ---- Starting trait: one unlocked adaptation to begin a run with ----
-func update_trait_text():
-	if not is_instance_valid(trait_btn):
-		return
-	var current = progress.start_trait()
-	var unlocked = progress.unlocked_traits()
-	if unlocked.is_empty():
-		trait_btn.text = "🔒  STARTING TRAIT"
-		trait_btn.disabled = true
-		trait_info.text = "Win a challenge to unlock a starting trait."
-	elif current == "":
-		trait_btn.text = "STARTING TRAIT: none"
-		trait_info.text = "Tap STARTING TRAIT to pick one."
-	else:
-		var a = adaptations.get_adaptation(current)
-		trait_btn.text = "TRAIT: " + a.name
-		trait_info.text = a.name + ": " + a.effect
-
-func cycle_trait():
-	var options: Array = [""] + progress.unlocked_traits()
-	var i = options.find(progress.start_trait())
-	progress.set_start_trait(options[(i + 1) % options.size()])
-	SoundManager.play_sfx("dna_pickup", 1.2)
-	update_trait_text()
 
 # ---- Art style: the look of the whole game (data/ArtStyles.gd) ----
 const ArtStyles = preload("res://data/ArtStyles.gd")
@@ -523,18 +489,6 @@ func row(parent: Container, title: String, body: String, color: Color):
 	parent.add_child(b)
 	parent.add_child(HSeparator.new())
 
-var dark_btn: Button = null
-
-func update_dark_text():
-	if not is_instance_valid(dark_btn):
-		return
-	dark_btn.text = "DARK ROOMS: " + ("EVERY ROOM" if SettingsManager.dark_rooms_all else "ONE A FLOOR")
-
-func toggle_dark_rooms():
-	SettingsManager.dark_rooms_all = not SettingsManager.dark_rooms_all
-	SettingsManager.save_settings()
-	SoundManager.play_sfx("dna_pickup", 0.8 if SettingsManager.dark_rooms_all else 1.2)
-	update_dark_text()
 const POOL_NAMES = {"menu": "Menu", "explore": "Floors", "boss": "Bosses"}
 
 var grow_btn: Button = null
@@ -571,18 +525,59 @@ func show_music_credits():
 	note.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	list.add_child(note)
 
+# Challenges are pictures of the lineage each one opens: lit when done,
+# dark while locked. Tapping one shows its goal underneath; nothing else is
+# written until asked for (kuro: less text).
 func show_challenges():
-	var list = open_overlay("CHALLENGES")
+	var list = open_overlay("CHALLENGES  %d / %d" % [progress.completed().size(), progress.CHALLENGES.size()])
+	var grid = GridContainer.new()
+	grid.columns = 4
+	grid.add_theme_constant_override("h_separation", 22)
+	grid.add_theme_constant_override("v_separation", 18)
+	grid.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	list.add_child(grid)
+	var info = PanelContainer.new()
+	info.add_theme_stylebox_override("panel", UI.panel(UI.MEMBRANE, 20, 0.7, 16.0))
+	info.custom_minimum_size = Vector2(860, 0)
+	info.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	var col = VBoxContainer.new()
+	col.add_theme_constant_override("separation", 6)
+	info.add_child(col)
+	var head = label("Tap a challenge", 26, UI.MUTED)
+	var goal = label("", 22, SOFT)
+	var opens = label("", 20, UI.LEAF)
+	for l in [head, goal, opens]:
+		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		col.add_child(l)
+	goal.visible = false
+	opens.visible = false
+	list.add_child(info)
+	var tiles: Array = []
 	for c in progress.CHALLENGES:
 		var done = progress.is_complete(c.id)
-		var t = label(("✓ " if done else "○ ") + c.name, 26, UI.LEAF if done else UI.CREAM)
-		t.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-		list.add_child(t)
-		var g = label(c.goal, 20, SOFT)
-		g.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-		list.add_child(g)
-		list.add_child(trait_card(adaptations.get_adaptation(c.unlock), done, progress.start_trait() == c.unlock))
-		list.add_child(HSeparator.new())
+		var f = lineages.get_form(c.lineage)
+		var sheet = "res://assets/lineages/%s_sheet.png" % f.get("id", "")
+		var t = PauseTile.new().setup(load(sheet) if ResourceLoader.exists(sheet) else null, 4, 132.0, ("✓ " if done else "") + c.name)
+		t.tint = UI.LEAF if done else LOCKED
+		t.animate = done
+		if not done:
+			t.modulate = Color(0.45, 0.45, 0.45)
+		t.custom_minimum_size.x = max(t.custom_minimum_size.x, 200.0)
+		t.picked.connect(func(_tile):
+			for o in tiles:
+				o.selected = o == t
+			var nm = String(f.get("name", "")).to_lower().capitalize()
+			head.text = ("✓ " if done else "🔒 ") + c.name
+			head.add_theme_color_override("font_color", UI.LEAF if done else UI.CREAM)
+			goal.text = c.goal
+			opens.text = ("Opened: " if done else "Opens: ") + nm
+			goal.visible = true
+			opens.visible = true
+			SoundManager.play_sfx("dna_pickup", 1.3, -8.0))
+		tiles.append(t)
+		grid.add_child(t)
+	if PadInput.using_pad and not tiles.is_empty():
+		tiles[0].grab_focus.call_deferred()
 
 # ENDGAME: content a won run opens, each with its goal while locked, and the
 # bosses waiting there drawn live (BossPortrait.gd), dark until unlocked
@@ -650,26 +645,6 @@ func start_gauntlet():
 	endgame.mode = "gauntlet"
 	SoundManager.play_sfx("evolve")
 	get_tree().change_scene_to_file("res://Main.tscn")
-
-# What a challenge's starting trait does: name, effect and the real biology
-func trait_card(a: Dictionary, unlocked: bool, chosen: bool) -> Control:
-	var card = PanelContainer.new()
-	var tint = UI.LEAF if unlocked else LOCKED
-	card.add_theme_stylebox_override("panel", UI.panel(tint, 18, 0.7, 16.0))
-	var col = VBoxContainer.new()
-	col.add_theme_constant_override("separation", 4)
-	card.add_child(col)
-	var head = "Starting trait: " if unlocked else "Unlocks starting trait: "
-	var n = label(head + a.name + ("  (chosen)" if chosen else ""), 22, UI.SUN if unlocked else UI.CREAM)
-	n.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-	col.add_child(n)
-	var e = label(a.effect, 20, UI.LEAF if unlocked else UI.MUTED)
-	e.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-	col.add_child(e)
-	var f = label(a.fact, 18, UI.MUTED)
-	f.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-	col.add_child(f)
-	return card
 
 # The codex opens on the evolution tree (CodexTree.gd); LIST shows the
 # same forms as plain text rows.

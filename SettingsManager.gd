@@ -14,8 +14,6 @@ var aim_assist: bool = true # touch shots bend onto a nearby animal (Player.aim_
 var screen_shake: bool = true
 # The whole world's look (data/ArtStyles.gd), chosen on the main menu
 var art_style: String = "sepia"
-# Main menu SENSE TEST: every fight room is pitch dark (LevelGenerator.gd)
-var dark_rooms_all: bool = false
 
 var config_path: String = "user://settings.cfg"
 
@@ -49,7 +47,6 @@ func load_settings():
         aim_assist = config.get_value("controls", "aim_assist", true)
         screen_shake = config.get_value("graphics", "screen_shake", true)
         art_style = config.get_value("graphics", "art_style", "sepia")
-        dark_rooms_all = config.get_value("gameplay", "dark_rooms_all", false)
         if not preload("res://data/ArtStyles.gd").ids().has(art_style):
             art_style = "sepia"
 
@@ -90,7 +87,6 @@ func save_settings():
     config.set_value("controls", "aim_assist", aim_assist)
     config.set_value("graphics", "screen_shake", screen_shake)
     config.set_value("graphics", "art_style", art_style)
-    config.set_value("gameplay", "dark_rooms_all", dark_rooms_all)
     config.save(config_path)
 
 func apply_all_settings():

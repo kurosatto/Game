@@ -1524,8 +1524,25 @@ func show_evolution_modal(floor_num: int, current_path: Array = []):
         # Every card is a direct branch of the current form (Lineages.TREE is
         # keyed by the path of picks), so the run stays on one family tree
         subheader.text = "Your %s lineage splits. Pick which branch of it you become:" % form.get("name", "ancestral").to_lower().capitalize()
+        var progress = preload("res://data/Progress.gd")
+        var pad_set = false
         for i in range(child_paths.size()):
             var child = lineages.get_form(child_paths[i])
+            # Branches open through challenges (data/Progress.gd); a locked
+            # one shows what it is and the challenge, but can't be picked.
+            # Tool runs keep every branch open.
+            if (get_tree().get_script() == null or progress.test_locks) and not progress.lineage_open(child_paths[i]):
+                var ch = progress.challenge_for_lineage(child_paths[i])
+                _build_choice_card(cards_row, floor_num, i, {
+                    "title": child.name,
+                    "clade": child.clade.get_slice(" — ", 0),
+                    "desc": ch.goal + " to open this lineage.",
+                    "perks": "",
+                    "color": Color(0.5, 0.5, 0.5),
+                    "sheet": "res://assets/lineages/%s_sheet.png" % child.id,
+                    "locked": "🔒  " + ch.name.to_upper(),
+                }, child_paths.size())
+                continue
             var desc = child.fact + "\n\nLiving today: " + child.living_example + "\n" + child.clade_path
             var is_new = not codex.is_discovered(child.id)
             var card_btn = _build_choice_card(cards_row, floor_num, i, {
@@ -1538,8 +1555,9 @@ func show_evolution_modal(floor_num: int, current_path: Array = []):
                 "stats": _card_stat_rows(child, form, child.get("max_health_add", 0)),
                 "attack": "Attack: " + child.get("weapon_name", "Engulf (phagocytosis)"),
             }, child_paths.size())
-            if i == 0:
+            if not pad_set:
                 card_btn.set_meta("pad_default", true)
+                pad_set = true
 
     evolution_modal.visible = true
     UI.reveal(evolution_modal)
@@ -1683,7 +1701,8 @@ func _build_choice_card(parent: HBoxContainer, floor_num: int, choice_idx: int, 
     desc_lbl.add_theme_font_size_override("font_size", 15 if compact else 17)
     desc_lbl.add_theme_color_override("font_color", UI.CREAM)
     details.add_child(desc_lbl)
-    details.add_child(HSeparator.new())
+    if data["perks"] != "":
+        details.add_child(HSeparator.new())
     var perks_lbl = Label.new()
     perks_lbl.text = data["perks"]
     perks_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -1753,7 +1772,12 @@ func _build_choice_card(parent: HBoxContainer, floor_num: int, choice_idx: int, 
     for state in ["normal", "hover", "pressed", "disabled"]:
         btn.add_theme_stylebox_override(state, UI.button_box(state, data["color"]))
     btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-    if on_pick.is_valid():
+    if data.has("locked"):
+        btn.text = data["locked"]
+        btn.disabled = true
+        card.modulate = Color(0.62, 0.62, 0.62)
+        perks_lbl.visible = false
+    elif on_pick.is_valid():
         btn.pressed.connect(on_pick)
     else:
         btn.pressed.connect(func():

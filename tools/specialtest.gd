@@ -614,15 +614,6 @@ func t_dark():
 		await kill_all()
 		await kill_all() # anything that split or hatched as they died
 		check(d.cleared, "dark room clears")
-	# The menu test switch makes every fight room dark
-	root.get_node("SettingsManager").dark_rooms_all = true
-	var rooms = preload("res://LevelGenerator.gd").generate_level(2, [])
-	var plain = 0
-	for pos in rooms:
-		if rooms[pos].type == 1 and rooms[pos].special == "" and pos != Vector2i(4, 4):
-			plain += 1
-	root.get_node("SettingsManager").dark_rooms_all = false
-	check(plain == 0, "DARK ROOMS: EVERY ROOM leaves no lit fight room (%d)" % plain)
 
 # Wildfire: lit on the far side after a moment, crosses the room, burns you
 # and the animals in it, chars the plants, leaves phosphorus in the ash

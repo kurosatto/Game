@@ -1,23 +1,38 @@
 # Progress.gd
-# Challenges and what they unlock, kept across runs in user://progress.cfg.
-# Each challenge unlocks a starting trait: an adaptation from
-# data/Adaptations.gd the player can choose on the main menu to begin a run
-# with. Main.gd and Player.gd report events; complete() saves and returns
-# true the first time so the game can announce it.
+# Challenges and the lineages they open, kept across runs in user://progress.cfg.
+# A run always starts as the ancestral cell and only the arthropod branch is
+# open at first; each challenge opens one more branch of the tree of life
+# (a path in data/Lineages.gd) on the evolution cards. Every split keeps at
+# least one branch open. Main.gd and Player.gd report events; complete()
+# saves and returns true the first time so the game can announce it.
 extends RefCounted
 
 const SAVE_PATH = "user://progress.cfg"
+# Tool scripts keep every lineage open unless they set this
+static var test_locks := false
 
 const CHALLENGES = [
-	{"id": "ediacaran", "name": "Out of the Garden", "goal": "Defeat the Ediacaran boss", "unlock": "muscle"},
-	{"id": "arthropod", "name": "Jointed Legs", "goal": "Evolve into an arthropod", "unlock": "reach"},
-	{"id": "ordovician", "name": "Into the Ordovician", "goal": "Reach the third era", "unlock": "myoglobin"},
-	{"id": "untouched", "name": "Untouched", "goal": "Clear a whole era without being hit", "unlock": "body_wall"},
-	{"id": "well_fed", "name": "Well Fed", "goal": "Eat 60 elements in one run", "unlock": "mitochondria"},
-	{"id": "codex_10", "name": "Taxonomist", "goal": "Discover 10 lineages in the codex", "unlock": "senses"},
-	{"id": "codex_25", "name": "Systematist", "goal": "Discover 25 lineages in the codex", "unlock": "gut"},
-	{"id": "survivor", "name": "Survive the Great Dying", "goal": "Win a run", "unlock": "armour"},
+	{"id": "arthropod", "name": "Jointed Legs", "goal": "Evolve into an arthropod", "lineage": "2"},
+	{"id": "ediacaran", "name": "Out of the Garden", "goal": "Defeat the Ediacaran boss", "lineage": "1"},
+	{"id": "ordovician", "name": "Into the Ordovician", "goal": "Reach the third era", "lineage": "0"},
+	{"id": "well_fed", "name": "Well Fed", "goal": "Eat 60 elements in one run", "lineage": "2,2"},
+	{"id": "untouched", "name": "Untouched", "goal": "Clear a whole era without being hit", "lineage": "2,0"},
+	{"id": "codex_10", "name": "Taxonomist", "goal": "Discover 10 lineages in the codex", "lineage": "1,1"},
+	{"id": "codex_25", "name": "Systematist", "goal": "Discover 25 lineages in the codex", "lineage": "0,0"},
+	{"id": "survivor", "name": "Survive the Great Dying", "goal": "Win a run", "lineage": "0,0,0"},
 ]
+
+# The challenge that opens the branch at `path`, or {} if it is always open
+static func challenge_for_lineage(path: String) -> Dictionary:
+	for c in CHALLENGES:
+		if c.lineage == path:
+			return c
+	return {}
+
+# Whether the evolution cards may offer the branch at `path`
+static func lineage_open(path: String) -> bool:
+	var c = challenge_for_lineage(path)
+	return c.is_empty() or is_complete(c.id)
 
 static func _load() -> ConfigFile:
 	var config = ConfigFile.new()
@@ -46,23 +61,6 @@ static func complete(id: String) -> bool:
 	config.set_value("progress", "completed", done)
 	config.save(SAVE_PATH)
 	return true
-
-# Adaptation ids the player has unlocked as starting traits
-static func unlocked_traits() -> Array:
-	var traits: Array = []
-	for c in CHALLENGES:
-		if is_complete(c.id):
-			traits.append(c.unlock)
-	return traits
-
-static func start_trait() -> String:
-	var t: String = _load().get_value("progress", "start_trait", "")
-	return t if unlocked_traits().has(t) else ""
-
-static func set_start_trait(id: String):
-	var config = _load()
-	config.set_value("progress", "start_trait", id)
-	config.save(SAVE_PATH)
 
 # Each finished run (death or victory): counts runs and wins and keeps the
 # furthest era reached with the form that got there, for the main menu.

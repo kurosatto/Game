@@ -213,14 +213,6 @@ static func generate_level(floor_number: int = 1, avoid: Array = []) -> Dictiona
         kinds.insert(1, "frenzy")
     for i in mini(specials.count_for(floor_number) + 1, spots.size()):
         spots[i].special = kinds[i % kinds.size()]
-    # Main menu SENSE TEST: every other fight room is dark too
-    # (looked up at run time: tool scripts preload this before autoloads exist)
-    var settings = Engine.get_main_loop().root.get_node_or_null("SettingsManager")
-    if settings and settings.dark_rooms_all:
-        for pos in rooms:
-            var r = rooms[pos]
-            if r.type == RoomType.NORMAL and r.special == "" and pos != start_pos:
-                r.special = "dark"
 
     # Deal the fight-room layouts like a shuffled deck, so a floor doesn't
     # repeat one until it has used them all and runs don't always open alike

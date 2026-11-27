@@ -13,7 +13,6 @@ func _initialize():
 	var progress = load("res://data/Progress.gd")
 	for c in progress.CHALLENGES.slice(0, 3):
 		progress.complete(c.id)
-	progress.set_start_trait(progress.unlocked_traits()[0])
 	if progress.run_stats().count == 0:
 		progress.record_run(3, "Trilobite", false, {})
 		progress.record_run(4, "Eurypterid", false, {})
