@@ -259,6 +259,10 @@ func _input(event: InputEvent):
 			if touches.is_empty():
 				end_press(event.position)
 			pinch_dist = pinch_span()
+		else:
+			# A finger lifted from a press that began on a button: leave it
+			# to the button, or the codex's own buttons never fire
+			return
 		accept()
 	elif event is InputEventScreenDrag:
 		if not touches.has(event.index):
@@ -281,6 +285,12 @@ func _input(event: InputEvent):
 func mouse_input(event: InputEventMouse):
 	if event is InputEventMouseButton:
 		if event.pressed and not inside(event.position):
+			return
+		# A release that didn't start on the tree belongs to whatever was
+		# pressed (FOSSILS, LIST, BACK)
+		if not event.pressed and event.button_index == MOUSE_BUTTON_LEFT and not mouse_down:
+			return
+		if not event.pressed and event.button_index != MOUSE_BUTTON_LEFT:
 			return
 		match event.button_index:
 			MOUSE_BUTTON_LEFT:

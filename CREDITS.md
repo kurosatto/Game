@@ -21,7 +21,6 @@ while the favourites are being picked. The same list is shown in-game under
 | 8 | explore | Eyes of the Ocean | Tsorthan Grove | CC0 | https://opengameart.org/content/eyes-of-the-ocean |
 | 9 | explore | I Think I'd Stay | emmntt | CC0 | https://opengameart.org/content/i-think-id-stay-jungle-chill |
 | 10 | explore | The Great Oasis | Alexandr Zhelanov | [CC-BY 4.0](https://creativecommons.org/licenses/by/4.0/) | https://opengameart.org/content/tribal-music |
-| 11 | explore | Endless Expanse | Alexandr Zhelanov | [CC-BY 4.0](https://creativecommons.org/licenses/by/4.0/) | https://opengameart.org/content/tribal-music |
 | 12 | explore | Exploration Theme | Cleyton Kauffman | CC0 | https://opengameart.org/content/exploration-theme |
 | 13 | explore | Krakatoa | Kistol | CC0 | https://opengameart.org/content/krakatoa |
 | 14 | explore | Parasite | Kistol | CC0 | https://opengameart.org/content/parasite |

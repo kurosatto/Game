@@ -142,15 +142,64 @@ func label(text: String, size: int, color: Color) -> Label:
 	l.add_theme_color_override("font_color", color)
 	return l
 
+const InkFrame = preload("res://InkFrame.gd")
+
+# Buttons are paper labels ruled in pen, like captions pinned into the
+# naturalist's notebook the rooms are drawn in (kuro, 2026-11-27: the menu's
+# dark glossy pills felt too different from the game). tint gives the ink a
+# hint of colour: amber PLAY, green GROW, red QUIT.
 func button(text: String, on_press: Callable, tint: Color = UI.MEMBRANE) -> Button:
 	var b = Button.new()
 	b.text = text
 	b.custom_minimum_size = Vector2(560, 76)
 	b.add_theme_font_size_override("font_size", 30)
-	for state in ["normal", "hover", "pressed", "disabled"]:
-		b.add_theme_stylebox_override(state, UI.button_box(state, tint))
+	var ink = TITLE_INK if tint == UI.MEMBRANE else TITLE_INK.lerp(tint.darkened(0.45), 0.5)
+	for state in ["normal", "hover", "pressed", "disabled", "focus"]:
+		b.add_theme_stylebox_override(state, paper_box(state, ink))
+	for c in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color", "font_hover_pressed_color"]:
+		b.add_theme_color_override(c, ink)
+	b.add_theme_color_override("font_disabled_color", Color(TITLE_INK, 0.45))
+	b.add_theme_constant_override("outline_size", 0)
+	var seed_v = text.hash() % 97
+	b.draw.connect(func():
+		var r = Rect2(Vector2.ZERO, b.size)
+		var a = 0.45 if b.disabled else 1.0
+		InkFrame.draw_frame(b, r, Color(ink, 0.9 * a), seed_v, 1.25 if b.is_hovered() else 1.0))
+	b.mouse_entered.connect(b.queue_redraw)
+	b.mouse_exited.connect(b.queue_redraw)
 	b.pressed.connect(on_press)
 	return b
+
+func paper_box(state: String, ink: Color) -> StyleBoxFlat:
+	var s = StyleBoxFlat.new()
+	s.set_corner_radius_all(3)
+	s.content_margin_left = 26
+	s.content_margin_right = 26
+	s.content_margin_top = 8
+	s.content_margin_bottom = 10
+	s.anti_aliasing = true
+	match state:
+		"normal":
+			s.bg_color = Color(PAPER, 0.9)
+		"hover":
+			s.bg_color = Color(PAPER.lerp(Color.WHITE, 0.25), 0.96)
+		"pressed":
+			s.bg_color = Color(PAPER.darkened(0.12), 0.96)
+			s.content_margin_top = 11
+			s.content_margin_bottom = 7
+		"disabled":
+			s.bg_color = Color(PAPER, 0.5)
+		"focus":
+			# the gamepad highlight: a second, bolder pen ring
+			s.draw_center = false
+			s.set_border_width_all(3)
+			s.border_color = Color(ink, 0.85)
+			s.set_corner_radius_all(6)
+			s.expand_margin_left = 7
+			s.expand_margin_right = 7
+			s.expand_margin_top = 7
+			s.expand_margin_bottom = 7
+	return s
 
 func build_menu():
 	menu_box = VBoxContainer.new()
@@ -176,14 +225,16 @@ func build_menu():
 	gap.custom_minimum_size = Vector2(0, 10)
 	menu_box.add_child(gap)
 
-	# The buttons sit in a membrane like the cells you start as
-	var membrane = PanelContainer.new()
-	membrane.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	membrane.add_theme_stylebox_override("panel", UI.panel(UI.MEMBRANE, 44, 0.8, 34.0))
-	menu_box.add_child(membrane)
+	# A pen flourish under the title, then the buttons straight on the page
+	# (they used to sit in a dark rounded panel that looked like an app)
+	var flourish = Control.new()
+	flourish.custom_minimum_size = Vector2(0, 26)
+	flourish.draw.connect(func(): InkFrame.draw_flourish(flourish, Vector2(flourish.size.x * 0.5, 12), 200.0, Color(TITLE_INK, 0.85)))
+	menu_box.add_child(flourish)
 	var col = VBoxContainer.new()
-	col.add_theme_constant_override("separation", 16)
-	membrane.add_child(col)
+	col.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	col.add_theme_constant_override("separation", 20)
+	menu_box.add_child(col)
 	var play = button("▶  PLAY", start_game, UI.SUN)
 	play.set_meta("pad_default", true) # where the gamepad highlight starts
 	play.custom_minimum_size = Vector2(600, 92)
@@ -200,13 +251,13 @@ func build_menu():
 	# Everything else waits one tap away on the MORE page (kuro: the start
 	# screen had too much to read)
 	var pair = HBoxContainer.new()
-	pair.add_theme_constant_override("separation", 16)
+	pair.add_theme_constant_override("separation", 20)
 	col.add_child(pair)
 	var small: Array = [button("CODEX", show_codex), button("MORE  ›", show_more)]
 	if not OS.has_feature("mobile") and not OS.has_feature("web"):
 		small.append(button("QUIT", func(): get_tree().quit(), UI.CORAL))
 	for b in small:
-		b.custom_minimum_size = Vector2((600 - 16 * (small.size() - 1)) / small.size(), 70)
+		b.custom_minimum_size = Vector2((600 - 20 * (small.size() - 1)) / small.size(), 70)
 		b.add_theme_font_size_override("font_size", 24)
 		pair.add_child(b)
 
@@ -217,7 +268,7 @@ func build_menu():
 
 # ---- MORE: the secondary things, one button each ----
 func show_more():
-	var list = open_overlay("MORE")
+	var list = open_overlay("MORE", true, true)
 	overlay.set_meta("more", true)
 	var grid = GridContainer.new()
 	grid.columns = 2
@@ -252,7 +303,7 @@ func show_more():
 		"Fossils %d / 25" % codex.load_eaten().size()]
 	if runs.count > 0:
 		bits.append("Furthest: era %d" % runs.best_era)
-	var stats = label("  ·  ".join(bits), 20, UI.MUTED)
+	var stats = label("  ·  ".join(bits), 20, TITLE_INK.lerp(PAPER, 0.3))
 	list.add_child(stats)
 
 var fullscreen_btn: Button
@@ -329,7 +380,9 @@ func pick_style(id: String):
 	get_tree().call_deferred("reload_current_scene")
 
 # ---- Overlays ----
-func open_overlay(title: String, scrolling: bool = true) -> VBoxContainer:
+# paper: a pale notebook page in ink (MORE); otherwise a dark sepia wash for
+# the long reading pages, both edged with a pen-ruled frame
+func open_overlay(title: String, scrolling: bool = true, paper: bool = false) -> VBoxContainer:
 	var f = get_viewport().gui_get_focus_owner()
 	if f and menu_box.is_ancestor_of(f):
 		menu_focus = f
@@ -341,14 +394,27 @@ func open_overlay(title: String, scrolling: bool = true) -> VBoxContainer:
 	menu_box.visible = false
 	overlay = PanelContainer.new()
 	overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT, Control.PRESET_MODE_MINSIZE, 40)
-	overlay.add_theme_stylebox_override("panel", UI.panel(UI.MEMBRANE, 36, 0.96, 34.0))
+	var page: StyleBoxFlat = UI.panel(UI.MEMBRANE, 36, 0.96, 34.0)
+	page.set_border_width_all(0)
+	page.set_corner_radius_all(4)
+	page.shadow_size = 0
+	if paper:
+		page.bg_color = Color(PAPER, 0.88)
+	overlay.add_theme_stylebox_override("panel", page)
+	var frame_ink = Color(TITLE_INK, 0.9) if paper else Color(PAPER, 0.7)
+	var pg = overlay
+	overlay.draw.connect(func(): InkFrame.draw_frame(pg, Rect2(Vector2(8, 8), pg.size - Vector2(16, 16)), frame_ink, 11, 1.5, false))
 	add_child(overlay)
 	var outer = VBoxContainer.new()
 	outer.add_theme_constant_override("separation", 14)
 	overlay.add_child(outer)
 	var top = HBoxContainer.new()
 	outer.add_child(top)
-	var t = label(title, 40, ACCENT)
+	# Indented clear of the MUSIC #n tag in the top-left corner
+	var indent = Control.new()
+	indent.custom_minimum_size = Vector2(96, 0)
+	top.add_child(indent)
+	var t = label(title, 40, TITLE_INK if paper else ACCENT)
 	t.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	t.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	top.add_child(t)
